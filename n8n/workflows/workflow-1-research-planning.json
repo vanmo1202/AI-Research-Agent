@@ -1,0 +1,141 @@
+{
+  "name": "Workflow 1 - Research Request & Planning",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "topic",
+              "name": "topic",
+              "value": "Ứng dụng AI trong quản lý tồn kho siêu thị",
+              "type": "string"
+            },
+            {
+              "id": "goal",
+              "name": "goal",
+              "value": "Tìm hiểu ứng dụng, dữ liệu cần có, lợi ích và hạn chế",
+              "type": "string"
+            },
+            {
+              "id": "scope",
+              "name": "scope",
+              "value": "Tài liệu web công khai",
+              "type": "string"
+            },
+            {
+              "id": "outputLength",
+              "name": "outputLength",
+              "value": "medium",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "research-input",
+      "name": "Research Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/research",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "create-research-plan",
+      "name": "Create Research Plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "plan",
+              "name": "researchPlan",
+              "value": "={{ $json.data }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "output-plan",
+      "name": "Output Research Plan",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Research Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Input": {
+      "main": [
+        [
+          {
+            "node": "Create Research Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Research Plan": {
+      "main": [
+        [
+          {
+            "node": "Output Research Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
