@@ -8,7 +8,7 @@ fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 const db = new sqlite3.Database(databasePath);
 db.configure("busyTimeout", 5000);
 
-function run(sql, params = []) {
+function rawRun(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.run(sql, params, function (error) {
             if (error) return reject(error);
@@ -16,14 +16,37 @@ function run(sql, params = []) {
         });
     });
 }
-function get(sql, params = []) {
+function rawGet(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.get(sql, params, (error, row) => error ? reject(error) : resolve(row));
     });
 }
-function all(sql, params = []) {
+function rawAll(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.all(sql, params, (error, rows) => error ? reject(error) : resolve(rows));
+    });
+}
+// Một hàng đợi chung tránh truy vấn khác xen vào transaction trên cùng connection.
+let pending = Promise.resolve();
+function enqueue(task) {
+    const result = pending.then(task);
+    pending = result.catch(() => {});
+    return result;
+}
+const run = (sql, params = []) => enqueue(() => rawRun(sql, params));
+const get = (sql, params = []) => enqueue(() => rawGet(sql, params));
+const all = (sql, params = []) => enqueue(() => rawAll(sql, params));
+function transaction(work) {
+    return enqueue(async () => {
+        await rawRun("BEGIN IMMEDIATE");
+        try {
+            const result = await work({ run: rawRun, get: rawGet, all: rawAll });
+            await rawRun("COMMIT");
+            return result;
+        } catch (error) {
+            await rawRun("ROLLBACK");
+            throw error;
+        }
     });
 }
 async function initializeDatabase() {
@@ -40,5 +63,13 @@ async function initializeDatabase() {
         search_query TEXT NOT NULL, created_at TEXT
     )`);
     await run("CREATE INDEX IF NOT EXISTS plans_request_id ON plans(request_id)");
+    await run(`CREATE TABLE IF NOT EXISTS sources (
+        id TEXT PRIMARY KEY,
+        request_id TEXT NOT NULL REFERENCES requests(id),
+        query TEXT NOT NULL, title TEXT, url TEXT NOT NULL,
+        normalized_url TEXT NOT NULL, snippet TEXT, content TEXT, provider TEXT,
+        collected_at TEXT NOT NULL,
+        UNIQUE(request_id, normalized_url)
+    )`);
 }
-module.exports = { run, get, all, initializeDatabase };
+module.exports = { run, get, all, transaction, initializeDatabase };

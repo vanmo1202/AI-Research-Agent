@@ -14,4 +14,16 @@ async function getById(req, res, next) {
         res.json({ success: true, data });
     } catch (error) { next(error); }
 }
-module.exports = { create, getById };
+async function search(req, res, next) {
+    try {
+        const data = await researchService.searchAndCollect(req.params.id);
+        res.status(200).json({ success: true, data });
+    } catch (error) { next(error); }
+}
+async function getSources(req, res, next) {
+    try {
+        const data = await researchService.getResearchSources(req.params.id);
+        res.json({ success: true, data });
+    } catch (error) { next(error); }
+}
+module.exports = { create, getById, search, getSources };

@@ -4,7 +4,7 @@ AI Research Agent là dự án nghiên cứu có điều phối bằng AI. Ngư�
 
 ## Mục tiêu dự án
 
-Xây dựng từng bước một research agent có thể nhận yêu cầu, lập kế hoạch, tìm nguồn, tổng hợp và tạo báo cáo. Phiên bản hiện tại hoàn thành Workflow 1 - Research Request & Planning. Tavily, RAG và Agent Loop chưa được triển khai.
+Xây dựng từng bước một research agent có thể nhận yêu cầu, lập kế hoạch, tìm nguồn, tổng hợp và tạo báo cáo. Phiên bản hiện tại hoàn thành Workflow 1 - Research Request & Planning và Workflow 2 - Search & Collect. RAG và Agent Loop chưa được triển khai.
 
 ## Technology stack
 
@@ -118,6 +118,61 @@ Manual Trigger → Research Input → Create Research Plan → Output Research P
 
 HTTP node gửi JSON đến `http://host.docker.internal:3000/api/research` và chờ kết quả. Nếu phiên bản n8n không nhận file import, làm theo [hướng dẫn từng node](n8n/workflows/WORKFLOW1_SETUP.md). Compose đã cấu hình `host.docker.internal` để container n8n gọi backend trên host.
 
+## Workflow 2 - Search & Collect
+
+Research Plan → Search Queries → Tavily / Mock Search → Normalize → Deduplicate → Fetch Content → SQLite Sources
+
+### Cấu hình
+
+Thêm vào `backend/.env` nếu chưa có (file mẫu đã có đầy đủ):
+
+```dotenv
+TAVILY_API_KEY=your_tavily_api_key_here
+SEARCH_PROVIDER=tavily
+MOCK_SEARCH=true
+SEARCH_CONCURRENCY=2
+MAX_SOURCE_CONTENT_CHARS=20000
+```
+
+`MOCK_SEARCH=true` mặc định và không gọi Tavily hoặc fetch trang web: mỗi query sinh hai nguồn `example.com` với title, snippet, content dựa trên query và provider `mock`. Nội dung có nhãn MOCK DATA, không phải evidence thật. Không cần API key để test.
+
+Để dùng thật, đặt `MOCK_SEARCH=false` và cấu hình `TAVILY_API_KEY` trong `.env`, rồi restart backend. Provider hiện hỗ trợ Tavily; các provider khác có thể thêm qua `search.service.js`. Tavily dùng fetch, POST `/search`, `query`, `max_results=5`, `include_raw_content=text`, timeout 30 giây. `content` của Tavily được dùng làm snippet; `raw_content` được ưu tiên làm nội dung trang. Xem [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search).
+
+### API và curl
+
+Chạy backend với `npm run dev`. Tạo request bằng POST Workflow 1 trước, rồi dùng UUID trả về:
+
+```bash
+# Thay giá trị này bằng data.requestId từ POST /api/research:
+REQUEST_ID="YOUR_REQUEST_ID"
+
+curl -i -X POST "http://localhost:3000/api/research/$REQUEST_ID/search"
+curl "http://localhost:3000/api/research/$REQUEST_ID/sources"
+curl "http://localhost:3000/api/research/$REQUEST_ID"
+```
+
+POST search trả HTTP 200 với `{success:true,data:{requestId,status:"collected",queryCount,sourceCount,sources}}`. Mỗi source có id, query, title, url, normalizedUrl, snippet, content, provider, collectedAt. GET sources trả `{success:true,data:{requestId,sourceCount,sources}}`; khi chưa có nguồn trả 200 với mảng rỗng. Request không tồn tại trả 404. Plan không có query trả 400. GET research phản ánh status `searching`, `collected` hoặc `failed`.
+
+### Chuẩn hóa, nội dung và persistence
+
+URL chỉ chấp nhận HTTP/HTTPS, loại hash, dấu slash cuối path, các `utm_*`, `fbclid`, `gclid`; hostname lowercase và giữ query parameter có ý nghĩa. Dedup theo normalizedUrl; ưu tiên content dài hơn, nếu bằng nhau giữ nguồn đầu tiên. Invalid URL bị bỏ và log warning. Một source trùng giữa nhiều query chỉ giữ query của nguồn được chọn.
+
+Content có sẵn được làm sạch và truncate. Nếu chưa có content, backend tải trang với User-Agent rõ ràng, timeout 15 giây, tối đa ba redirect và HTML 2 MB. Cheerio bỏ script/style/tags và normalize whitespace; text lưu tối đa `MAX_SOURCE_CONTENT_CHARS`. Fetch lỗi giữ nguồn với content rỗng. HTML/text được hỗ trợ; PDF và trang cần JavaScript chưa được trích xuất ở phiên bản này. Địa chỉ nội bộ/loopback bị chặn khi kiểm tra URL và redirect.
+
+Bảng `sources`: `id TEXT PRIMARY KEY`, `request_id` foreign key tới requests, `query`, `title`, `url`, `normalized_url`, `snippet`, `content`, `provider`, `collected_at`; UNIQUE `(request_id, normalized_url)`. Khởi tạo tự động, không xóa dữ liệu Workflow 1. Lưu nhiều nguồn và status collected trong một transaction. Chạy lại cập nhật nguồn cùng URL, giữ id và các nguồn cũ; `sourceCount` là tổng nguồn đã lưu của request. Nếu lần chạy lại thất bại, dữ liệu nguồn trước đó vẫn còn.
+
+### Concurrency và lỗi
+
+Search và content collection dùng tối đa `SEARCH_CONCURRENCY` worker (mặc định 2, cho phép 1–10). Hai lần search đồng thời cho cùng request trong một backend trả 409. Thiết kế hiện dành cho một process backend, chưa có queue phân tán. Sau restart có thể chạy lại request còn status searching.
+
+Một query thất bại được log warning và các query khác vẫn tiếp tục. Nếu tất cả query thất bại hoặc không có nguồn hợp lệ, status failed và HTTP 502. Database/configuration lỗi cũng trả 502; fetch nội dung lỗi riêng không làm fail toàn workflow. Không log key hoặc phản hồi lỗi thô chứa secret.
+
+### n8n và test
+
+Import [Workflow 2 JSON](n8n/workflows/workflow-2-search-collect.json), điền requestId ở node 02, Execute Workflow. [Hướng dẫn từng node và cách nối Workflow 1 → 2](n8n/workflows/WORKFLOW2_SETUP.md).
+
+Chạy `cd backend && npm test`. Test Workflow 2 kiểm tra API, mock không gọi mạng, dedup, invalid URL, partial/all failures, concurrency, 409, content cleaning, truncation, transaction rollback và persistence từ process khác. Tavily được kiểm tra bằng fetch giả lập, không dùng credit thật. Test Workflow 1 vẫn được giữ.
+
 ## Tiến độ Week 1
 
 - Node.js backend
@@ -133,10 +188,8 @@ HTTP node gửi JSON đến `http://host.docker.internal:3000/api/research` và 
 
 ## Các bước phát triển tiếp theo
 
-1. Workflow 2: tìm kiếm và thu thập nguồn từ các search query.
-2. Lưu metadata, nội dung và trạng thái từng nguồn.
-3. Workflow 3: trích xuất, kiểm tra và tổng hợp bằng citation.
-4. RAG cho truy vấn trên các tài liệu đã thu thập.
-5. Agent Loop, retry và theo dõi toàn bộ tiến trình nghiên cứu.
+1. Workflow 3: trích xuất, kiểm tra và tổng hợp bằng citation từ sources đã lưu.
+2. RAG cho truy vấn trên các tài liệu đã thu thập.
+3. Agent Loop, retry và theo dõi toàn bộ tiến trình nghiên cứu.
 
 Nếu backend bị dừng giữa planning, request có thể còn trạng thái `planning`; phiên bản đầu chưa có cơ chế tự chạy lại.

@@ -1,0 +1,17 @@
+{
+  "name": "Workflow 2 - Search & Collect",
+  "nodes": [
+    { "parameters": {}, "id": "start-search", "name": "01 - Start Search", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0] },
+    { "parameters": { "assignments": { "assignments": [ { "id": "request-id", "name": "requestId", "value": "REPLACE_WITH_WORKFLOW_1_REQUEST_ID", "type": "string" } ] }, "options": {} }, "id": "research-id", "name": "02 - Research Request ID", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [240, 0] },
+    { "parameters": { "method": "POST", "url": "={{ 'http://host.docker.internal:3000/api/research/' + encodeURIComponent($json.requestId) + '/search' }}", "options": { "timeout": 300000 } }, "id": "search-collect", "name": "03 - Search & Collect", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [480, 0] },
+    { "parameters": { "assignments": { "assignments": [ { "id": "result", "name": "searchResult", "value": "={{ $json.data }}", "type": "object" } ] }, "options": {} }, "id": "search-result", "name": "04 - Search Result", "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [720, 0] }
+  ],
+  "connections": {
+    "01 - Start Search": { "main": [ [ { "node": "02 - Research Request ID", "type": "main", "index": 0 } ] ] },
+    "02 - Research Request ID": { "main": [ [ { "node": "03 - Search & Collect", "type": "main", "index": 0 } ] ] },
+    "03 - Search & Collect": { "main": [ [ { "node": "04 - Search Result", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
