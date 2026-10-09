@@ -173,6 +173,72 @@ Import [Workflow 2 JSON](n8n/workflows/workflow-2-search-collect.json), điền 
 
 Chạy `cd backend && npm test`. Test Workflow 2 kiểm tra API, mock không gọi mạng, dedup, invalid URL, partial/all failures, concurrency, 409, content cleaning, truncation, transaction rollback và persistence từ process khác. Tavily được kiểm tra bằng fetch giả lập, không dùng credit thật. Test Workflow 1 vẫn được giữ.
 
+## Frontend
+
+Frontend trong `frontend/` sử dụng React, Vite, JavaScript, Tailwind CSS, React Router, Lucide React và native fetch. Inter được đóng gói cục bộ nên không cần Google Fonts. Giao diện dashboard sáng với sidebar, form chính, panel tiến trình, responsive cho desktop/tablet/mobile.
+
+### Chạy ứng dụng
+
+Yêu cầu Node.js 22.12 trở lên (Node.js 24 hiện tại dùng được). Mở hai terminal từ project root:
+
+```bash
+# Terminal 1 — backend
+cd backend
+npm install
+npm run dev
+
+# Terminal 2 — frontend
+cd frontend
+npm install
+# Chỉ khi chưa có .env: cp .env.example .env
+npm run dev
+```
+
+Frontend: http://localhost:5173 — Backend: http://localhost:3000.
+
+`frontend/.env.example` có `VITE_API_BASE_URL=http://localhost:3000`. Chỉ đặt cấu hình public trong biến `VITE_*`; không đặt API keys ở frontend. Nếu thay URL, restart Vite. Backend cho phép CORS origin `http://localhost:5173`; khi đổi domain/port frontend, cấu hình `FRONTEND_ORIGIN` trong `backend/.env` rồi restart backend. `npm run preview` dùng port 5173, nên cần dừng dev server trước khi preview. Khi deploy lên host tĩnh, cấu hình SPA fallback tới `index.html` để refresh route hoạt động.
+
+### Trang và chức năng
+
+| Route | Chức năng |
+| --- | --- |
+| `/` | Dashboard, thống kê và nghiên cứu gần đây từ metadata localStorage |
+| `/workflow-1` | Form topic, goal, scope, outputLength; gửi POST `/api/research` |
+| `/research/:requestId` | Đọc GET `/api/research/:id`, hiển thị request, questions và queries; copy nội dung; bắt đầu Search & Collect |
+| `/workflow-2` | Chọn Research Plan hoặc nhập Request ID |
+| `/workflow-2/:requestId` | Kết quả Search & Collect của request |
+| `/research/:requestId/sources` | Đọc GET research và GET sources từ SQLite, hiển thị/filter/sort nguồn |
+| `/sources` | Chọn nghiên cứu trong trình duyệt hoặc nhập ID từ n8n |
+| `/settings` | Hồ sơ demo, API URL và kiểm tra kết nối `/health` |
+
+Workflow 1: nhập form → POST `/api/research` → lưu requestId gần nhất → chuyển tới trang plan → GET research. POST response không có goal/scope nên trang plan dùng GET để lấy request đầy đủ. `outputLength` mặc định medium; số trang trên thẻ chọn là gợi ý cho báo cáo tương lai.
+
+Workflow 2: click **Bắt đầu Search & Collect** → POST `/api/research/:id/search` → chuyển tới `/research/:id/sources` → GET research và GET sources. Refresh luôn đọc lại backend, không dùng source count/questions/sources giả. Provider badge lấy từ response, hỗ trợ Mock, Tavily và tên provider khác. Có tìm kiếm nội dung, lọc provider/trạng thái, sắp xếp, xem chi tiết và mở URL HTTP/HTTPS an toàn trong tab mới.
+
+Nếu backend còn `planning`/`searching`, trang tự đọc lại GET mỗi 3 giây; refresh không tự gửi lại POST. Form/search có khóa chống gửi lặp, spinner, lỗi từ backend, lỗi kết nối, nút thử lại và empty state. Workflow 3 chỉ hiển thị Chưa triển khai.
+
+LocalStorage: `aiResearch:lastRequestId`, `aiResearch:lastResearch`, `aiResearch:history` (tối đa 20 metadata nghiên cứu). Dashboard phản ánh lịch sử đã mở trong trình duyệt, không phải tổng server. Khi storage bị chặn, API và trang kết quả theo URL vẫn hoạt động. Hồ sơ Nguyễn Minh Anh là demo, chưa có auth.
+
+Cấu trúc: `src/components/layout/`, `src/components/ui/`, `src/components/research/`, `src/pages/`, `src/hooks/`, `src/services/researchApi.js`, `src/config/api.js`, `src/utils/`. Backend chỉ thêm CORS, giữ nguyên business logic của Workflow 1/2.
+
+### Kiểm tra frontend
+
+```bash
+cd backend
+npm test
+cd ../frontend
+npm run build
+npm run test:e2e
+```
+
+Browser tests dùng Playwright và Google Chrome cài sẵn. Nếu dùng Chromium riêng, đặt `PLAYWRIGHT_CHROME_PATH=/duong/dan/chromium` khi chạy test. Test tự mở frontend port 4173, backend port 4300, database tạm và bật cả hai chế độ mock; không ảnh hưởng database runtime hoặc gọi OpenAI/Tavily thật. Hai port test phải đang trống.
+
+Test kiểm tra tạo plan bằng form, nội dung đúng response, POST search, refresh sources từ SQLite, lịch sử, filter, validation, network/HTTP errors, empty state, CORS, mobile drawer và overflow. File build, test artifacts, `.env`, database và node_modules được .gitignore loại bỏ.
+
+Kiểm tra thủ công: mở `/workflow-1`, nhập chủ đề AI trong giáo dục đại học, mục tiêu và phạm vi; tạo plan → kiểm tra questions/queries → bắt đầu Search & Collect → xem sources → refresh trang, nguồn vẫn đọc từ SQLite. Mở Settings → Kiểm tra kết nối để xác nhận `/health`.
+
+Tham khảo cấu hình: [Vite](https://vite.dev/guide/), [Tailwind với Vite](https://tailwindcss.com/docs/installation/using-vite), [React Router](https://reactrouter.com/start/declarative/installation).
+
 ## Tiến độ Week 1
 
 - Node.js backend

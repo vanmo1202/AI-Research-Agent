@@ -1,6 +1,7 @@
 require("dotenv").config({ path: require("node:path").join(__dirname, "../.env"), quiet: true });
 
 const express = require("express");
+const cors = require("cors");
 
 const { initializeDatabase } = require("./config/database");
 const researchRoutes = require("./routes/research.routes");
@@ -10,6 +11,8 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
+// Chỉ cho phép frontend dev gọi API từ browser; không thay đổi logic workflow.
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173" }));
 app.use(express.json());
 
 app.get("/", (req, res) => {

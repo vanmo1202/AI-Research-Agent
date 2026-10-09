@@ -1,0 +1,32 @@
+{
+  "name": "ai-research-agent-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --port 5173 --strictPort",
+    "test:e2e": "playwright test",
+    "format": "prettier --write src tests *.js index.html package.json",
+    "format:check": "prettier --check src tests *.js index.html package.json"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "lucide-react": "^1.54.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "prettier": "^3.9.9",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.4"
+  }
+}

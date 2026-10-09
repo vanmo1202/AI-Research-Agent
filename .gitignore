@@ -8,3 +8,6 @@ node_modules/
 credentials/
 *.pem
 *.key
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
