@@ -29,7 +29,8 @@ async function createResearchRequest(input) {
             logger.error("Database", "Could not update failed status");
         }
         logger.error("Research", `Status: failed; Request ID: ${requestId}`);
-        const failure = new Error("Unable to generate or save research plan. Check backend configuration and try again.");
+        const failure = new Error(error.safePlannerError ? error.message
+            : "Unable to generate or save research plan. Check backend configuration and try again.");
         failure.status = 502;
         failure.requestId = requestId;
         throw failure;

@@ -12,7 +12,7 @@ Xây dựng từng bước một research agent có thể nhận yêu cầu, l�
 - dotenv và nodemon
 - SQLite, không dùng ORM
 - n8n chạy bằng Docker
-- OpenAI Chat Completions hoặc `MOCK_LLM=true` để phát triển không cần API credit
+- Google Gemini qua OpenAI-compatible API hoặc `MOCK_LLM=true` để phát triển không cần API credit
 - Git/GitHub
 
 ## Kiến trúc hiện tại
@@ -22,7 +22,7 @@ User → n8n → POST /api/research → Validation → Research Planner
      → Research Questions → Search Queries → SQLite → Response
 ```
 
-Backend tạo UUID và lưu request với trạng thái `planning` trước khi gọi planner. Planner tạo 3–5 câu hỏi, mỗi câu hỏi có ít nhất một query. Sau khi lưu plan, trạng thái thành `planned` và trả HTTP 201. Nếu planner hoặc bước lưu plan lỗi, trạng thái thành `failed` và API trả lỗi cùng `requestId`.
+Backend tạo UUID và lưu request với trạng thái `planning` trước khi gọi planner. Gemini tạo đúng 4 câu hỏi và 4 query tương ứng; mock giữ 3/4/5 câu hỏi theo độ dài short/medium/long. Sau khi lưu plan, trạng thái thành `planned` và trả HTTP 201. Nếu planner hoặc bước lưu plan lỗi, trạng thái thành `failed` và API trả lỗi cùng `requestId`.
 
 ## Cấu trúc thư mục
 
@@ -64,7 +64,7 @@ npm run dev
 
 Database tự tạo tại `backend/data/research.db` khi backend khởi động. Database và `.env` được bỏ qua trong Git.
 
-Mặc định `.env` dùng `MOCK_LLM=true`. Mock không gọi OpenAI, không cần API key và tạo kế hoạch mẫu dựa trên input. Để gọi LLM thật, đặt `MOCK_LLM=false`, `OPENAI_API_KEY` và `OPENAI_MODEL` trong `.env`, rồi restart backend. Không đưa key vào workflow n8n.
+File mẫu `.env.example` mặc định dùng `MOCK_LLM=true`. Mock không gọi Gemini hoặc OpenAI, không cần API key và tạo kế hoạch mẫu dựa trên input. Để gọi Gemini thật, cấu hình theo mục Gemini LLM bên dưới rồi restart backend. Không đưa key vào frontend hoặc workflow n8n.
 
 ### API kiểm tra
 
@@ -106,7 +106,7 @@ cd ~/projects/AI-Research-Agent/backend
 npm test
 ```
 
-Test dùng database tạm và port ngẫu nhiên. Bộ test kiểm tra `/health`, validation, mock không gọi OpenAI, POST 201, GET plan, 404, JSON lỗi, lỗi planner và persistence qua restart process. Nhánh OpenAI được kiểm tra bằng fetch giả lập.
+Test dùng database tạm và port ngẫu nhiên. Bộ test kiểm tra `/health`, validation, mock không gọi mạng, POST 201, GET plan, 404, JSON lỗi, lỗi planner và persistence qua restart process. Nhánh Gemini được kiểm tra bằng fetch giả lập.
 
 ### n8n
 
@@ -117,6 +117,27 @@ Manual Trigger → Research Input → Create Research Plan → Output Research P
 ```
 
 HTTP node gửi JSON đến `http://host.docker.internal:3000/api/research` và chờ kết quả. Nếu phiên bản n8n không nhận file import, làm theo [hướng dẫn từng node](n8n/workflows/WORKFLOW1_SETUP.md). Compose đã cấu hình `host.docker.internal` để container n8n gọi backend trên host.
+
+## Gemini LLM
+
+Workflow 1 dùng Google Gemini để tạo research plan. Cấu hình trong `backend/.env`:
+
+```dotenv
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+MOCK_LLM=false
+```
+
+Tự điền Gemini API key thật vào `GEMINI_API_KEY` trên máy của bạn; không commit `.env`. Sau khi chỉnh env, restart backend. `MOCK_LLM=true` giữ mock planner hiện có và không gọi mạng; `MOCK_LLM=false` mới gọi Gemini. Nếu thiếu model, mặc định dùng `gemini-2.5-flash`. `LLM_PROVIDER` mặc định là gemini; giá trị khác bị từ chối khi gọi thật. Các biến Search & Collect được giữ nguyên.
+
+Backend tiếp tục dùng native fetch vì project không có package `openai`. Request đi tới `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, với Bearer Gemini key, system/user messages, temperature 0.3, JSON mode và timeout 60 giây. Đây là endpoint Google theo [tài liệu Gemini OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai), không phải OpenAI runtime. `OPENAI_API_KEY` và `OPENAI_MODEL` không còn được sử dụng.
+
+Gemini trả hai mảng string đúng 4 phần tử. Backend trim, gỡ JSON fence nếu có, parse bằng JSON.parse và validate chuỗi không rỗng. Sau đó chuyển thành `researchQuestions: [{id, question}]` và `searchQueries: [{questionId, query}]`, gán Q1–Q4 theo thứ tự; query thứ i tương ứng câu hỏi thứ i. API, SQLite, frontend, n8n và Workflow 2 giữ nguyên schema/endpoint.
+
+Lỗi thiếu key, authentication 401/403, model 404, quota 429, network/timeout và JSON/schema sai có thông báo an toàn. Planner lỗi trả HTTP 502 cùng requestId và lưu status failed. Không log API key hoặc phản hồi lỗi thô từ Google. Database lỗi vẫn dùng thông báo generic hiện có.
+
+Automated tests không gọi Gemini thật: fetch được giả lập để kiểm tra success, fenced/malformed JSON, schema, key thiếu, HTTP errors, network/timeout, status failed và khả năng tiếp tục Workflow 2. Kiểm tra API bằng curl ở phần Workflow 1; để test không cần key, dùng `MOCK_LLM=true`.
 
 ## Workflow 2 - Search & Collect
 
@@ -231,7 +252,7 @@ npm run build
 npm run test:e2e
 ```
 
-Browser tests dùng Playwright và Google Chrome cài sẵn. Nếu dùng Chromium riêng, đặt `PLAYWRIGHT_CHROME_PATH=/duong/dan/chromium` khi chạy test. Test tự mở frontend port 4173, backend port 4300, database tạm và bật cả hai chế độ mock; không ảnh hưởng database runtime hoặc gọi OpenAI/Tavily thật. Hai port test phải đang trống.
+Browser tests dùng Playwright và Google Chrome cài sẵn. Nếu dùng Chromium riêng, đặt `PLAYWRIGHT_CHROME_PATH=/duong/dan/chromium` khi chạy test. Test tự mở frontend port 4173, backend port 4300, database tạm và bật cả hai chế độ mock; không ảnh hưởng database runtime hoặc gọi Gemini/Tavily thật. Hai port test phải đang trống.
 
 Test kiểm tra tạo plan bằng form, nội dung đúng response, POST search, refresh sources từ SQLite, lịch sử, filter, validation, network/HTTP errors, empty state, CORS, mobile drawer và overflow. File build, test artifacts, `.env`, database và node_modules được .gitignore loại bỏ.
 

@@ -13,7 +13,8 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
     process.env.MOCK_SEARCH = "true";
     process.env.SEARCH_CONCURRENCY = "2";
     process.env.MAX_SOURCE_CONTENT_CHARS = "20000";
-    delete process.env.TAVILY_API_KEY;
+    // Giá trị rỗng ngăn dotenv nạp key thật từ .env trong test thiếu cấu hình.
+    process.env.TAVILY_API_KEY = "";
     const { app } = require("../src/server");
     const db = require("../src/config/database");
     const search = require("../src/services/search.service");

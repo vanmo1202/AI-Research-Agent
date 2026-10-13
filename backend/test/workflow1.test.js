@@ -13,7 +13,7 @@ async function boot(databasePath, mock = 'true') {
     `], {
         cwd: path.join(__dirname, '..'),
         env: { ...process.env, PORT: '0', MOCK_LLM: mock,
-            OPENAI_API_KEY: '', OPENAI_MODEL: '', RESEARCH_DB_PATH: databasePath },
+            LLM_PROVIDER: 'gemini', GEMINI_API_KEY: '', RESEARCH_DB_PATH: databasePath },
         stdio: ['ignore', 'pipe', 'pipe']
     });
     let output = '';
@@ -98,6 +98,7 @@ test('Workflow 1: HTTP API, validation, SQLite persistence and failed planner', 
         const failed = await post(server.base, input);
         assert.equal(failed.status, 502);
         const failure = await failed.json();
+        assert.equal(failure.error, 'GEMINI_API_KEY is not configured');
         const lookup = await fetch(`${server.base}/api/research/${failure.requestId}`);
         assert.equal((await lookup.json()).data.request.status, 'failed');
         assert.equal((await fetch(`${server.base}/health`)).status, 200);
@@ -113,23 +114,27 @@ test('Planner: mock never calls fetch; real branch and malformed LLM output', as
     const originalEnv = { ...process.env };
     try {
         process.env.MOCK_LLM = 'true';
-        delete process.env.OPENAI_API_KEY;
+        delete process.env.GEMINI_API_KEY;
         global.fetch = async () => { throw new Error('Mock must never call network'); };
         const plan = await llm.generateResearchPlan(input);
         assert.equal(plan.researchQuestions.length, 4);
         process.env.MOCK_LLM = 'false';
-        process.env.OPENAI_API_KEY = 'test-placeholder';
-        process.env.OPENAI_MODEL = 'test-model';
+        process.env.LLM_PROVIDER = 'gemini';
+        process.env.GEMINI_API_KEY = 'test-placeholder';
+        process.env.GEMINI_MODEL = 'test-model';
         global.fetch = async (url, options) => {
-            assert.equal(url, 'https://api.openai.com/v1/chat/completions');
+            assert.equal(url, 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
             const body = JSON.parse(options.body);
             assert.equal(body.model, 'test-model');
             assert.equal(body.response_format.type, 'json_object');
-            return { ok: true, json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(plan) } }] }) };
+            return { ok: true, json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({
+                researchQuestions: plan.researchQuestions.map(item => item.question),
+                searchQueries: plan.searchQueries.map(item => item.query)
+            }) } }] }) };
         };
         assert.deepEqual(await llm.generateResearchPlan(input), plan);
         global.fetch = async () => ({ ok: false, status: 429 });
-        await assert.rejects(llm.generateResearchPlan(input), /OpenAI HTTP 429/);
+        await assert.rejects(llm.generateResearchPlan(input), /Gemini API quota or rate limit exceeded/);
         assert.throws(() => llm.validatePlan({ ...plan, searchQueries: [] }), /invalid/);
         assert.throws(() => llm.validatePlan({ ...plan,
             searchQueries: [{ questionId: 'Q99', query: 'test' }] }), /invalid/);
