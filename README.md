@@ -139,6 +139,10 @@ Lỗi thiếu key, authentication 401/403, model 404, quota 429, network/timeout
 
 Automated tests không gọi Gemini thật: fetch được giả lập để kiểm tra success, fenced/malformed JSON, schema, key thiếu, HTTP errors, network/timeout, status failed và khả năng tiếp tục Workflow 2. Kiểm tra API bằng curl ở phần Workflow 1; để test không cần key, dùng `MOCK_LLM=true`.
 
+### Production-like mode
+
+Để dùng provider thật, đặt `MOCK_LLM=false` và `MOCK_SEARCH=false` trong `backend/.env`, rồi cung cấp `GEMINI_API_KEY` và `TAVILY_API_KEY`. Backend kiểm tra cấu hình khi khởi động, không log secrets, áp dụng timeout và retry có giới hạn cho lỗi tạm thời như 429, 5xx hoặc network timeout. Các lỗi xác thực, request không hợp lệ và output planner sai không bị retry. `MOCK_LLM=true` và `MOCK_SEARCH=true` dành cho phát triển và automated tests, không gọi provider thật.
+
 ## Workflow 2 - Search & Collect
 
 Research Plan → Search Queries → Tavily / Mock Search → Normalize → Deduplicate → Fetch Content → SQLite Sources

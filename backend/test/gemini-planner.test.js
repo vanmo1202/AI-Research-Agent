@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+process.env.HTTP_RETRY_COUNT = "0";
 const llm = require("../src/services/llm.service");
 
 const input = {
@@ -33,6 +34,7 @@ test("Gemini planner: transport, parsing, validation and safe errors", async t =
         process.env.MOCK_LLM = "false";
         process.env.LLM_PROVIDER = "gemini";
         process.env.GEMINI_API_KEY = "test-placeholder";
+        process.env.HTTP_RETRY_COUNT = "0";
         delete process.env.GEMINI_MODEL;
 
         await t.test("Mock keeps 3/4/5 questions and never calls any network without keys", async () => {
@@ -152,7 +154,8 @@ test("Gemini Workflow 1 HTTP contract, SQLite status and Workflow 2 compatibilit
     const database = require("../src/config/database");
     await database.initializeDatabase();
     const server = await new Promise(resolve => {
-        const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+        const instance = app.listen(0, "127.0.0.1");
+        instance.once('listening', () => resolve(instance));
     });
     const base = `http://127.0.0.1:${server.address().port}`;
     async function postResearch() {

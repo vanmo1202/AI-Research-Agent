@@ -1,4 +1,5 @@
 const logger = require("../utils/logger");
+const { withRetry, transientStatus } = require("../utils/httpRetry");
 
 const RESEARCH_PLANNER_SYSTEM_PROMPT = `You are a research planning assistant.
 Given a research topic, goal, scope and desired output length,
@@ -104,10 +105,11 @@ async function generateGeminiPlan(input) {
     logger.info("Planner", "Generating research plan with Gemini");
     let response;
     try {
-        response = await fetch(GEMINI_CHAT_COMPLETIONS_URL, {
+        response = await withRetry(async () => {
+            const result = await fetch(GEMINI_CHAT_COMPLETIONS_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-            signal: AbortSignal.timeout(60000),
+            signal: AbortSignal.timeout(Number(process.env.HTTP_TIMEOUT_MS || 30000)),
             body: JSON.stringify({
                 model: process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash",
                 messages: [
@@ -120,8 +122,17 @@ async function generateGeminiPlan(input) {
                 temperature: 0.3,
                 response_format: { type: "json_object" }
             })
-        });
-    } catch {
+            });
+            if (!result.ok && transientStatus(result.status)) { const error = new Error(`HTTP ${result.status}`); error.status = result.status; throw error; }
+            return result;
+        }, { label: "Gemini", shouldRetry: error => transientStatus(error.status) || error.name === "AbortError" || error.name === "TimeoutError" || error.name === "TypeError" });
+    } catch (error) {
+        if (error?.status) {
+            if ([401, 403].includes(error.status)) throw plannerError("Gemini API authentication failed");
+            if (error.status === 429) throw plannerError("Gemini API quota or rate limit exceeded");
+            if (error.status === 404) throw plannerError("Gemini model not found");
+            throw plannerError(`Gemini API request failed (HTTP ${error.status})`);
+        }
         throw plannerError("Gemini API network request failed or timed out");
     }
     // Không log hoặc trả body lỗi của provider: có thể chứa thông tin nhạy cảm.

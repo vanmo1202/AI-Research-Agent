@@ -13,7 +13,7 @@ async function boot(databasePath, mock = 'true') {
     `], {
         cwd: path.join(__dirname, '..'),
         env: { ...process.env, PORT: '0', MOCK_LLM: mock,
-            LLM_PROVIDER: 'gemini', GEMINI_API_KEY: '', RESEARCH_DB_PATH: databasePath },
+            LLM_PROVIDER: 'gemini', GEMINI_API_KEY: '', HTTP_RETRY_COUNT: '0', RESEARCH_DB_PATH: databasePath },
         stdio: ['ignore', 'pipe', 'pipe']
     });
     let output = '';

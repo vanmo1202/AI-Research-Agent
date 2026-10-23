@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, FileText } from 'lucide-react';
 import Badge from '../ui/Badge';
 import { formatDate, providerLabel, safeExternalUrl } from '../../utils/format';
+import { Link } from 'react-router-dom';
 export default function SourceCard({ source, index }) {
   const [expanded, setExpanded] = useState(false);
   const href = safeExternalUrl(source.url);
@@ -49,6 +50,7 @@ export default function SourceCard({ source, index }) {
             {expanded ? 'Thu gọn' : 'Xem chi tiết'}
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
+          {source.id && <Link className="text-button" to={`/sources/${encodeURIComponent(source.id)}`}>Mở trang chi tiết</Link>}
         </div>
         <div className="source-actions">
           {href && (

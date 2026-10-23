@@ -6,6 +6,7 @@ const cors = require("cors");
 const { initializeDatabase } = require("./config/database");
 const researchRoutes = require("./routes/research.routes");
 const logger = require("./utils/logger");
+const { getSettings } = require("./utils/settings");
 
 const app = express();
 
@@ -45,9 +46,10 @@ app.use((error, req, res, next) => {
 // Tạo bảng xong mới nhận request để tránh truy vấn khi database chưa sẵn sàng.
 async function start() {
     try {
+        const settings = getSettings();
         await initializeDatabase();
-        const server = app.listen(PORT, () => {
-            console.log(`Server is running at http://localhost:${PORT}`);
+        const server = app.listen(settings.port, () => {
+            console.log(`Server is running at http://localhost:${settings.port}`);
         });
         server.on("error", () => {
             logger.error("Server", "Could not start HTTP server; check PORT");

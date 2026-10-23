@@ -32,7 +32,7 @@ function cleanContent(value) {
 }
 async function fetchPageContent(url) {
     logger.info("Content", "Fetching page content");
-    const signal = AbortSignal.timeout(15000);
+    const signal = AbortSignal.timeout(Number(process.env.HTTP_TIMEOUT_MS || 30000));
     try {
         let current = url;
         // Kiểm tra cả đích redirect; không tự theo redirect tới mạng nội bộ.
