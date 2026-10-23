@@ -119,8 +119,7 @@ async function generateGeminiPlan(input) {
                         outputLength: input.outputLength
                     }) }
                 ],
-                temperature: 0.3,
-                response_format: { type: "json_object" }
+                temperature: 0.3
             })
             });
             if (!result.ok && transientStatus(result.status)) { const error = new Error(`HTTP ${result.status}`); error.status = result.status; throw error; }
