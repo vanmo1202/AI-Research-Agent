@@ -2953,3 +2953,54 @@ p {
     flex: 1;
   }
 }
+
+/* Research workflow reading and status states. */
+.workflow-step.partial .step-icon { background: #fff3cd; color: #8c6100; border-color: #e8c66b; }
+.workflow-step.failed .step-icon { background: #fee9e7; color: #a62b23; }
+.badge-amber { color: #865900; background: #fff3cd; }
+.notice-alert { display: flex; gap: 14px; padding: 22px; margin-bottom: 24px; border: 1px solid #e8cc84; border-radius: 14px; background: #fffaf0; color: #704d10; }
+.notice-alert > svg { flex-shrink: 0; margin-top: 3px; }
+.notice-alert h2 { font-size: 17px; margin: 0 0 10px; }
+.notice-alert p { line-height: 1.7; margin: 4px 0; }
+.alert-action { margin-top: 16px; }
+.evidence-list { display: grid; gap: 20px; min-width: 0; }
+.evidence-card { padding: 26px; }
+.evidence-card h3 { margin: 18px 0 14px; font-size: 18px; line-height: 1.55; color: #233c59; }
+.evidence-text { line-height: 1.85; white-space: pre-wrap; overflow-wrap: anywhere; }
+.evidence-reason { font-size: 14px; line-height: 1.7; color: #52657a; margin: 14px 0; }
+.evidence-source { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding-top: 18px; margin-top: 20px; border-top: 1px solid #e6edf4; }
+.evidence-source p { margin: 6px 0; line-height: 1.6; }
+.evidence-source .button { flex-shrink: 0; }
+.source-snippet { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.source-reading.collapsed { max-height: 230px; overflow: hidden; mask-image: linear-gradient(#000 75%, transparent); }
+.source-reading { line-height: 1.85; overflow-wrap: anywhere; white-space: pre-wrap; margin-bottom: 16px; }
+.source-preview > p { -webkit-line-clamp: 3; }
+.report-card { min-width: 0; }
+.report-toolbar { align-items: center; flex-wrap: wrap; gap: 16px; }
+.report-toolbar h2 { flex: 1 1 220px; }
+.export-menu { position: relative; }
+.export-menu [role="menu"] { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; min-width: 220px; padding: 6px; background: white; border: 1px solid #d9e3ed; border-radius: 10px; box-shadow: 0 8px 30px #18335024; }
+.export-menu [role="menuitem"] { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; padding: 12px; background: transparent; text-align: left; border-radius: 6px; color: #233c59; }
+.export-menu [role="menuitem"]:hover, .export-menu [role="menuitem"]:focus { background: #edf4fc; }
+.report-document { font-family: Georgia, 'Times New Roman', serif; color: #253448; font-size: 17px; line-height: 1.9; overflow-wrap: anywhere; }
+.report-document h1, .report-document h2, .report-document h3 { line-height: 1.4; margin: 1.4em 0 .7em; color: #19374e; }
+.report-document h1 { font-size: 1.85em; }
+.report-document h2 { font-size: 1.4em; border-bottom: 1px solid #e0e7ee; padding-bottom: .4em; }
+.report-document h3 { font-size: 1.15em; }
+.report-document p { margin: .8em 0; }
+.report-document ul, .report-document ol, .report-references { padding-left: 1.7em; margin: 1em 0; }
+.report-document li, .report-references li { margin: .45em 0; }
+.report-document blockquote { border-left: 3px solid #93afc7; padding: 5px 20px; margin: 20px 0; background: #f6f9fc; }
+.report-document pre { max-width: 100%; overflow: auto; font-size: .85em; background: #f4f6f8; padding: 16px; }
+.report-document table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.report-document th, .report-document td { border: 1px solid #dbe3eb; padding: 8px 12px; }
+.report-references { line-height: 1.8; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .evidence-card { padding: 18px; } .evidence-source { align-items: flex-start; flex-direction: column; } .notice-alert { padding: 16px; } .report-document { font-size: 16px; } }
+.report-card, .report-references-card { padding: 30px; }
+.report-document ul { list-style: disc; }
+.report-document ol { list-style: decimal; }
+.report-document a { color: #215f97; text-decoration: underline; }
+.report-references { list-style: none; padding-left: 0; }
+.nav-step-complete { color: #178565; flex-shrink: 0; }
+.nav-step-partial { color: #a6750c; flex-shrink: 0; }
+@media (max-width: 600px) { .report-card, .report-references-card { padding: 18px; } }

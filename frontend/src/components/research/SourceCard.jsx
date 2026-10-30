@@ -1,3 +1,4 @@
+import { sourceDisplay } from '../../utils/sourceDisplay';
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, FileText } from 'lucide-react';
 import Badge from '../ui/Badge';
@@ -6,7 +7,8 @@ import { Link } from 'react-router-dom';
 export default function SourceCard({ source, index }) {
   const [expanded, setExpanded] = useState(false);
   const href = safeExternalUrl(source.url);
-  const title = source.title || 'Nguồn chưa có tiêu đề';
+  const display = sourceDisplay(source);
+  const title = display.title;
   return (
     <article className="source-card" aria-label={title}>
       <div className="source-row">
@@ -25,7 +27,8 @@ export default function SourceCard({ source, index }) {
           ) : (
             <span className="muted">URL không hợp lệ</span>
           )}
-          <p className="source-snippet">{source.snippet || 'Nguồn này chưa có mô tả.'}</p>
+          <p className="source-snippet">{display.snippet}</p>
+          {display.notice && <p className="muted">{display.notice}</p>}
           <small className="source-date">Thu thập {formatDate(source.collectedAt)}</small>
         </div>
         <div className="source-provider">
@@ -34,13 +37,13 @@ export default function SourceCard({ source, index }) {
           </Badge>
         </div>
         <div className="source-status">
-          <Badge tone={source.content?.trim() ? 'green' : 'neutral'}>
+          <Badge tone={display.ready ? 'green' : 'neutral'}>
             <span className="status-dot" />
-            {source.content?.trim() ? 'Có nội dung' : 'Chưa có nội dung'}
+            {display.ready ? 'Có nội dung' : 'Chưa có nội dung'}
           </Badge>
         </div>
         <div className="source-preview">
-          <p>{source.content || 'Không tải được nội dung trang. Bạn vẫn có thể mở nguồn gốc.'}</p>
+          <p>{display.content}</p>
           <button
             type="button"
             className="text-button"
@@ -84,7 +87,7 @@ export default function SourceCard({ source, index }) {
           <div>
             <strong>Nội dung đã thu thập</strong>
             <p className="full-content">
-              {source.content || 'Chưa có nội dung. Hãy truy cập nguồn gốc để đọc tài liệu.'}
+              {display.content}
             </p>
           </div>
         </div>

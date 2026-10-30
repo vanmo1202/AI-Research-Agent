@@ -9,10 +9,10 @@ async function searchWeb(query, options = {}) {
         const key = createHash("sha256").update(query).digest("hex").slice(0, 16);
         // Hai nguồn/query để test đủ pipeline; luôn có content nên không fetch web.
         return Array.from({ length: Math.min(maxResults, 2) }, (_, index) => ({
-            title: `Mock source ${index + 1}: ${query}`,
+            title: `Nguồn mô phỏng ${index + 1}: ${query}`,
             url: `https://example.com/mock/${key}/${index + 1}`,
-            snippet: `Mock search result for ${query}`,
-            content: `MOCK DATA: This is a sample article for query: ${query}. Source ${index + 1}. This content is generated for testing and is not research evidence.`,
+            snippet: `Kết quả tìm kiếm mô phỏng cho ${query}`,
+            content: `DỮ LIỆU MÔ PHỎNG: Bài viết mẫu cho truy vấn ${query}. Nguồn ${index + 1}. Nội dung được tạo để kiểm thử, không phải bằng chứng nghiên cứu thực tế.`,
             provider: "mock"
         }));
     }

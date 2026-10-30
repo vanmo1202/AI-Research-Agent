@@ -8,6 +8,8 @@ import SourcesPage from './pages/SourcesPage';
 import SettingsPage from './pages/SettingsPage';
 import SourceDetailPage from './pages/SourceDetailPage';
 import NotFoundPage from './pages/NotFoundPage';
+import EvidencePage from './pages/EvidencePage';
+import ReportPage from './pages/ReportPage';
 export default function App() {
   return (
     <Routes>
@@ -17,6 +19,8 @@ export default function App() {
         <Route path="research/:requestId" element={<ResearchPlanPage />} />
         <Route path="workflow-2" element={<Workflow2Page />} />
         <Route path="workflow-2/:requestId" element={<Workflow2Page />} />
+        <Route path="workflow-3/:requestId" element={<EvidencePage />} />
+        <Route path="workflow-4/:requestId" element={<ReportPage />} />
         <Route path="research/:requestId/sources" element={<Workflow2Page />} />
         <Route path="sources" element={<SourcesPage />} />
         <Route path="sources/:sourceId" element={<SourceDetailPage />} />

@@ -10,10 +10,8 @@ const { getSettings } = require("./utils/settings");
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
-
 // Chỉ cho phép frontend dev gọi API từ browser; không thay đổi logic workflow.
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173" }));
+app.use(cors({ exposedHeaders: ['Content-Disposition'], origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173" }));
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -48,16 +46,17 @@ async function start() {
     try {
         const settings = getSettings();
         await initializeDatabase();
-        const server = app.listen(settings.port, () => {
-            console.log(`Server is running at http://localhost:${settings.port}`);
-        });
-        server.on("error", () => {
-            logger.error("Server", "Could not start HTTP server; check PORT");
-            process.exit(1);
+        const server = await new Promise((resolve, reject) => {
+            const listener = app.listen(settings.port, "0.0.0.0");
+            listener.once("error", reject);
+            listener.once("listening", () => {
+                console.log(`Server is running at http://localhost:${listener.address().port}`);
+                resolve(listener);
+            });
         });
         return server;
     } catch (error) {
-        logger.error("Database", "Could not initialize database");
+        logger.error("Server", `Startup failed (${error.code || "configuration or database error"}); check environment, database and PORT`);
         process.exit(1);
     }
 }

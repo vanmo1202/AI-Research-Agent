@@ -117,9 +117,9 @@ export default function Header({ onMenu }) {
         </div>
         <div className="header-divider" />
         <Link className="profile" to="/settings" aria-label="Cài đặt hồ sơ Nguyễn Minh Anh">
-          <span className="avatar">N</span>
+          <span className="avatar">M</span>
           <span className="profile-copy">
-            <strong>Nguyễn Minh Anh</strong>
+            <strong>Văn Mơ</strong>
             <small>Sinh viên</small>
           </span>
           <ChevronDown size={15} className="profile-chevron" />

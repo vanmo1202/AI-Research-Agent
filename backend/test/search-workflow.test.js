@@ -167,14 +167,15 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
             assert.equal((await api(`/api/research/${id}`)).body.data.request.status, "planned");
         });
         await t.test("SQLite persistence from independent process", () => {
+            const backendRoot = path.resolve(__dirname, "..");
             const result = spawnSync(process.execPath, ["-e", `
                 const db = new (require('sqlite3').Database)(process.argv[1]);
                 db.get('SELECT count(*) AS count FROM sources WHERE request_id = ?', [process.argv[2]], (error, row) => {
                     if (error) process.exit(1); console.log(row.count); db.close();
                 });
-            `, databasePath, requestId], { encoding: "utf8" });
-            assert.equal(result.status, 0);
-            assert.equal(result.stdout.trim(), "8");
+            `, databasePath, requestId], { cwd: backendRoot, encoding: "utf8" });
+            assert.equal(result.status, 0, result.stderr || result.error?.message);
+            assert.equal(result.stdout.trim(), "8", result.stderr || "Independent process read an unexpected source count");
         });
     } finally {
         global.fetch = networkFetch;

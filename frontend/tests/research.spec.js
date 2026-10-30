@@ -16,7 +16,7 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.goto('/workflow-1');
-  await expect(page.getByRole('heading', { name: 'Tạo yêu cầu nghiên cứu' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Khởi đầu nghiên cứu của bạn.' })).toBeVisible();
   await expect(page.getByRole('radio', { name: /Trung bình/ })).toBeChecked();
   await page.screenshot({
     path: '/tmp/ai-research-workflow1-desktop.png',
@@ -34,13 +34,15 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
     (response) =>
       response.url().endsWith('/api/research') && response.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Tạo Research Plan' }).click();
+  await page.getByRole('button', { name: 'Tạo kế hoạch nghiên cứu' }).click();
   await expect(page.getByRole('button', { name: 'Đang tạo kế hoạch...' })).toBeDisabled();
   const response = await planResponse;
   expect(response.status()).toBe(201);
   const { data: plan } = await response.json();
   await expect(page).toHaveURL(new RegExp(`/research/${plan.requestId}$`));
-  await expect(page.getByRole('heading', { name: 'Kết quả Research Plan' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Kế hoạch nghiên cứu', exact: true }),
+  ).toBeVisible();
   for (const question of plan.researchQuestions)
     await expect(page.getByText(question.question, { exact: true })).toBeVisible();
   for (const query of plan.searchQueries)
@@ -61,14 +63,20 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
       response.url().endsWith(`/${plan.requestId}/search`) &&
       response.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Bắt đầu Search & Collect' }).click();
+  await page.getByRole('button', { name: 'Bắt đầu tìm kiếm & thu thập' }).click();
   const collected = await collectionResponse;
   expect(collected.status()).toBe(200);
   const { data: collection } = await collected.json();
   await expect(page).toHaveURL(new RegExp(`/research/${plan.requestId}/sources$`));
-  await expect(page.getByRole('heading', { name: 'Kết quả Search & Collect' })).toBeVisible();
-  await expect(page.locator('.source-card')).toHaveCount(collection.sourceCount);
-  await expect(page.getByText('Đã thu thập', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Tìm kiếm & Thu thập tài liệu', level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole('article')).toHaveCount(collection.sourceCount);
+  await expect(
+    page
+      .getByRole('region', { name: 'Hành trình nghiên cứu' })
+      .getByText('Đã thu thập', { exact: true }),
+  ).toBeVisible();
   for (const source of collection.sources)
     await expect(page.getByRole('heading', { name: source.title, exact: true })).toBeVisible();
   const getSources = page.waitForResponse(
@@ -78,15 +86,15 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
   );
   await page.reload();
   expect((await getSources).status()).toBe(200);
-  await expect(page.locator('.source-card')).toHaveCount(collection.sourceCount);
+  await expect(page.getByRole('article')).toHaveCount(collection.sourceCount);
   await page.getByRole('combobox', { name: 'Lọc provider' }).selectOption('mock');
-  await expect(page.locator('.source-card')).toHaveCount(collection.sourceCount);
+  await expect(page.getByRole('article')).toHaveCount(collection.sourceCount);
   await page
     .getByRole('textbox', { name: 'Tìm kiếm trong các nguồn đã thu thập', exact: true })
     .fill('no-source-matches-this');
   await expect(page.getByRole('heading', { name: 'Không có nguồn phù hợp' })).toBeVisible();
   await page.getByRole('button', { name: 'Xóa bộ lọc' }).click();
-  await expect(page.locator('.source-card')).toHaveCount(collection.sourceCount);
+  await expect(page.getByRole('article')).toHaveCount(collection.sourceCount);
   await page.evaluate(() => {
     document.activeElement?.blur();
     window.scrollTo(0, 0);
@@ -102,7 +110,7 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
     .first()
     .click();
   await expect(sourceCard.locator('.source-detail')).toContainText(collection.sources[0].content);
-  const sourceLink = page.locator('.source-card').first().getByRole('link').first();
+  const sourceLink = page.getByRole('article').first().getByRole('link').first();
   await expect(sourceLink).toHaveAttribute('rel', 'noopener noreferrer');
   await page.goto('/');
   await expect(page.getByRole('link', { name: input.topic, exact: true })).toBeVisible();
@@ -114,7 +122,7 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
 
 test('Validation, backend 404, network error and empty source state', async ({ page, request }) => {
   await page.goto('/workflow-1');
-  await page.getByRole('button', { name: 'Tạo Research Plan' }).click();
+  await page.getByRole('button', { name: 'Tạo kế hoạch nghiên cứu' }).click();
   await expect(page).toHaveURL(/workflow-1$/);
   await expect(page.locator('#topic')).toBeFocused();
   await fillResearch(page);
@@ -126,14 +134,98 @@ test('Validation, backend 404, network error and empty source state', async ({ p
   await page.goto('/workflow-1');
   await fillResearch(page);
   await page.route('**/api/research', (route) => route.abort('failed'));
-  await page.getByRole('button', { name: 'Tạo Research Plan' }).click();
+  await page.getByRole('button', { name: 'Tạo kế hoạch nghiên cứu' }).click();
   await expect(page.getByRole('alert')).toContainText('Không thể kết nối backend');
   await page.unroute('**/api/research');
   const created = await request.post('http://localhost:4300/api/research', { data: input });
   const { data } = await created.json();
   await page.goto(`/research/${data.requestId}/sources`);
   await expect(page.getByRole('heading', { name: 'Chưa có nguồn tài liệu' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Bắt đầu Search & Collect' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Bắt đầu tìm kiếm & thu thập' })).toBeEnabled();
+  const source = {
+    id: 'translated-source',
+    sourceLanguage: 'en',
+    translationStatus: 'complete',
+    title: 'Original English title',
+    titleVi: 'Tiêu đề tiếng Việt',
+    snippet: 'Original English snippet',
+    snippetVi: 'Tóm tắt tiếng Việt',
+    content: 'Original English content',
+    contentVi: 'Nội dung tiếng Việt',
+    url: 'https://example.com/original',
+    provider: 'tavily',
+    query: 'RAG',
+    collectedAt: new Date().toISOString(),
+  };
+  await page.route(`**/api/research/${data.requestId}/sources`, (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: { requestId: data.requestId, sourceCount: 1, sources: [source] },
+      },
+    }),
+  );
+  await page.evaluate((id) => localStorage.setItem('aiResearch:lastRequestId', id), data.requestId);
+  await page.goto(`/research/${data.requestId}/sources`);
+  await expect(page.getByRole('heading', { name: source.titleVi, exact: true })).toBeVisible();
+  await expect(page.getByText(source.snippetVi, { exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Mở trang chi tiết' }).click();
+  await expect(page.getByRole('heading', { name: source.titleVi, exact: true })).toBeVisible();
+  await expect(page.getByText(source.contentVi, { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: source.url, exact: true })).toHaveAttribute(
+    'href',
+    source.url,
+  );
+  await expect(page.getByRole('button', { name: 'Xem bản gốc', exact: true })).toHaveCount(0);
+  await expect(page.getByText(source.title, { exact: true })).toHaveCount(0);
+  await expect(page.getByText(source.content, { exact: true })).toHaveCount(0);
+  source.translationStatus = 'pending';
+  source.titleVi = null;
+  source.snippetVi = null;
+  source.contentVi = null;
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Nguồn đang chờ bản tiếng Việt' })).toBeVisible();
+  await expect(
+    page.getByText('Nội dung tiếng Việt chưa sẵn sàng. Vui lòng thử lại sau.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(source.title, { exact: true })).toHaveCount(0);
+  await expect(page.getByText(source.content, { exact: true })).toHaveCount(0);
+
+  await page.route(`**/api/research/${data.requestId}`, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.request.status = 'analyzed_partial';
+    await route.fulfill({ json: body });
+  });
+  await page.route(`**/api/research/${data.requestId}/evidence`, (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          requestId: data.requestId,
+          status: 'analyzed_partial',
+          partial: true,
+          evidence: [],
+          questions: [
+            {
+              questionId: 'Q1',
+              error: {
+                code: 'GEMINI_RATE_LIMITED',
+                message: 'Gemini đang giới hạn tốc độ. Vui lòng thử lại sau.',
+              },
+            },
+          ],
+        },
+      },
+    }),
+  );
+  await page.goto(`/workflow-3/${data.requestId}`);
+  await expect(page.getByRole('status')).toContainText('Phân tích hoàn tất một phần');
+  await expect(
+    page.getByRole('button', { name: 'Thử lại các câu hỏi chưa hoàn tất' }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('status')).toContainText('Phân tích hoàn tất một phần');
 });
 
 test('Mobile drawer, responsive form and sources do not overflow', async ({ page, request }) => {
@@ -157,7 +249,7 @@ test('Mobile drawer, responsive form and sources do not overflow', async ({ page
   const { data } = await created.json();
   await request.post(`http://localhost:4300/api/research/${data.requestId}/search`);
   await page.goto(`/research/${data.requestId}/sources`);
-  await expect(page.locator('.source-card')).not.toHaveCount(0);
+  await expect(page.getByRole('article')).not.toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -191,8 +283,8 @@ test('Dashboard, source picker, settings, unknown route and tablet navigation', 
   await page.setViewportSize({ width: 1024, height: 900 });
   for (const [route, heading] of [
     ['/', 'Tổng quan dự án nghiên cứu'],
-    ['/sources', 'Nguồn tài liệu của bạn'],
-    ['/workflow-2', 'Search & Collect'],
+    ['/sources', 'Nguồn tài liệu nghiên cứu'],
+    ['/workflow-2', 'Tìm kiếm & Thu thập tài liệu'],
     ['/settings', 'Cài đặt không gian nghiên cứu'],
     ['/unknown-page', 'Không tìm thấy trang'],
   ]) {
@@ -202,5 +294,7 @@ test('Dashboard, source picker, settings, unknown route and tablet navigation', 
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
   }
-  await expect(page.getByRole('link', { name: 'Workflow 1', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Lập kế hoạch nghiên cứu', exact: true }),
+  ).toBeVisible();
 });

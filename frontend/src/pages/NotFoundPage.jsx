@@ -8,7 +8,7 @@ export default function NotFoundPage() {
         title="Không tìm thấy trang"
         description="Đường dẫn này chưa tồn tại. Hãy trở lại không gian nghiên cứu."
       >
-        <Button to="/">Về Dashboard</Button>
+        <Button to="/">Về Tổng quan</Button>
       </EmptyState>
     </Card>
   );

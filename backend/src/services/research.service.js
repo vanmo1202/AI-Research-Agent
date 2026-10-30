@@ -53,11 +53,13 @@ async function getResearchSources(requestId) {
     const sources = await sourceModel.getSourcesByRequestId(requestId);
     return { requestId, sourceCount: sources.length, sources };
 }
+const translation = require("./translation.service");
 const activeSearches = new Set();
 async function searchAndCollect(requestId) {
     if (activeSearches.has(requestId)) throw httpError("Research request is already searching", 409);
     activeSearches.add(requestId);
     let started = false;
+    const totalStarted = Date.now();
     try {
         const request = await requestModel.findById(requestId);
         if (!request) throw httpError("Research request not found", 404);
@@ -67,7 +69,8 @@ async function searchAndCollect(requestId) {
         started = true;
         await requestModel.updateStatus(requestId, "searching");
         logger.info("Search", `Starting search for request ${requestId}`);
-        const concurrency = positiveInteger("SEARCH_CONCURRENCY", 2, 10);
+        const concurrency = positiveInteger("SEARCH_CONCURRENCY", 4, 10);
+        const searchStarted = Date.now();
         const batches = await mapWithConcurrency(plan.searchQueries, concurrency, async (item, index) => {
             logger.info("Search", `Query ${index + 1}/${plan.searchQueries.length}`);
             try {
@@ -79,20 +82,60 @@ async function searchAndCollect(requestId) {
                 return null;
             }
         });
+        logger.info('Workflow2', `search completed in ${Date.now() - searchStarted}ms`);
         if (batches.every(batch => batch === null)) throw new Error("All search queries failed");
         const normalized = batches.filter(Boolean).flat();
         logger.info("Collect", `Normalized ${normalized.length} results`);
         const sources = deduplicateSources(normalized);
         logger.info("Collect", `Deduplicated to ${sources.length} sources`);
+        logger.info('Workflow2', `dedupe ${normalized.length} -> ${sources.length}`);
         if (!sources.length) throw new Error("No valid sources collected");
-        await mapWithConcurrency(sources, concurrency, async source => {
+        const fetchStarted = Date.now();
+        await mapWithConcurrency(sources, positiveInteger('CONTENT_FETCH_CONCURRENCY', 5, 10), async source => {
             source.content = source.content ? contentService.cleanContent(source.content)
                 : await contentService.fetchPageContent(source.url);
         });
+        logger.info('Workflow2', `content fetch completed in ${Date.now() - fetchStarted}ms`);
+        const previous = await sourceModel.getSourcesByRequestId(requestId);
+        const { detectSourceLanguage } = require('../utils/language');
+        const stats = { viSources: 0, enSources: 0, unknownSources: 0, translationCalls: 0, cacheHits: 0, rateLimitRetries: 0 };
+        for (const source of sources) {
+            source.sourceLanguage = detectSourceLanguage(source);
+            stats[source.sourceLanguage === 'vi' ? 'viSources' : source.sourceLanguage === 'en' ? 'enSources' : 'unknownSources']++;
+            source.translationStatus = 'pending';
+        }
+        // Persist originals first, then publish each ready translation for polling clients.
+        await sourceModel.createSources(requestId, sources, 'translating');
+        const translationStarted = Date.now();
+        await mapWithConcurrency(sources, positiveInteger('TRANSLATE_SOURCE_CONCURRENCY', Number(process.env.TRANSLATE_CONCURRENCY || 2), 10), async source => {
+            try {
+                const hash = translation.translationHash(source);
+                const cached = previous.find(item => item.normalizedUrl === source.normalizedUrl && item.translationHash === hash &&
+                    ['complete', 'not_required'].includes(item.translationStatus));
+                if (cached) {
+                    stats.cacheHits++;
+                    Object.assign(source, { titleVi: cached.titleVi, snippetVi: cached.snippetVi, contentVi: cached.contentVi,
+                        translationHash: hash, translationStatus: cached.translationStatus });
+                } else {
+                    const result = await translation.translateSourceToVietnamese(source);
+                    Object.assign(source, result);
+                    stats.translationCalls += result.translationCalls || 0;
+                    stats.rateLimitRetries += result.rateLimitRetries || 0;
+                }
+            } catch {
+                source.translationStatus = 'failed';
+                logger.warn('Translate', 'Source translation failed; original retained, Vietnamese placeholder used');
+            }
+            await sourceModel.createSources(requestId, [source], 'translating');
+        });
+        logger.info('Workflow2', `vi sources: ${stats.viSources}; en sources: ${stats.enSources}; translation calls: ${stats.translationCalls}; cache hits: ${stats.cacheHits}`);
+        logger.info('Workflow2', `translation completed in ${Date.now() - translationStarted}ms`);
         const saved = await sourceModel.createSources(requestId, sources);
         logger.info("Database", `Saved ${saved.length} sources`);
         logger.info("Research", "Status changed to collected");
-        return { requestId, status: "collected", queryCount: plan.searchQueries.length,
+        stats.totalMs = Date.now() - totalStarted;
+        logger.info('Workflow2', `total completed in ${stats.totalMs}ms`);
+        return { requestId, status: "collected", metrics: stats, queryCount: plan.searchQueries.length,
             sourceCount: saved.length, sources: saved };
     } catch (error) {
         if (!started) throw error;

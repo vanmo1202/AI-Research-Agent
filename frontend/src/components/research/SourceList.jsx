@@ -1,3 +1,4 @@
+import { sourceDisplay } from '../../utils/sourceDisplay';
 import { useMemo, useState } from 'react';
 import { Database, X } from 'lucide-react';
 import Card from '../ui/Card';
@@ -16,7 +17,7 @@ export default function SourceList({ sources }) {
       sources
         .filter((source) => {
           const matches =
-            `${source.title} ${source.url} ${source.snippet} ${source.content} ${source.query}`
+            `${sourceDisplay(source).title} ${sourceDisplay(source).snippet} ${sourceDisplay(source).content} ${source.url} ${source.query}`
               .toLocaleLowerCase('vi')
               .includes(filters.search.toLocaleLowerCase('vi'));
           return (
@@ -24,13 +25,13 @@ export default function SourceList({ sources }) {
             (filters.provider === 'all' || (source.provider || '') === filters.provider) &&
             (filters.content === 'all' ||
               (filters.content === 'ready'
-                ? Boolean(source.content?.trim())
-                : !source.content?.trim()))
+                ? sourceDisplay(source).ready
+                : !sourceDisplay(source).ready))
           );
         })
         .sort((a, b) =>
           filters.sort === 'title'
-            ? (a.title || '').localeCompare(b.title || '', 'vi')
+            ? sourceDisplay(a).title.localeCompare(sourceDisplay(b).title, 'vi')
             : (new Date(b.collectedAt) - new Date(a.collectedAt)) *
               (filters.sort === 'oldest' ? -1 : 1),
         ),
@@ -51,7 +52,7 @@ export default function SourceList({ sources }) {
       <div className="source-table-heading">
         <span>#</span>
         <span>Nguồn tài liệu</span>
-        <span>Provider</span>
+        <span>Nhà cung cấp</span>
         <span>Trạng thái</span>
         <span>Xem trước nội dung</span>
         <span>Thao tác</span>
@@ -66,7 +67,7 @@ export default function SourceList({ sources }) {
           description={
             sources.length
               ? 'Thử đổi từ khóa hoặc bộ lọc để tìm lại nguồn.'
-              : 'Bắt đầu Search & Collect từ kế hoạch nghiên cứu của bạn.'
+              : 'Bắt đầu tìm kiếm và thu thập từ kế hoạch nghiên cứu của bạn.'
           }
         >
           {sources.length > 0 && (

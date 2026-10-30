@@ -35,19 +35,19 @@ function SourceResults({ requestId }) {
   const providers = [...new Set(sources.map((source) => providerLabel(source.provider)))];
   const provider = providers.join(', ') || '—';
   const collected = request.status === 'collected';
-  const processing = search.busy || ['searching', 'planning'].includes(request.status);
+  const processing = search.busy || ['searching', 'planning', 'translating'].includes(request.status);
   const planned = researchQuestions.length > 0 && searchQueries.length > 0;
   return (
     <div className="page-enter sources-page">
       <div className="breadcrumb">
-        <Link to={`/research/${requestId}`}>Research Plan</Link>
+        <Link to={`/research/${requestId}`}>Kế hoạch nghiên cứu</Link>
         <ChevronRight size={13} />
-        <strong>Workflow 2</strong>
+        <strong>Tìm kiếm & Thu thập tài liệu</strong>
       </div>
       <div className="page-intro">
         <div>
           <p className="eyebrow">KẾT NỐI Ý TƯỞNG VỚI NGUỒN TRI THỨC</p>
-          <h1>Kết quả Search & Collect</h1>
+          <h1>Tìm kiếm & Thu thập tài liệu</h1>
           <p>
             {collected
               ? 'Đã tìm kiếm và thu thập các nguồn tài liệu phù hợp với yêu cầu nghiên cứu của bạn.'
@@ -65,7 +65,7 @@ function SourceResults({ requestId }) {
             <Fingerprint size={20} />
           </span>
           <div>
-            <span>Request ID</span>
+            <span>Mã nghiên cứu</span>
             <div className="metric-id">
               <code title={requestId}>{requestId}</code>
               <CopyButton text={requestId} label="Sao chép Request ID" />
@@ -95,7 +95,7 @@ function SourceResults({ requestId }) {
             <Globe2 size={20} />
           </span>
           <div>
-            <span>Provider</span>
+            <span>Nhà cung cấp tìm kiếm</span>
             <strong className="provider-metric">{provider}</strong>
           </div>
         </Card>
@@ -119,6 +119,7 @@ function SourceResults({ requestId }) {
         </div>
         <aside className="right-panel">
           <WorkflowProgress
+            status={request.status}
             stage={2}
             planned={planned}
             collected={collected}
@@ -141,7 +142,7 @@ function SourceResults({ requestId }) {
                 <dd>{searchQueries.length}</dd>
               </div>
               <div>
-                <dt>Provider</dt>
+                <dt>Nhà cung cấp</dt>
                 <dd>{provider}</dd>
               </div>
             </dl>
@@ -159,10 +160,10 @@ function SourceResults({ requestId }) {
             </p>
           </Card>
           <Card className="next-workflow-card">
-            <Badge tone="violet">Tiếp theo · Workflow 3</Badge>
-            <h2>Evidence & RAG</h2>
-            <p>Từ nguồn tài liệu đến bằng chứng có thể kiểm chứng.</p>
-            <span className="not-available">Chưa triển khai</span>
+            <Badge tone="violet">Tiếp theo</Badge>
+            <h2>Sẵn sàng phân tích bằng chứng</h2>
+            <p>Các tài liệu đã thu thập và sẵn sàng cho bước phân tích bằng chứng và truy xuất thông tin.</p>
+            <Button to={`/workflow-3/${requestId}`} variant="secondary">Tiếp tục phân tích bằng chứng</Button>
           </Card>
           <Button
             variant="secondary"
@@ -172,10 +173,10 @@ function SourceResults({ requestId }) {
             disabled={!planned}
           >
             {processing
-              ? 'Đang Search & Collect...'
+              ? 'Đang tìm kiếm và thu thập...'
               : sources.length
                 ? 'Thu thập lại nguồn'
-                : 'Bắt đầu Search & Collect'}
+                : 'Bắt đầu tìm kiếm & thu thập'}
             {!processing && <RefreshCw size={15} />}
           </Button>
         </aside>
@@ -190,9 +191,9 @@ export default function Workflow2Page() {
     <div className="page-enter">
       <div className="page-intro">
         <div>
-          <p className="eyebrow">WORKFLOW 2</p>
-          <h1>Search & Collect</h1>
-          <p>Chọn một Research Plan để bắt đầu khám phá nguồn tài liệu.</p>
+          <p className="eyebrow">TÌM KIẾM TRI THỨC</p>
+          <h1>Tìm kiếm & Thu thập tài liệu</h1>
+          <p>Chọn một kế hoạch nghiên cứu để bắt đầu khám phá nguồn tài liệu.</p>
         </div>
       </div>
       <RequestPicker destination="plan" />

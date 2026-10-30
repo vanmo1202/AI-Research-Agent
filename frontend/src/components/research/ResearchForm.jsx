@@ -148,7 +148,7 @@ export default function ResearchForm() {
       <ErrorMessage error={error}>
         {error?.requestId && (
           <p className="mt-2">
-            Request ID: <code>{error.requestId}</code>
+            Mã nghiên cứu: <code>{error.requestId}</code>
           </p>
         )}
       </ErrorMessage>
@@ -166,7 +166,7 @@ export default function ResearchForm() {
         </Button>
         <Button type="submit" loading={busy}>
           {!busy && <Sparkles size={18} />}
-          {busy ? 'Đang tạo kế hoạch...' : 'Tạo Research Plan'}
+          {busy ? 'Đang tạo kế hoạch...' : 'Tạo kế hoạch nghiên cứu'}
           {!busy && <ArrowRight size={17} />}
         </Button>
       </div>

@@ -1,3 +1,4 @@
+import { researchJourney } from '../utils/researchJourney';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -21,8 +22,15 @@ export default function DashboardPage() {
   const history = useResearchHistory();
   const plans = history.filter((item) => item.questionCount > 0).length;
   const sourceCount = history.reduce((sum, item) => sum + (item.sourceCount || 0), 0);
+  const latest = history[0];
+  const journeyInput = (item) => ({
+    ...item,
+    status: item?.status,
+    planned: item?.questionCount > 0,
+    collected: item?.sourceCount > 0,
+  });
   const completed = history.reduce(
-    (sum, item) => sum + (item.questionCount > 0 ? 1 : 0) + (item.status === 'collected' ? 1 : 0),
+    (sum, item) => sum + researchJourney(journeyInput(item)).completed,
     0,
   );
   return (
@@ -30,11 +38,11 @@ export default function DashboardPage() {
       <div className="breadcrumb">
         <span>Không gian nghiên cứu</span>
         <span>/</span>
-        <strong>Dashboard</strong>
+        <strong>Tổng quan</strong>
       </div>
       <div className="page-intro">
         <div>
-          <p className="eyebrow">CHÀO MỪNG TRỞ LẠI, MINH ANH</p>
+          <p className="eyebrow">CHÀO MỪNG TRỞ LẠI, VĂN MƠ </p>
           <h1>Tổng quan dự án nghiên cứu</h1>
           <p>Một không gian cho những ý tưởng và khám phá tiếp theo của bạn.</p>
         </div>
@@ -82,7 +90,7 @@ export default function DashboardPage() {
             <FileText size={22} />
           </span>
           <div>
-            <span>Research Plan đã tạo</span>
+            <span>Kế hoạch đã tạo</span>
             <strong>{plans}</strong>
             <small>Trong lịch sử trình duyệt</small>
           </div>
@@ -102,7 +110,7 @@ export default function DashboardPage() {
             <CheckCheck size={22} />
           </span>
           <div>
-            <span>Workflow hoàn thành</span>
+            <span>Bước đã hoàn thành</span>
             <strong>{completed}</strong>
             <small>Tổng bước hoàn tất đã ghi nhận</small>
           </div>
@@ -148,7 +156,7 @@ export default function DashboardPage() {
               >
                 <Button to="/workflow-1">
                   <Plus size={16} />
-                  Tạo Research Plan
+                  Tạo kế hoạch nghiên cứu
                 </Button>
               </EmptyState>
             )}
@@ -159,7 +167,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <aside className="right-panel">
-          <WorkflowProgress />
+          <WorkflowProgress {...journeyInput(latest)} />
           <div className="dashboard-quote">
             <Sparkles size={22} />
             <p>

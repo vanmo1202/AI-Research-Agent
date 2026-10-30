@@ -1,0 +1,10 @@
+{
+  "name": "AI Research Agent - Tạo báo cáo nghiên cứu",
+  "nodes": [
+    { "parameters": {}, "id": "manual", "name": "Manual Trigger", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [240, 300] },
+    { "parameters": { "method": "POST", "url": "=http://host.docker.internal:3000/api/research/{{$json.requestId}}/report", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { title: $json.title || 'Báo cáo nghiên cứu', language: $json.language || 'vi', style: $json.style || 'academic', outputLength: $json.outputLength || 'medium' } }}", "options": {} }, "id": "report", "name": "Tạo báo cáo", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [500, 300] },
+    { "parameters": { "method": "GET", "url": "=http://host.docker.internal:3000/api/research/{{$json.data.requestId || $json.requestId}}/report", "options": {} }, "id": "read-report", "name": "Đọc báo cáo", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [760, 300] }
+  ],
+  "connections": { "Manual Trigger": { "main": [[{ "node": "Tạo báo cáo", "type": "main", "index": 0 }]] }, "Tạo báo cáo": { "main": [[{ "node": "Đọc báo cáo", "type": "main", "index": 0 }]] } },
+  "active": false, "settings": {}, "versionId": "workflow-4"
+}

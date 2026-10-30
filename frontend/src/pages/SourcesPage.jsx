@@ -7,17 +7,17 @@ export default function SourcesPage() {
       <div className="breadcrumb">
         <span>Không gian nghiên cứu</span>
         <span>/</span>
-        <strong>Sources</strong>
+        <strong>Nguồn tài liệu</strong>
       </div>
       <div className="page-intro">
         <div>
           <p className="eyebrow">THƯ VIỆN NGHIÊN CỨU</p>
-          <h1>Nguồn tài liệu của bạn</h1>
-          <p>Mở một nghiên cứu để xem lại các nguồn đã lưu trong SQLite.</p>
+          <h1>Nguồn tài liệu nghiên cứu</h1>
+          <p>Quản lý và xem lại các nguồn tài liệu đã thu thập cho nghiên cứu hiện tại.</p>
         </div>
         <Badge tone="teal">
           <Database size={13} />
-          Sources library
+          Thư viện nguồn tài liệu
         </Badge>
       </div>
       <RequestPicker />

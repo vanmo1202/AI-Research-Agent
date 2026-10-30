@@ -12,11 +12,13 @@ async function boot(databasePath, mock = 'true') {
         start().then(server => console.log('TEST_PORT=' + server.address().port));
     `], {
         cwd: path.join(__dirname, '..'),
-        env: { ...process.env, PORT: '0', MOCK_LLM: mock,
+        env: { ...process.env, PORT: '0', MOCK_LLM: mock, MOCK_SEARCH: 'true',
             LLM_PROVIDER: 'gemini', GEMINI_API_KEY: '', HTTP_RETRY_COUNT: '0', RESEARCH_DB_PATH: databasePath },
         stdio: ['ignore', 'pipe', 'pipe']
     });
     let output = '';
+    let errors = '';
+    child.stderr.on('data', chunk => { errors += chunk; });
     const port = await new Promise((resolve, reject) => {
         const timer = setTimeout(() => { child.kill(); reject(new Error('Server startup timed out')); }, 10000);
         child.stdout.on('data', chunk => {
@@ -25,12 +27,12 @@ async function boot(databasePath, mock = 'true') {
             if (match) { clearTimeout(timer); resolve(match[1]); }
         });
         child.once('error', error => { clearTimeout(timer); reject(error); });
-        child.once('exit', code => { clearTimeout(timer); reject(new Error(`Server exited: ${code}`)); });
+        child.once('exit', code => { clearTimeout(timer); reject(new Error(`Server exited: ${code}; ${errors}`)); });
     });
     return {
         base: `http://127.0.0.1:${port}`,
         async stop() {
-            if (child.exitCode !== null) return;
+            if (child.exitCode !== null || child.signalCode !== null) return;
             await new Promise(resolve => { child.once('exit', resolve); child.kill(); });
         }
     };
@@ -94,14 +96,9 @@ test('Workflow 1: HTTP API, validation, SQLite persistence and failed planner', 
         server = await boot(databasePath);
         await readPlan(); // Process mới vẫn đọc đúng plan đã lưu.
         await server.stop();
-        server = await boot(databasePath, 'false');
-        const failed = await post(server.base, input);
-        assert.equal(failed.status, 502);
-        const failure = await failed.json();
-        assert.equal(failure.error, 'GEMINI_API_KEY is not configured');
-        const lookup = await fetch(`${server.base}/api/research/${failure.requestId}`);
-        assert.equal((await lookup.json()).data.request.status, 'failed');
-        assert.equal((await fetch(`${server.base}/health`)).status, 200);
+        // Startup validates required credentials before accepting HTTP requests.
+        await assert.rejects(boot(databasePath, 'false'), /Server exited: 1/);
+
     } finally {
         if (server) await server.stop();
         await fs.rm(directory, { recursive: true, force: true });

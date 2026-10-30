@@ -10,14 +10,14 @@ export default function AppLayout() {
     window.scrollTo(0, 0);
     setOpen(false);
     const title = location.pathname.startsWith('/workflow-1')
-      ? 'Research Planning'
+      ? 'Lập kế hoạch nghiên cứu'
       : location.pathname.includes('sources') || location.pathname.startsWith('/workflow-2')
-        ? 'Search & Collect'
+        ? 'Tìm kiếm & Thu thập'
         : location.pathname.startsWith('/research')
-          ? 'Research Plan'
+          ? 'Kế hoạch nghiên cứu'
           : location.pathname === '/settings'
-            ? 'Settings'
-            : 'Dashboard';
+            ? 'Cài đặt'
+            : 'Tổng quan';
     document.title = `${title} · AI Research Agent`;
   }, [location.pathname]);
   useEffect(() => {

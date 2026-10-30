@@ -20,6 +20,7 @@ export default function useSearchAndCollect(request, plan, reload) {
     lock.current = true;
     setBusy(true);
     setError(null);
+    const poll = setInterval(() => { if (mounted.current) reload?.(); }, 1800);
     try {
       const result = await searchAndCollect(request.requestId);
       rememberResearch({ ...request, status: result.status }, plan, result);
@@ -33,6 +34,7 @@ export default function useSearchAndCollect(request, plan, reload) {
         reload?.();
       }
     } finally {
+      clearInterval(poll);
       lock.current = false;
       if (mounted.current) setBusy(false);
     }

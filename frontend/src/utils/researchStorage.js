@@ -34,6 +34,12 @@ export function rememberResearch(request, plan = {}, collection) {
       status: request.status,
       createdAt: request.createdAt || previous?.createdAt || new Date().toISOString(),
       updatedAt: request.updatedAt || new Date().toISOString(),
+      ...(plan.analysis
+        ? {
+            analysisStatus: plan.analysis.status,
+            evidenceCount: plan.analysis.evidence?.length || 0,
+          }
+        : {}),
       questionCount: plan.researchQuestions?.length ?? previous?.questionCount ?? 0,
       queryCount: plan.searchQueries?.length ?? previous?.queryCount ?? 0,
       ...(collection ? { sourceCount: collection.sourceCount } : {}),

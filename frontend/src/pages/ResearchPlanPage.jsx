@@ -37,14 +37,14 @@ export default function ResearchPlanPage() {
   return (
     <div className="page-enter">
       <div className="breadcrumb">
-        <Link to="/workflow-1">Workflow 1</Link>
+        <Link to="/workflow-1">Lập kế hoạch nghiên cứu</Link>
         <ChevronRight size={13} />
-        <strong>Research Plan</strong>
+        <strong>Kế hoạch nghiên cứu</strong>
       </div>
       <div className="page-intro">
         <div>
           <p className="eyebrow">TỪ Ý TƯỞNG ĐẾN MỘT KẾ HOẠCH RÕ RÀNG</p>
-          <h1>Kết quả Research Plan</h1>
+          <h1>Kế hoạch nghiên cứu</h1>
           <p>Kế hoạch nghiên cứu của bạn đã sẵn sàng cho bước khám phá tiếp theo.</p>
         </div>
         <StatusBadge status={request.status} />
@@ -73,7 +73,7 @@ export default function ResearchPlanPage() {
             <span className="completion-icon">
               <Check size={24} />
             </span>
-            <h2>{planned ? 'Workflow 1 hoàn tất' : 'Kế hoạch chưa hoàn tất'}</h2>
+            <h2>{planned ? 'Đã lập kế hoạch' : 'Kế hoạch chưa hoàn tất'}</h2>
             <p>
               {planned
                 ? 'Từ một ý tưởng, bạn đã có lộ trình nghiên cứu cụ thể.'
@@ -98,7 +98,7 @@ export default function ResearchPlanPage() {
             <span className="heading-icon blue">
               <Database size={23} />
             </span>
-            <h2>{collected ? 'Tiếp tục khám phá nguồn' : 'Sẵn sàng cho Workflow 2'}</h2>
+            <h2>{collected ? 'Tiếp tục khám phá nguồn' : 'Sẵn sàng tìm kiếm tài liệu'}</h2>
             <p>Tìm kiếm, loại bỏ nguồn trùng lặp và thu thập nội dung theo kế hoạch vừa tạo.</p>
             <Button
               className="w-full"
@@ -107,10 +107,10 @@ export default function ResearchPlanPage() {
               disabled={!planned}
             >
               {processing
-                ? 'Đang Search & Collect...'
+                ? 'Đang tìm kiếm và thu thập...'
                 : collected
-                  ? 'Chạy lại Search & Collect'
-                  : 'Bắt đầu Search & Collect'}
+                  ? 'Chạy lại tìm kiếm và thu thập'
+                  : 'Bắt đầu tìm kiếm & thu thập'}
               {!processing && <ArrowRight size={16} />}
             </Button>
             {processing && (
@@ -120,6 +120,7 @@ export default function ResearchPlanPage() {
             )}
           </Card>
           <WorkflowProgress
+            status={request.status}
             planned={planned}
             collected={collected}
             stage={2}

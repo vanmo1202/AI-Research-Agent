@@ -1,7 +1,7 @@
-export default function Card({ children, className = '', ...props }) {
+export default function Card({ children, className = '', as: Component = 'section', ...props }) {
   return (
-    <section className={`card ${className}`} {...props}>
+    <Component className={`card ${className}`} {...props}>
       {children}
-    </section>
+    </Component>
   );
 }

@@ -111,16 +111,27 @@ async function generateGeminiPlan(input) {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             signal: AbortSignal.timeout(Number(process.env.HTTP_TIMEOUT_MS || 30000)),
             body: JSON.stringify({
-                model: process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash",
-                messages: [
-                    { role: "system", content: RESEARCH_PLANNER_SYSTEM_PROMPT },
-                    { role: "user", content: JSON.stringify({
-                        topic: input.topic, goal: input.goal, scope: input.scope,
-                        outputLength: input.outputLength
-                    }) }
-                ],
-                temperature: 0.3
+    model: process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash",
+    messages: [
+        {
+            role: "system",
+            content: RESEARCH_PLANNER_SYSTEM_PROMPT
+        },
+        {
+            role: "user",
+            content: JSON.stringify({
+                topic: input.topic,
+                goal: input.goal,
+                scope: input.scope,
+                outputLength: input.outputLength
             })
+        }
+    ],
+    temperature: 0.3,
+    response_format: {
+        type: "json_object"
+    }
+})
             });
             if (!result.ok && transientStatus(result.status)) { const error = new Error(`HTTP ${result.status}`); error.status = result.status; throw error; }
             return result;
@@ -174,4 +185,30 @@ async function generateResearchPlan(input) {
     logger.info("Planner", `Generated ${validated.searchQueries.length} search queries`);
     return validated;
 }
-module.exports = { generateResearchPlan, validatePlan, parseGeminiPlan, RESEARCH_PLANNER_SYSTEM_PROMPT };
+async function generateJson(systemPrompt, userPayload, options = {}) {
+    const { runGeminiRequest } = require('../utils/geminiLimiter');
+    const { geminiResponseError, retryableGeminiError } = require('../utils/geminiError');
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) throw plannerError('GEMINI_API_KEY is not configured');
+    return withRetry(() => runGeminiRequest(async () => {
+        options.onAttempt?.();
+        const response = await fetch(GEMINI_CHAT_COMPLETIONS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(options.timeoutMs ?? Number(process.env.HTTP_TIMEOUT_MS || 30000)),
+            body: JSON.stringify({ model: process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash',
+                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: JSON.stringify(userPayload) }],
+                temperature: 0.2, response_format: { type: 'json_object' } })
+        });
+        if (!response.ok) throw await geminiResponseError(response);
+        let payload;
+        try { payload = await response.json(); } catch (error) {
+            if (['AbortError', 'TimeoutError', 'TypeError'].includes(error.name)) throw error;
+            throw plannerError('Gemini returned invalid JSON');
+        }
+        try { return JSON.parse(String(payload?.choices?.[0]?.message?.content || '').trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1')); }
+        catch { throw plannerError('Gemini returned invalid JSON'); }
+    }), { label: options.label || 'Gemini', retryCount: options.retryCount, baseDelay: options.baseDelay,
+        jitterMs: options.jitterMs ?? 0, onRetry: options.onRetry, shouldRetry: retryableGeminiError });
+}
+module.exports = { generateResearchPlan, validatePlan, parseGeminiPlan, generateJson, RESEARCH_PLANNER_SYSTEM_PROMPT };

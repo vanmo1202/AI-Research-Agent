@@ -1,9 +1,14 @@
 export function StatusBadge({ status }) {
   const labels = {
     planning: 'Đang lập kế hoạch',
-    planned: 'Planned',
+    planned: 'Đã lập kế hoạch',
     searching: 'Đang tìm kiếm',
     collected: 'Đã thu thập',
+    translating: 'Đang chuẩn bị bản tiếng Việt',
+    analyzing: 'Đang phân tích',
+    analyzed: 'Đã phân tích',
+    analyzed_partial: 'Hoàn thành một phần',
+    completed: 'Đã hoàn thành',
     failed: 'Thất bại',
   };
   const tone =

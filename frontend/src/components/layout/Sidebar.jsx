@@ -1,6 +1,11 @@
+import { useEffect, useState } from 'react';
+import { getResearch, getEvidence } from '../../services/researchApi';
+import { researchJourney } from '../../utils/researchJourney';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   ArrowUpRight,
+  Check,
+  AlertTriangle,
   BrainCircuit,
   Database,
   FileText,
@@ -12,32 +17,88 @@ import {
   X,
 } from 'lucide-react';
 import useResearchHistory from '../../hooks/useResearchHistory';
-import { getLastRequestId } from '../../utils/researchStorage';
+import { getLastRequestId, rememberResearch } from '../../utils/researchStorage';
 
 export default function Sidebar({ open, onClose }) {
   const { pathname } = useLocation();
-  useResearchHistory();
-  const routeId = pathname.match(/^\/(?:research|workflow-2)\/([^/]+)/)?.[1];
+  const history = useResearchHistory();
+  const [backend, setBackend] = useState(null);
+  const routeId = pathname.match(/^\/(?:research|workflow-[234])\/([^/]+)/)?.[1];
   const id = routeId || getLastRequestId();
+  const remembered = history.find((item) => item.requestId === id);
+  useEffect(() => {
+    if (!id) {
+      setBackend(null);
+      return;
+    }
+    const controller = new AbortController();
+    getResearch(id, controller.signal)
+      .then(async (data) => {
+        let analysis;
+        if (
+          [
+            'analyzing',
+            'analyzed',
+            'analyzed_partial',
+            'generating_report',
+            'completed',
+            'failed',
+          ].includes(data.request.status)
+        ) {
+          analysis = await getEvidence(id, controller.signal).catch(() => null);
+        }
+        if (!controller.signal.aborted) rememberResearch(data.request, { ...data, analysis });
+        if (!controller.signal.aborted)
+          setBackend({
+            id,
+            status: data.request.status,
+            planned: data.researchQuestions.length > 0,
+            analysisStatus: analysis?.status,
+            evidenceCount: analysis?.evidence?.length || 0,
+          });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setBackend(null);
+      });
+    return () => controller.abort();
+  }, [id, pathname, remembered?.status]);
+  const journey = researchJourney({
+    ...(backend?.id === id ? backend : { status: remembered?.status }),
+    stage: pathname.startsWith('/workflow-4') ? 4 : pathname.startsWith('/workflow-3') ? 3 : 2,
+  });
   const sourcesActive = pathname.endsWith('/sources');
   const items = [
-    { to: '/', label: 'Dashboard', icon: House, active: pathname === '/' },
+    { to: '/', label: 'Tổng quan', icon: House, active: pathname === '/' },
     {
       to: '/workflow-1',
-      label: 'Workflow 1',
-      detail: 'Research Planning',
+      label: 'Lập kế hoạch nghiên cứu',
       icon: FileText,
       active: pathname === '/workflow-1' || (pathname.startsWith('/research/') && !sourcesActive),
     },
     {
       to: id ? `/workflow-2/${id}` : '/workflow-2',
-      label: 'Workflow 2',
-      detail: 'Search & Collect',
+      label: 'Tìm kiếm & Thu thập',
       icon: Database,
       active: pathname.startsWith('/workflow-2') || sourcesActive,
     },
-    { to: '/sources', label: 'Sources', icon: Link2, active: pathname === '/sources' },
-    { to: '/settings', label: 'Settings', icon: Settings, active: pathname === '/settings' },
+    {
+      to: id ? `/workflow-3/${id}` : '/workflow-3',
+      label: 'Phân tích bằng chứng',
+      journeyStep: 2,
+      detail: id ? journey.steps[2].label : undefined,
+      icon: BrainCircuit,
+      active: pathname.startsWith('/workflow-3'),
+    },
+    {
+      to: id ? `/workflow-4/${id}` : '/workflow-4',
+      label: 'Tạo báo cáo',
+      journeyStep: 3,
+      detail: id ? journey.steps[3].label : undefined,
+      icon: FileText,
+      active: pathname.startsWith('/workflow-4'),
+    },
+    { to: '/sources', label: 'Nguồn tài liệu', icon: Link2, active: pathname === '/sources' },
+    { to: '/settings', label: 'Cài đặt', icon: Settings, active: pathname === '/settings' },
   ];
   return (
     <>
@@ -58,7 +119,7 @@ export default function Sidebar({ open, onClose }) {
             <strong>
               AI Research <span>Agent</span>
             </strong>
-            <small>From ideas to insights</small>
+            <small>Trợ lý nghiên cứu thông minh</small>
           </div>
           <button
             type="button"
@@ -69,9 +130,9 @@ export default function Sidebar({ open, onClose }) {
             <X size={20} />
           </button>
         </div>
-        <div className="nav-caption">WORKSPACE</div>
+        <div className="nav-caption">KHÔNG GIAN NGHIÊN CỨU</div>
         <nav className="sidebar-nav">
-          {items.map(({ icon: Icon, ...item }) => (
+          {items.map(({ icon: Icon, journeyStep, ...item }) => (
             <Link
               key={item.label}
               to={item.to}
@@ -85,6 +146,12 @@ export default function Sidebar({ open, onClose }) {
                 <strong>{item.label}</strong>
                 {item.detail && <small>{item.detail}</small>}
               </span>
+              {journeyStep !== undefined && journey.steps[journeyStep].state === 'complete' && (
+                <Check size={15} className="nav-step-complete" />
+              )}
+              {journeyStep !== undefined && journey.steps[journeyStep].state === 'partial' && (
+                <AlertTriangle size={15} className="nav-step-partial" />
+              )}
               {item.active && <span className="nav-active-dot" />}
             </Link>
           ))}

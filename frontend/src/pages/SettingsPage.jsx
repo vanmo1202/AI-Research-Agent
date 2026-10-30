@@ -72,9 +72,9 @@ export default function SettingsPage() {
             <Badge tone="neutral">Demo</Badge>
           </div>
           <div className="settings-profile">
-            <span className="avatar large">N</span>
+            <span className="avatar large">M</span>
             <div>
-              <h3>Nguyễn Minh Anh</h3>
+              <h3>Văn Mơ</h3>
               <p>Sinh viên · Research workspace</p>
             </div>
           </div>
@@ -97,11 +97,11 @@ export default function SettingsPage() {
           </div>
           <div className="engine-grid">
             <div>
-              <strong>Research Planning</strong>
+              <strong>Lập kế hoạch nghiên cứu</strong>
               <p>LLM hoặc Mock LLM theo cấu hình backend.</p>
             </div>
             <div>
-              <strong>Search & Collect</strong>
+              <strong>Tìm kiếm & Thu thập</strong>
               <p>Tavily hoặc Mock Search; provider hiển thị theo response.</p>
             </div>
             <div>
