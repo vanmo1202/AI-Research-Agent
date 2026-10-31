@@ -1,0 +1,751 @@
+{
+  "name": "Flow v2 · Report observer",
+  "nodes": [
+    {
+      "id": "5861362b-8044-46c6-be92-0b16c665af97",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "research-v2/report-orchestrator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "2bbbdbb9-a0fe-4362-9771-5746eb375ba7"
+    },
+    {
+      "id": "2f7c4a2c-6f3a-4b78-a9c2-fe3495e4f4e3",
+      "name": "Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const b=$json.body||$json;if(typeof b.requestId!=='string'||typeof b.idempotencyKey!=='string')throw new Error('requestId and idempotencyKey required');return [{json:{requestId:b.requestId,idempotencyKey:b.idempotencyKey,runId:b.runId,options:b.options||{}}}];"
+      }
+    },
+    {
+      "id": "56ad8ea0-afce-4084-9772-0a9a44508f7b",
+      "name": "Run progress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:3000/api/research/{{ $('Context').first().json.requestId }}/runs/{{ $('Context').first().json.runId }}/progress",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $('Context').first().json.idempotencyKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0c08e67-c6d9-4912-a121-4709f30703b7",
+      "name": "Terminal?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b5a9c5a8-5b43-4c3f-bfc9-0057345bbf9c",
+              "leftValue": "={{ ['completed','partial','failed','cancelled'].includes($json.data.status) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "9aaf9040-57d2-453c-8e8d-5ca2a369aa54",
+      "name": "Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2200,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "855d1c19-2328-4cc6-b6f3-815b501446da",
+      "name": "Bounded loop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const p=$json.data; const count=$runIndex;if(count>=240) return [{json:{success:false,error:'Polling budget exhausted',data:p,stop:true}}]; return [{json:{...p,poll:count,stop:false}}];"
+      }
+    },
+    {
+      "id": "97cd1fc9-1ffe-4405-b092-020571f927fc",
+      "name": "Budget exhausted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1a4fb3a2-139c-41a4-9bdc-42045ab44b03",
+              "leftValue": "={{ $json.stop }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "306d6650-6753-4b00-a051-25a6591bd963",
+      "name": "Current stage",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1680,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7209a7b9-38fb-4842-8a0e-0c839402ea12",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "planning",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "planning"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "34907e05-6423-41e6-836f-441f9e1fcbbf",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "collecting",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "collecting"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "eae5bfde-e088-4569-b4e9-b76acfdd7c2f",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "analyzing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "analyzing"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "759dbccc-6cf9-4776-ba22-353b5607a529",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "evaluating",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "evaluating"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "de63a5df-fc6c-4255-b66f-d6b2015aa216",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "composing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "composing"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4509de6a-72fe-423a-bae0-66dc26def481",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "verifying",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "verifying"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "79bbc585-290e-4da9-ba91-035458ebbf87",
+      "name": "Start scheduled job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:3000/internal/runs/{{ $json.runId }}/jobs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.currentJob.idempotency_key }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {stage: $json.currentStage} }}"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "b2e125ae-81c7-4bf5-896e-0315b0793494",
+      "name": "Wait before poll",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2160,
+        240
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "dc06611d-32af-4e52-b226-832cd15f8831",
+      "name": "Poll job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:3000/internal/jobs/{{ $('Start scheduled job').item.json.data.id }}?runId={{ $('Context').first().json.runId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $('Context').first().json.idempotencyKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "f9d3eced-bcef-4089-bcaf-231d1c87704b",
+      "name": "Job finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "73fd73fa-81c6-4c9f-a7bb-9d6938aa0cce",
+              "leftValue": "={{ ['succeeded','failed','cancelled'].includes($json.data.status) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "55038d13-c00b-453b-a77e-f437a9a10501",
+      "name": "Safe error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        600
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{success:false,error:'Backend unavailable or workflow input rejected. Inspect backend run events.',requestId:$('Context').first().json.requestId}}];"
+      }
+    },
+    {
+      "id": "41f56a40-e557-4c23-971c-c1757267805d",
+      "name": "Error response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1840,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "8990307b-7aab-40b4-90da-8ceadf8b5e80",
+      "name": "Search more?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2880,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0c4e8e46-c15f-494a-8c76-2288e46f85b0",
+              "leftValue": "={{ $json.data.stage === 'evaluating' && $json.data.output?.action === 'search_more' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "b309ee15-90a6-4db4-a8dd-94142938f153",
+      "name": "Search more cooldown",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3120,
+        240
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 1,
+        "unit": "seconds"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context": {
+      "main": [
+        [
+          {
+            "node": "Run progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run progress": {
+      "main": [
+        [
+          {
+            "node": "Terminal?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Safe error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Terminal?": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bounded loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bounded loop": {
+      "main": [
+        [
+          {
+            "node": "Budget exhausted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Budget exhausted?": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Current stage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Current stage": {
+      "main": [
+        [
+          {
+            "node": "Start scheduled job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Start scheduled job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Start scheduled job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Start scheduled job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Start scheduled job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Start scheduled job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Safe error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start scheduled job": {
+      "main": [
+        [
+          {
+            "node": "Wait before poll",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Safe error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait before poll": {
+      "main": [
+        [
+          {
+            "node": "Poll job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll job": {
+      "main": [
+        [
+          {
+            "node": "Job finished?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Safe error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job finished?": {
+      "main": [
+        [
+          {
+            "node": "Search more?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safe error": {
+      "main": [
+        [
+          {
+            "node": "Error response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search more?": {
+      "main": [
+        [
+          {
+            "node": "Search more cooldown",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search more cooldown": {
+      "main": [
+        [
+          {
+            "node": "Run progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 3600,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none"
+  },
+  "pinData": {},
+  "tags": [],
+  "versionId": "5dde5e9b-7b69-4387-b0cc-ae7c15deed36"
+}

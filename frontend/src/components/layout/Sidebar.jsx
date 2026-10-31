@@ -22,12 +22,13 @@ import { getLastRequestId, rememberResearch } from '../../utils/researchStorage'
 export default function Sidebar({ open, onClose }) {
   const { pathname } = useLocation();
   const history = useResearchHistory();
+  const isRunPage = pathname.includes('/runs/') || pathname === '/research/new';
   const [backend, setBackend] = useState(null);
   const routeId = pathname.match(/^\/(?:research|workflow-[234])\/([^/]+)/)?.[1];
   const id = routeId || getLastRequestId();
   const remembered = history.find((item) => item.requestId === id);
   useEffect(() => {
-    if (!id) {
+    if (!id || isRunPage) {
       setBackend(null);
       return;
     }
@@ -61,7 +62,7 @@ export default function Sidebar({ open, onClose }) {
         if (!controller.signal.aborted) setBackend(null);
       });
     return () => controller.abort();
-  }, [id, pathname, remembered?.status]);
+  }, [id, pathname, remembered?.status, isRunPage]);
   const journey = researchJourney({
     ...(backend?.id === id ? backend : { status: remembered?.status }),
     stage: pathname.startsWith('/workflow-4') ? 4 : pathname.startsWith('/workflow-3') ? 3 : 2,
@@ -70,10 +71,18 @@ export default function Sidebar({ open, onClose }) {
   const items = [
     { to: '/', label: 'Tổng quan', icon: House, active: pathname === '/' },
     {
+      to: '/research/new',
+      label: 'Nghiên cứu tự động',
+      icon: Sparkles,
+      active: pathname === '/research/new' || pathname.includes('/runs/'),
+    },
+    {
       to: '/workflow-1',
       label: 'Lập kế hoạch nghiên cứu',
       icon: FileText,
-      active: pathname === '/workflow-1' || (pathname.startsWith('/research/') && !sourcesActive),
+      active:
+        pathname === '/workflow-1' ||
+        (pathname.startsWith('/research/') && !sourcesActive && !isRunPage),
     },
     {
       to: id ? `/workflow-2/${id}` : '/workflow-2',
@@ -85,7 +94,7 @@ export default function Sidebar({ open, onClose }) {
       to: id ? `/workflow-3/${id}` : '/workflow-3',
       label: 'Phân tích bằng chứng',
       journeyStep: 2,
-      detail: id ? journey.steps[2].label : undefined,
+      detail: id && !isRunPage ? journey.steps[2].label : undefined,
       icon: BrainCircuit,
       active: pathname.startsWith('/workflow-3'),
     },
@@ -93,7 +102,7 @@ export default function Sidebar({ open, onClose }) {
       to: id ? `/workflow-4/${id}` : '/workflow-4',
       label: 'Tạo báo cáo',
       journeyStep: 3,
-      detail: id ? journey.steps[3].label : undefined,
+      detail: id && !isRunPage ? journey.steps[3].label : undefined,
       icon: FileText,
       active: pathname.startsWith('/workflow-4'),
     },
@@ -146,12 +155,16 @@ export default function Sidebar({ open, onClose }) {
                 <strong>{item.label}</strong>
                 {item.detail && <small>{item.detail}</small>}
               </span>
-              {journeyStep !== undefined && journey.steps[journeyStep].state === 'complete' && (
-                <Check size={15} className="nav-step-complete" />
-              )}
-              {journeyStep !== undefined && journey.steps[journeyStep].state === 'partial' && (
-                <AlertTriangle size={15} className="nav-step-partial" />
-              )}
+              {!isRunPage &&
+                journeyStep !== undefined &&
+                journey.steps[journeyStep].state === 'complete' && (
+                  <Check size={15} className="nav-step-complete" />
+                )}
+              {!isRunPage &&
+                journeyStep !== undefined &&
+                journey.steps[journeyStep].state === 'partial' && (
+                  <AlertTriangle size={15} className="nav-step-partial" />
+                )}
               {item.active && <span className="nav-active-dot" />}
             </Link>
           ))}

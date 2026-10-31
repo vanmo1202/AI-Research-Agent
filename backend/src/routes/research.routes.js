@@ -1,7 +1,13 @@
 const router = require("express").Router();
 const controller = require("../controllers/research.controller");
 const validateResearch = require("../middlewares/validateResearch");
-router.post("/", validateResearch, controller.create);
+router.post("/", validateResearch, async (req, res, next) => {
+    if (req.body.executionMode !== 'async') return controller.create(req,res,next);
+    const {randomUUID}=require('node:crypto');
+    const id=randomUUID();
+    await require('../models/request.model').create({id,...req.researchInput,status:'created',createdAt:new Date().toISOString()});
+    res.status(201).json({success:true,data:{requestId:id,status:'created'}});
+});
 router.get("/:id", controller.getById);
 router.post("/:id/search", controller.search);
 router.get("/:id/sources", controller.getSources);

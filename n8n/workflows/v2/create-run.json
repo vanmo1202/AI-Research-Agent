@@ -1,0 +1,174 @@
+{
+  "name": "Flow v2 · Create run",
+  "nodes": [
+    {
+      "id": "0f8d4b33-5bec-42dc-9648-4c9b91549dbd",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "research-v2/create-run",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "a9f70da3-a454-4ba4-9bb1-a6548450c6b5"
+    },
+    {
+      "id": "2f7c4a2c-6f3a-4b78-a9c2-fe3495e4f4e3",
+      "name": "Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const b=$json.body||$json;if(typeof b.requestId!=='string'||typeof b.idempotencyKey!=='string')throw new Error('requestId and idempotencyKey required');return [{json:{requestId:b.requestId,idempotencyKey:b.idempotencyKey,runId:b.runId,options:b.options||{}}}];"
+      }
+    },
+    {
+      "id": "58853b0e-986d-40dd-8f15-416946d48fd0",
+      "name": "Create run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:3000/api/research/{{ $json.requestId }}/runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $('Context').first().json.idempotencyKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { ...$json.options, orchestration: 'n8n' } }}"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "86fadef8-7e7e-4676-8f8d-7a24892949b4",
+      "name": "Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "9f73f7ff-29aa-4d3a-9e0b-cca976ef2e93",
+      "name": "Safe error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        600
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{success:false,error:'Backend unavailable or workflow input rejected. Inspect backend run events.',requestId:$('Context').first().json.requestId}}];"
+      }
+    },
+    {
+      "id": "3930240d-1304-41db-bc3a-d36d2a64ea3e",
+      "name": "Error response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1840,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context": {
+      "main": [
+        [
+          {
+            "node": "Create run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create run": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Safe error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safe error": {
+      "main": [
+        [
+          {
+            "node": "Error response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 3600,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none"
+  },
+  "pinData": {},
+  "tags": [],
+  "versionId": "3736d533-bc2a-4d4f-8335-32e3555b662d"
+}

@@ -127,3 +127,4 @@ async function translateSourceToVietnamese(source) {
         translationCalls: metrics.calls, rateLimitRetries: metrics.rateLimitRetries };
 }
 module.exports = { splitTextForTranslation, translateMetadata, translateChunk, translateContent, translateSourceToVietnamese, translationHash, PARTIAL_MESSAGE };
+module.exports.validateV2Translation = validateField;
