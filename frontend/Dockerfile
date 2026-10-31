@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:22.14.0-alpine3.21 AS build
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 
-FROM nginx:alpine
+FROM nginx:1.28.0-alpine3.21
 
 COPY --from=build /app/dist /usr/share/nginx/html
 

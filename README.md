@@ -1,3 +1,74 @@
+# AI Research Agent — Flow v2
+
+Pipeline nghiên cứu bền vững theo từng run: planning → collecting (cleaning, dịch hiển thị, chunking) → analyzing → evaluating → search-more có giới hạn → composing → verifying. Backend Express/SQLite giữ trạng thái; worker có thể chạy riêng; frontend React/Vite theo dõi API; n8n chỉ điều phối. Code và API legacy được giữ trong giai đoạn migration.
+
+## Chạy Flow v2
+
+Node.js 22.14+ (nhánh 22), ba terminal:
+
+```bash
+cd backend
+npm ci
+# Nếu chưa có .env: cp .env.example .env
+npm start
+```
+
+```bash
+cd backend
+npm run worker
+```
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Mở http://localhost:5173 → **Nghiên cứu tự động**. Dashboard lấy request và latest run từ SQLite, không phụ thuộc localStorage. Vite proxy `/api` và `/health`; để `VITE_API_BASE_URL=` trong frontend/.env khi dùng cùng origin. Cấu hình frontend/.env cũ vẫn được tôn trọng nếu bạn giữ URL riêng.
+
+Provider thật: `MOCK_LLM=false`, `MOCK_SEARCH=false`, `GEMINI_API_KEY`, `TAVILY_API_KEY` trong backend/.env; backend và worker dùng chung môi trường và `RESEARCH_DB_PATH`. Mock dành cho phát triển, không sinh bằng chứng thực tế và kết thúc `partial`. Không cần gọi provider thật để chạy test.
+
+## Docker v2
+
+Sao chép `.env.example` ở root thành `.env`, thay `INTERNAL_API_KEY` bằng secret ngẫu nhiên. Backend/worker tự nhận cùng key qua Compose; không đưa key vào frontend. Bảo đảm backend/.env tồn tại.
+
+```bash
+docker compose config --quiet
+docker compose build
+docker compose up -d
+curl http://localhost:3000/health
+curl http://localhost:8080
+```
+
+Frontend http://localhost:8080, n8n http://localhost:5678. Nginx proxy API tới backend; database và n8n dùng named volume. Các base image và n8n đều pin version. Không xóa volume khi nâng cấp. Sao lưu database trước migration. Stack legacy đang chạy cần được chuyển đổi có chủ đích để tránh đụng cổng; kết quả kiểm thử cách ly được ghi trong [validation](docs/REBUILD_VALIDATION.md).
+
+## API v2
+
+Tạo request cơ bản bằng `POST /api/research` với `executionMode: "async"`, topic, goal, scope, outputLength. Không có cờ này thì giữ hành vi planner synchronous của API cũ.
+
+```bash
+curl -X POST http://localhost:3000/api/research \
+  -H 'Content-Type: application/json' \
+  -d '{"topic":"An toàn AI","goal":"Tổng hợp bằng chứng","executionMode":"async"}'
+# Dùng requestId vừa nhận:
+curl -X POST http://localhost:3000/api/research/REQUEST_ID/runs \
+  -H 'Content-Type: application/json' -H 'Idempotency-Key: client-run-001' \
+  -d '{"language":"vi","numberOfSources":12,"searchMore":true}'
+```
+
+Tạo run trả 202. Gửi lại cùng key/input trả cùng run; đổi input với cùng key trả 409. Xem [API và vận hành](docs/FLOW_V2_API.md), [kế hoạch migration](docs/REBUILD_IMPLEMENTATION_PLAN.md), [workflow n8n](n8n/workflows/v2/README.md).
+
+```bash
+cd backend && npm test
+cd ../frontend && npm run build && npm run test:e2e
+```
+
+## Tài liệu legacy
+
+Phần bên dưới ghi lại API và giao diện v1 để hỗ trợ migration. Các mô tả về localStorage dashboard, Docker hai service và RAG chưa triển khai chỉ phản ánh v1; hướng dẫn Flow v2 phía trên là hiện hành.
+
+---
+
 # AI Research Agent
 
 AI Research Agent là dự án nghiên cứu có điều phối bằng AI. Người dùng gửi yêu cầu qua n8n; backend lập kế hoạch gồm các câu hỏi nghiên cứu và search query, sau đó lưu kế hoạch vào SQLite.

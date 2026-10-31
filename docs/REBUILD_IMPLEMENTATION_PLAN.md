@@ -14,7 +14,7 @@ Baseline backend: 62 tests passed outside sandbox (sandbox prevents server socke
 - frontend production Docker hardcodes localhost API; Compose lacks worker/n8n/healthchecks.
 
 ## Target
-Modular monolith with additive v2 tables and API. Requests retain legacy compatibility; `executionMode: async` creates a basic request without invoking planner. Runs snapshot input. Stage jobs use SQLite BEGIN IMMEDIATE, lease/fencing and heartbeat; handlers prepare data outside transactions and commit results atomically with success/next job. Immutable sources/chunks/analysis/report versions. Backend owns sequencing and bounded search-more, n8n dispatches idempotently and observes the same jobs. Transactional outbox is an audit of durable local dispatch (no webhook secrets persisted).
+Modular monolith with additive v2 tables and API. Requests retain legacy compatibility; `executionMode: async` creates a basic request without invoking planner. Runs snapshot input. Stage jobs use SQLite BEGIN IMMEDIATE, lease/fencing and heartbeat; handlers prepare data outside transactions and commit results atomically with success/next job. Immutable sources/chunks/analysis/report versions. Backend owns sequencing and bounded search-more, n8n dispatches idempotently and observes the same jobs; n8n-mode jobs wait for authenticated release before claim. Transactional outbox is an audit of durable local dispatch (no webhook secrets persisted).
 
 ## Files / phases
 1. config/database + migrations/002-flow-v2; models/run; services/run; validators/run; routes/controller; worker planning; tests.
