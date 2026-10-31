@@ -12,7 +12,7 @@ const app = express();
 
 // Chỉ cho phép frontend dev gọi API từ browser; không thay đổi logic workflow.
 app.use(cors({ exposedHeaders: ['Content-Disposition'], origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173" }));
-app.use(express.json());
+app.use(express.json({ limit: "128kb" }));
 
 app.get("/", (req, res) => {
     res.json({
@@ -27,6 +27,9 @@ app.get("/health", (req, res) => {
     });
 });
 
+const v2 = require("./routes/run.routes");
+app.use("/api/research", v2.router);
+app.use("/internal", v2.internal);
 app.use("/api/research", researchRoutes);
 
 // JSON lỗi thống nhất, kể cả body JSON sai cú pháp.
@@ -54,6 +57,9 @@ async function start() {
                 resolve(listener);
             });
         });
+        const shutdown = () => server.close(() => process.exit(0));
+        process.once("SIGTERM", shutdown);
+        process.once("SIGINT", shutdown);
         return server;
     } catch (error) {
         logger.error("Server", `Startup failed (${error.code || "configuration or database error"}); check environment, database and PORT`);

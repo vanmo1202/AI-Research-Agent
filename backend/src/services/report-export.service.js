@@ -112,4 +112,4 @@ async function exportReport(id, format) {
     const data = await loadExport(id);
     return { buffer: await (format === 'docx' ? docx(data) : pdf(data)), filename: `${data.filename}.${format}`, mime: MIME[format] };
 }
-module.exports = { exportReport, markdownText };
+module.exports = { exportReport, markdownText, renderDocx: docx, renderPdf: pdf, blocks };

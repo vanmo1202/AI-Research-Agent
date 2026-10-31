@@ -51,6 +51,7 @@ function transaction(work) {
 }
 async function initializeDatabase() {
     await run("PRAGMA foreign_keys = ON");
+    await run("PRAGMA journal_mode = WAL");
     await run(`CREATE TABLE IF NOT EXISTS requests (
         id TEXT PRIMARY KEY, topic TEXT NOT NULL, goal TEXT NOT NULL,
         scope TEXT, output_length TEXT, status TEXT,
@@ -109,5 +110,6 @@ async function initializeDatabase() {
     await run("CREATE INDEX IF NOT EXISTS idx_chunks_source_id ON chunks(source_id)");
     await run("CREATE INDEX IF NOT EXISTS idx_evidence_request_id ON evidence(request_id)");
     await run("CREATE INDEX IF NOT EXISTS idx_evidence_source_id ON evidence(source_id)");
+    await require("../migrations/002-flow-v2")({ transaction });
 }
 module.exports = { run, get, all, transaction, initializeDatabase };
