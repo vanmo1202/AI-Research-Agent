@@ -10,6 +10,7 @@ import SourceDetailPage from './pages/SourceDetailPage';
 import NotFoundPage from './pages/NotFoundPage';
 import EvidencePage from './pages/EvidencePage';
 import ReportPage from './pages/ReportPage';
+import RequestPicker from './components/research/RequestPicker';
 export default function App() {
   return (
     <Routes>
@@ -19,6 +20,8 @@ export default function App() {
         <Route path="research/:requestId" element={<ResearchPlanPage />} />
         <Route path="workflow-2" element={<Workflow2Page />} />
         <Route path="workflow-2/:requestId" element={<Workflow2Page />} />
+        <Route path="workflow-3" element={<RequestPicker destination="workflow-3" />} />
+        <Route path="workflow-4" element={<RequestPicker destination="workflow-4" />} />
         <Route path="workflow-3/:requestId" element={<EvidencePage />} />
         <Route path="workflow-4/:requestId" element={<ReportPage />} />
         <Route path="research/:requestId/sources" element={<Workflow2Page />} />

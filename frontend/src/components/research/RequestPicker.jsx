@@ -11,9 +11,11 @@ export default function RequestPicker({ destination = 'sources' }) {
   const [id, setId] = useState('');
   const navigate = useNavigate();
   const target = (requestId) =>
-    destination === 'sources'
-      ? `/research/${encodeURIComponent(requestId)}/sources`
-      : `/research/${encodeURIComponent(requestId)}`;
+    ['workflow-3', 'workflow-4'].includes(destination)
+      ? `/${destination}/${encodeURIComponent(requestId)}`
+      : destination === 'sources'
+        ? `/research/${encodeURIComponent(requestId)}/sources`
+        : `/research/${encodeURIComponent(requestId)}`;
   return (
     <Card className="request-picker">
       <div className="panel-heading">

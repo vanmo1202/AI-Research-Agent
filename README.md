@@ -284,3 +284,33 @@ Tham khảo cấu hình: [Vite](https://vite.dev/guide/), [Tailwind với Vite](
 3. Agent Loop, retry và theo dõi toàn bộ tiến trình nghiên cứu.
 
 Nếu backend bị dừng giữa planning, request có thể còn trạng thái `planning`; phiên bản đầu chưa có cơ chế tự chạy lại.
+
+## Deploy frontend trên Render Static Site
+
+Frontend Vite + React nằm trong `frontend/`. Cấu hình Render:
+
+- Root Directory: `frontend`
+- Build Command: `npm ci && npm run build`
+- Publish Directory: `dist`
+- Environment: `VITE_API_BASE_URL=https://ai-research-backend-5gjt.onrender.com`
+- Redirects/Rewrites: Source `/*`, Destination `/index.html`, Action **Rewrite**
+
+Rewrite giúp BrowserRouter xử lý khi truy cập trực tiếp hoặc refresh các route
+`/workflow-1`, `/workflow-2`, `/workflow-3`, `/workflow-4` và các route có Request ID.
+Không cần Node server hoặc hash router cho Static Site. Vite dùng base `/` mặc định.
+Thiếu rewrite có thể gây HTTP 404 trước khi React được tải; thiếu route trong React
+sẽ hiển thị trang không tìm thấy sau khi ứng dụng đã tải.
+
+Kiểm tra build local (Node.js >=22.12):
+
+```bash
+cd frontend
+VITE_API_BASE_URL=https://ai-research-backend-5gjt.onrender.com npm run build
+```
+
+Output là `frontend/dist/index.html` và `frontend/dist/assets/`; không commit `dist/`.
+URL localhost chỉ fallback khi phát triển; production cần `VITE_API_BASE_URL` khi build.
+Biến `VITE_*` xuất hiện trong bundle công khai, không dùng cho API key hoặc secret.
+
+Docker Compose tại root phục vụ local trên `http://localhost:8080`, với backend
+`http://localhost:3000`. Nó độc lập với Render Static Site.
