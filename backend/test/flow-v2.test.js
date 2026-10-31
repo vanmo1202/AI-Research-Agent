@@ -373,6 +373,42 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
       assert.equal(job.output_json, null);
     },
   );
+  await t.test(
+    "later analysis outage retains validated evidence and report history",
+    async () => {
+      const r = await create();
+      await drain({ customProvider: real });
+      const before = await require("../src/models/run.model").latestAnalysis(
+        r.id,
+      );
+      await db.run("UPDATE research_runs SET status='partial' WHERE id=?", [
+        r.id,
+      ]);
+      await service.retry(r.id, "analyzing", "analysis-outage-retry");
+      await drain({
+        customProvider: {
+          ...real,
+          extract: async () => ({
+            evidence: [],
+            warnings: [{ code: "PROVIDER_UNAVAILABLE" }],
+          }),
+        },
+      });
+      const after = await require("../src/models/run.model").latestAnalysis(
+        r.id,
+      );
+      assert.deepEqual(
+        JSON.parse(after.evidence_json),
+        JSON.parse(before.evidence_json),
+      );
+      assert.equal((await service.requireRun(r.id)).status, "completed");
+      assert.equal(
+        (await db.all("SELECT * FROM report_versions WHERE run_id=?", [r.id]))
+          .length,
+        2,
+      );
+    },
+  );
   await t.test("coverage schema rejects inconsistent decisions", async () => {
     const { validate } = require("../src/validators/evaluation.validator");
     assert.throws(
