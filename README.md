@@ -1,387 +1,368 @@
-# AI Research Agent — Flow v2
+# AI Research Agent
 
-Pipeline nghiên cứu bền vững theo từng run: planning → collecting (cleaning, dịch hiển thị, chunking) → analyzing → evaluating → search-more có giới hạn → composing → verifying. Backend Express/SQLite giữ trạng thái; worker có thể chạy riêng; frontend React/Vite theo dõi API; n8n chỉ điều phối. Code và API legacy được giữ trong giai đoạn migration.
+## Giới thiệu
 
-## Chạy Flow v2
+AI Research Agent là trợ lý nghiên cứu có pipeline xử lý nền, lưu bằng chứng và báo cáo theo từng lần chạy. Bạn có thể bắt đầu từ frontend hoặc điều phối qua n8n; backend luôn quản lý trạng thái và dữ liệu chính.
 
-Node.js 22.14+ (nhánh 22), ba terminal:
+Dự án hỗ trợ:
+
+- Nhận chủ đề, mục tiêu, phạm vi và yêu cầu đầu ra.
+- Tạo kế hoạch nghiên cứu bằng AI.
+- Tìm kiếm nguồn trên Internet, chuẩn hóa URL và loại nguồn trùng.
+- Thu thập và làm sạch nội dung.
+- Dịch nội dung hiển thị sang tiếng Việt, giữ nguyên nội dung gốc.
+- Chia nội dung thành các chunk và phân tích bằng chứng có nguồn gốc truy xuất được.
+- Đánh giá độ đầy đủ của bằng chứng và tìm kiếm bổ sung khi còn thiếu.
+- Tạo báo cáo có trích dẫn, kiểm tra citation và lưu lịch sử phiên bản.
+- Xuất từng phiên bản báo cáo ra DOCX và PDF.
+- Theo dõi tiến trình, xem nguồn/bằng chứng/báo cáo, retry hoặc hủy lần chạy.
+
+Flow v2 là luồng hiện hành. Các API và màn hình workflow v1 vẫn được giữ để hỗ trợ migration.
+
+## Kiến trúc hệ thống
+
+Dự án sử dụng **modular monolith**, chưa tách microservice:
+
+| Thành phần | Vai trò |
+| --- | --- |
+| React + Vite + React Router | Dashboard, tạo nghiên cứu, theo dõi tiến trình và xem kết quả |
+| Node.js + Express | Validation, API public/internal, quản lý request/run và lên lịch job |
+| SQLite | Lưu request, trạng thái run/job, phiên bản nguồn, analysis, report và event |
+| Research Worker | Claim và xử lý job; có thể chạy bằng process riêng trong cùng repository |
+| n8n Orchestrator | Gọi API, dispatch job, chờ và theo dõi kết quả; không tự quyết định dữ liệu nghiệp vụ |
+| Tavily / Search Provider | Tìm kiếm nguồn; provider hiện được tích hợp là Tavily |
+| Gemini / LLM Provider | Lập kế hoạch, dịch và trích xuất bằng chứng; provider hiện được tích hợp là Gemini |
+| Docker Compose | Chạy frontend, backend, worker và n8n với volume và healthcheck |
+
+```mermaid
+flowchart TD
+    A[React Frontend] --> B[Express API]
+    B --> C[SQLite Database]
+    B --> D[Research Worker]
+    D --> E[Search Provider]
+    D --> F[LLM Provider]
+    G[n8n Orchestrator] --> B
+    D --> C
+```
+
+Mũi tên API → Worker biểu diễn việc lên lịch qua SQLite, không phải lời gọi trực tiếp giữa hai process. Backend và worker phải sử dụng cùng database. Frontend production gọi `/api` qua Nginx cùng origin.
+
+## Pipeline nghiên cứu
+
+```text
+Research request → Research run
+→ Planning
+→ Collecting: tìm nguồn → làm sạch → dịch hiển thị → chunking
+→ Analyzing: trích xuất và kiểm tra nguồn gốc bằng chứng
+→ Evaluating: đánh giá độ phủ
+    → Search more nếu còn thiếu và còn ngân sách
+    → Quay lại Collecting → Analyzing → Evaluating
+→ Composing: tổng hợp từ analysis version hiện tại
+→ Verifying: kiểm tra citation
+→ Completed hoặc Partial
+```
+
+- Run có trạng thái `queued`, `running`, `completed`, `partial`, `failed`, `cancelled`.
+- Job có trạng thái `queued`, `running`, `succeeded`, `retry_waiting`, `failed`, `cancelled`.
+- Tối đa **2 vòng tìm kiếm bổ sung**, **30 nguồn**, **16 lượt HTTP search** và **32 lượt HTTP LLM** trên mỗi run, tính cả retry provider.
+- Mỗi lượt gọi provider có timeout 30 giây; mỗi stage có deadline 8 phút.
+- Coverage chỉ đủ khi mọi câu hỏi có bằng chứng truy xuất được và có ít nhất hai source version được trích dẫn để đối chiếu. Việc này không thay thế đánh giá độc lập về tính đúng đắn của nguồn.
+- Không có bằng chứng hoặc citation không hợp lệ thì run không được trả `completed`.
+
+## Cấu trúc repository
+
+```text
+backend/
+  src/
+    config/          # SQLite và khởi tạo database
+    controllers/     # HTTP handlers
+    routes/          # API legacy và Flow v2
+    services/        # Nghiệp vụ, provider legacy, export
+    models/          # Truy vấn request/run và dữ liệu liên quan
+    migrations/      # Migration v2 có version
+    jobs/            # Sáu stage handler
+    workers/         # Claim, lease, heartbeat, recovery và worker entrypoint
+    providers/       # Provider cho Flow v2
+    validators/      # Validation input và schema evaluator
+    utils/           # Retry, URL, ngôn ngữ và tiện ích
+  test/
+frontend/
+  src/
+    pages/           # Dashboard, tạo nghiên cứu, tiến trình và màn hình legacy
+    components/      # Layout và thành phần giao diện
+    hooks/           # State và polling
+    services/        # HTTP clients
+    config/
+    utils/
+  tests/             # Playwright
+n8n/workflows/v2/     # Bảy workflow hiện hành
+n8n/workflows/        # Workflow legacy và hướng dẫn cũ
+docs/                # Thiết kế, API, migration và báo cáo kiểm thử
+```
+
+## Yêu cầu môi trường
+
+- Node.js **22.x**, khuyến nghị từ **22.14.0**. Backend giới hạn engine ở nhánh 22; frontend cần từ 22.12.
+- npm và Git.
+- Docker Engine cùng Docker Compose nếu chạy bằng container.
+- Gemini API key và Tavily API key nếu dùng provider thật.
+
+Các Dockerfile pin Node và Nginx; Compose pin n8n. Không cần cài SQLite server riêng.
+
+## Cài đặt và chạy local
+
+Tại thư mục repository:
 
 ```bash
+npm --prefix backend ci
+npm --prefix frontend ci
+```
+
+Tạo file cấu hình **chỉ nếu chưa tồn tại**, tránh ghi đè cấu hình đang dùng:
+
+```bash
+[ -f backend/.env ] || cp backend/.env.example backend/.env
+[ -f frontend/.env ] || cp frontend/.env.example frontend/.env
+```
+
+Mở ba terminal:
+
+```bash
+# Terminal 1: API
 cd backend
-npm ci
-# Nếu chưa có .env: cp .env.example .env
 npm start
+# Hoặc npm run dev để tự khởi động lại khi sửa code.
 ```
 
 ```bash
+# Terminal 2: worker
 cd backend
 npm run worker
 ```
 
 ```bash
+# Terminal 3: frontend
 cd frontend
-npm ci
 npm run dev
 ```
 
-Mở http://localhost:5173 → **Nghiên cứu tự động**. Dashboard lấy request và latest run từ SQLite, không phụ thuộc localStorage. Vite proxy `/api` và `/health`; để `VITE_API_BASE_URL=` trong frontend/.env khi dùng cùng origin. Cấu hình frontend/.env cũ vẫn được tôn trọng nếu bạn giữ URL riêng.
+- Frontend: <http://localhost:5173>.
+- Backend health: <http://localhost:3000/health>.
+- Trong frontend, chọn **Nghiên cứu tự động** hoặc mở `/research/new`.
 
-Provider thật: `MOCK_LLM=false`, `MOCK_SEARCH=false`, `GEMINI_API_KEY`, `TAVILY_API_KEY` trong backend/.env; backend và worker dùng chung môi trường và `RESEARCH_DB_PATH`. Mock dành cho phát triển, không sinh bằng chứng thực tế và kết thúc `partial`. Không cần gọi provider thật để chạy test.
+Vite proxy `/api` và `/health` về backend khi phát triển. Để `VITE_API_BASE_URL=` nếu dùng cùng origin. Nếu file `.env` cũ vẫn đặt URL riêng, ứng dụng tiếp tục dùng URL đó.
 
-## Docker v2
+## Biến môi trường
 
-Sao chép `.env.example` ở root thành `.env`, thay `INTERNAL_API_KEY` bằng secret ngẫu nhiên. Backend/worker tự nhận cùng key qua Compose; không đưa key vào frontend. Bảo đảm backend/.env tồn tại.
+| Biến | Ý nghĩa |
+| --- | --- |
+| `PORT` | Port backend; mặc định 3000 |
+| `RESEARCH_DB_PATH` | Đường dẫn SQLite; mặc định `backend/data/research.db` |
+| `FRONTEND_ORIGIN` | Origin frontend được CORS cho phép |
+| `INTERNAL_API_KEY` | Secret cho internal API; backend và n8n phải dùng cùng giá trị |
+| `MOCK_LLM` | `true` để dùng planner mô phỏng; `false` để gọi Gemini |
+| `MOCK_SEARCH` | `true` để dùng nguồn mô phỏng; `false` để gọi Tavily |
+| `GEMINI_API_KEY` | Gemini API key, chỉ đặt phía backend/worker |
+| `GEMINI_MODEL` | Model Gemini; mặc định `gemini-2.5-flash` |
+| `TAVILY_API_KEY` | Tavily API key, chỉ đặt phía backend/worker |
+| `VITE_API_BASE_URL` | URL public của backend khi frontend không dùng cùng origin |
+
+Để dùng provider thật, cấu hình trong `backend/.env` rồi khởi động lại cả API và worker:
+
+```dotenv
+MOCK_LLM=false
+MOCK_SEARCH=false
+LLM_PROVIDER=gemini
+SEARCH_PROVIDER=tavily
+GEMINI_API_KEY=YOUR_GEMINI_KEY
+GEMINI_MODEL=gemini-2.5-flash
+TAVILY_API_KEY=YOUR_TAVILY_KEY
+```
+
+Mock được dùng cho phát triển và kiểm thử, có nhãn dữ liệu mô phỏng. Flow v2 không biến nguồn mock thành bằng chứng thực tế; run mock kết thúc `partial`. Các biến cấu hình legacy khác được mô tả trong `backend/.env.example`; giới hạn pipeline v2 nằm trong implementation và không tự thay đổi theo mọi biến legacy.
+
+Không commit `.env`, database hoặc credential. Không đặt API key trong biến `VITE_*`, vì các biến này xuất hiện trong bundle trình duyệt.
+
+## Chạy bằng Docker Compose
+
+Chuẩn bị `backend/.env` như phần local. Tạo `.env` tại root **nếu chưa có**:
+
+```bash
+[ -f .env ] || cp .env.example .env
+```
+
+Thay placeholder `INTERNAL_API_KEY` bằng secret ngẫu nhiên. Có thể tạo một giá trị bằng:
+
+```bash
+openssl rand -hex 32
+```
+
+Root `.env` được Git bỏ qua. Compose truyền cùng internal key cho backend và worker; cấu hình HTTP Header Auth của n8n phải dùng giá trị này.
 
 ```bash
 docker compose config --quiet
 docker compose build
 docker compose up -d
+docker compose ps
 curl http://localhost:3000/health
 curl http://localhost:8080
 ```
 
-Frontend http://localhost:8080, n8n http://localhost:5678. Nginx proxy API tới backend; database và n8n dùng named volume. Các base image và n8n đều pin version. Không xóa volume khi nâng cấp. Sao lưu database trước migration. Stack legacy đang chạy cần được chuyển đổi có chủ đích để tránh đụng cổng; kết quả kiểm thử cách ly được ghi trong [validation](docs/REBUILD_VALIDATION.md).
+| Service | URL local |
+| --- | --- |
+| Frontend | <http://localhost:8080> |
+| Backend | <http://localhost:3000> |
+| n8n | <http://localhost:5678> |
 
-## API v2
+Worker không cần public port. Database và cấu hình n8n được lưu trong named volume. Các port public được bind vào loopback. Không chạy `down -v` nếu cần giữ dữ liệu.
 
-Tạo request cơ bản bằng `POST /api/research` với `executionMode: "async"`, topic, goal, scope, outputLength. Không có cờ này thì giữ hành vi planner synchronous của API cũ.
+Nếu các cổng trên đã được stack khác sử dụng, có thể chạy môi trường kiểm thử mock cách ly bằng override:
+
+```bash
+docker compose -p ai-research-flow-v2-check \
+  -f docker-compose.yml -f docker-compose.validation.yml up -d --build
+```
+
+Override dùng frontend **18080**, backend **13000**, n8n **15678** và bật mock provider. Project name riêng tạo các volume riêng. Compose cần hỗ trợ cú pháp `!override` trong file này.
+
+## API Flow v2
+
+Mọi response thành công được bọc trong `{ "success": true, "data": ... }`. Lỗi trả `{ "success": false, "error": ... }`.
+
+| Method | Endpoint | Chức năng |
+| --- | --- | --- |
+| POST | `/api/research` | Tạo request cơ bản với `executionMode: "async"` |
+| GET | `/api/research` | Danh sách tối đa 200 request gần nhất và latest run |
+| POST | `/api/research/:requestId/runs` | Tạo run, trả HTTP 202; yêu cầu `Idempotency-Key` |
+| GET | `/api/research/:requestId/runs/:runId/progress` | Trạng thái, stage, vòng, job, phần trăm, số lượng và event |
+| POST | `/api/research/runs/:runId/retry` | Retry run failed/partial; optional `stage`, yêu cầu `Idempotency-Key` |
+| POST | `/api/research/runs/:runId/cancel` | Hủy run |
+| GET | `/api/research/runs/:runId/sources` | Nguồn bất biến của run |
+| GET | `/api/research/runs/:runId/evidence` | Analysis hiện tại và bằng chứng |
+| GET | `/api/research/runs/:runId/reports` | Các phiên bản báo cáo |
+| GET | `/api/research/reports/:reportId/export/docx` | Xuất DOCX theo report version |
+| GET | `/api/research/reports/:reportId/export/pdf` | Xuất PDF theo report version |
+| POST | `/internal/runs/:runId/jobs` | Dispatch job đã được backend lên lịch |
+| GET | `/internal/jobs/:jobId?runId=...` | Theo dõi job, kiểm tra job thuộc run |
+
+Ví dụ tạo request:
 
 ```bash
 curl -X POST http://localhost:3000/api/research \
   -H 'Content-Type: application/json' \
-  -d '{"topic":"An toàn AI","goal":"Tổng hợp bằng chứng","executionMode":"async"}'
-# Dùng requestId vừa nhận:
+  -d '{"topic":"An toàn AI","goal":"Tổng hợp bằng chứng","scope":"Nguồn web công khai","outputLength":"medium","executionMode":"async"}'
+```
+
+Dùng `data.requestId` để tạo run:
+
+```bash
 curl -X POST http://localhost:3000/api/research/REQUEST_ID/runs \
-  -H 'Content-Type: application/json' -H 'Idempotency-Key: client-run-001' \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: client-run-001' \
   -d '{"language":"vi","numberOfSources":12,"searchMore":true}'
 ```
 
-Tạo run trả 202. Gửi lại cùng key/input trả cùng run; đổi input với cùng key trả 409. Xem [API và vận hành](docs/FLOW_V2_API.md), [kế hoạch migration](docs/REBUILD_IMPLEMENTATION_PLAN.md), [workflow n8n](n8n/workflows/v2/README.md).
+Gửi lại cùng request/key/input trả cùng run; thay input với cùng key trả 409. Retry sau lỗi kết nối cần giữ key cũ. Nếu đã hết ngân sách provider của run, tạo run mới để có ngân sách mới.
 
-```bash
-cd backend && npm test
-cd ../frontend && npm run build && npm run test:e2e
-```
-
-## Tài liệu legacy
-
-Phần bên dưới ghi lại API và giao diện v1 để hỗ trợ migration. Các mô tả về localStorage dashboard, Docker hai service và RAG chưa triển khai chỉ phản ánh v1; hướng dẫn Flow v2 phía trên là hiện hành.
-
----
-
-# AI Research Agent
-
-AI Research Agent là dự án nghiên cứu có điều phối bằng AI. Người dùng gửi yêu cầu qua n8n; backend lập kế hoạch gồm các câu hỏi nghiên cứu và search query, sau đó lưu kế hoạch vào SQLite.
-
-## Mục tiêu dự án
-
-Xây dựng từng bước một research agent có thể nhận yêu cầu, lập kế hoạch, tìm nguồn, tổng hợp và tạo báo cáo. Phiên bản hiện tại hoàn thành Workflow 1 - Research Request & Planning và Workflow 2 - Search & Collect. RAG và Agent Loop chưa được triển khai.
-
-## Technology stack
-
-- Node.js, Express.js và CommonJS
-- dotenv và nodemon
-- SQLite, không dùng ORM
-- n8n chạy bằng Docker
-- Google Gemini qua OpenAI-compatible API hoặc `MOCK_LLM=true` để phát triển không cần API credit
-- Git/GitHub
-
-## Kiến trúc hiện tại
-
-```text
-User → n8n → POST /api/research → Validation → Research Planner
-     → Research Questions → Search Queries → SQLite → Response
-```
-
-Backend tạo UUID và lưu request với trạng thái `planning` trước khi gọi planner. Gemini tạo đúng 4 câu hỏi và 4 query tương ứng; mock giữ 3/4/5 câu hỏi theo độ dài short/medium/long. Sau khi lưu plan, trạng thái thành `planned` và trả HTTP 201. Nếu planner hoặc bước lưu plan lỗi, trạng thái thành `failed` và API trả lỗi cùng `requestId`.
-
-## Cấu trúc thư mục
-
-```text
-backend/
-├── src/
-│   ├── config/database.js
-│   ├── routes/research.routes.js
-│   ├── controllers/research.controller.js
-│   ├── services/research.service.js
-│   ├── services/llm.service.js
-│   ├── models/request.model.js
-│   ├── models/plan.model.js
-│   ├── middlewares/validateResearch.js
-│   └── utils/logger.js
-├── data/research.db
-├── test/workflow1.test.js
-├── .env.example
-└── package.json
-n8n/
-├── docker-compose.yml
-└── workflows/
-    ├── workflow-1-research-planning.json
-    └── WORKFLOW1_SETUP.md
-```
-
-## Workflow 1 - Research Request & Planning
-
-### Cài đặt và chạy backend
-
-Yêu cầu Node.js 22 trở lên vì backend sử dụng `fetch` và `AbortSignal.timeout`.
-
-```bash
-cd ~/projects/AI-Research-Agent/backend
-npm install
-cp .env.example .env # chỉ cần làm một lần nếu chưa có .env
-npm run dev
-```
-
-Database tự tạo tại `backend/data/research.db` khi backend khởi động. Database và `.env` được bỏ qua trong Git.
-
-File mẫu `.env.example` mặc định dùng `MOCK_LLM=true`. Mock không gọi Gemini hoặc OpenAI, không cần API key và tạo kế hoạch mẫu dựa trên input. Để gọi Gemini thật, cấu hình theo mục Gemini LLM bên dưới rồi restart backend. Không đưa key vào frontend hoặc workflow n8n.
-
-### API kiểm tra
-
-Health check:
-
-```bash
-curl http://localhost:3000/health
-```
-
-Tạo research plan:
-
-```bash
-curl -i -X POST http://localhost:3000/api/research \
--H "Content-Type: application/json" \
--d '{
-  "topic": "Ứng dụng AI trong quản lý tồn kho siêu thị",
-  "goal": "Tìm hiểu ứng dụng, dữ liệu cần có, lợi ích và hạn chế",
-  "scope": "Tài liệu web công khai",
-  "outputLength": "medium"
-}'
-```
-
-Lấy lại plan đã lưu, thay UUID bằng `data.requestId` từ response POST:
-
-```bash
-curl http://localhost:3000/api/research/UUID
-```
-
-POST thành công trả `success`, `requestId`, `topic`, `status`, `researchQuestions` và `searchQueries`. GET trả request cùng research questions và search queries. UUID không tồn tại trả HTTP 404 với `Research request not found`. Input sai hoặc JSON sai trả HTTP 400.
-
-### SQLite
-
-Bảng `requests` lưu topic, goal, scope, output length, status và timestamps. Bảng `plans` lưu từng search query cùng research question tương ứng. SQL dùng parameter binding; không cần migration hoặc ORM. Restart backend vẫn giữ dữ liệu.
-
-### Test
-
-```bash
-cd ~/projects/AI-Research-Agent/backend
-npm test
-```
-
-Test dùng database tạm và port ngẫu nhiên. Bộ test kiểm tra `/health`, validation, mock không gọi mạng, POST 201, GET plan, 404, JSON lỗi, lỗi planner và persistence qua restart process. Nhánh Gemini được kiểm tra bằng fetch giả lập.
-
-### n8n
-
-Import [workflow JSON](n8n/workflows/workflow-1-research-planning.json), sau đó Execute Workflow. Workflow gồm:
-
-```text
-Manual Trigger → Research Input → Create Research Plan → Output Research Plan
-```
-
-HTTP node gửi JSON đến `http://host.docker.internal:3000/api/research` và chờ kết quả. Nếu phiên bản n8n không nhận file import, làm theo [hướng dẫn từng node](n8n/workflows/WORKFLOW1_SETUP.md). Compose đã cấu hình `host.docker.internal` để container n8n gọi backend trên host.
-
-## Gemini LLM
-
-Workflow 1 dùng Google Gemini để tạo research plan. Cấu hình trong `backend/.env`:
-
-```dotenv
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash
-MOCK_LLM=false
-```
-
-Tự điền Gemini API key thật vào `GEMINI_API_KEY` trên máy của bạn; không commit `.env`. Sau khi chỉnh env, restart backend. `MOCK_LLM=true` giữ mock planner hiện có và không gọi mạng; `MOCK_LLM=false` mới gọi Gemini. Nếu thiếu model, mặc định dùng `gemini-2.5-flash`. `LLM_PROVIDER` mặc định là gemini; giá trị khác bị từ chối khi gọi thật. Các biến Search & Collect được giữ nguyên.
-
-Backend tiếp tục dùng native fetch vì project không có package `openai`. Request đi tới `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, với Bearer Gemini key, system/user messages, temperature 0.3, JSON mode và timeout 60 giây. Đây là endpoint Google theo [tài liệu Gemini OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai), không phải OpenAI runtime. `OPENAI_API_KEY` và `OPENAI_MODEL` không còn được sử dụng.
-
-Gemini trả hai mảng string đúng 4 phần tử. Backend trim, gỡ JSON fence nếu có, parse bằng JSON.parse và validate chuỗi không rỗng. Sau đó chuyển thành `researchQuestions: [{id, question}]` và `searchQueries: [{questionId, query}]`, gán Q1–Q4 theo thứ tự; query thứ i tương ứng câu hỏi thứ i. API, SQLite, frontend, n8n và Workflow 2 giữ nguyên schema/endpoint.
-
-Lỗi thiếu key, authentication 401/403, model 404, quota 429, network/timeout và JSON/schema sai có thông báo an toàn. Planner lỗi trả HTTP 502 cùng requestId và lưu status failed. Không log API key hoặc phản hồi lỗi thô từ Google. Database lỗi vẫn dùng thông báo generic hiện có.
-
-Automated tests không gọi Gemini thật: fetch được giả lập để kiểm tra success, fenced/malformed JSON, schema, key thiếu, HTTP errors, network/timeout, status failed và khả năng tiếp tục Workflow 2. Kiểm tra API bằng curl ở phần Workflow 1; để test không cần key, dùng `MOCK_LLM=true`.
-
-### Production-like mode
-
-Để dùng provider thật, đặt `MOCK_LLM=false` và `MOCK_SEARCH=false` trong `backend/.env`, rồi cung cấp `GEMINI_API_KEY` và `TAVILY_API_KEY`. Backend kiểm tra cấu hình khi khởi động, không log secrets, áp dụng timeout và retry có giới hạn cho lỗi tạm thời như 429, 5xx hoặc network timeout. Các lỗi xác thực, request không hợp lệ và output planner sai không bị retry. `MOCK_LLM=true` và `MOCK_SEARCH=true` dành cho phát triển và automated tests, không gọi provider thật.
-
-## Workflow 2 - Search & Collect
-
-Research Plan → Search Queries → Tavily / Mock Search → Normalize → Deduplicate → Fetch Content → SQLite Sources
-
-### Cấu hình
-
-Thêm vào `backend/.env` nếu chưa có (file mẫu đã có đầy đủ):
-
-```dotenv
-TAVILY_API_KEY=your_tavily_api_key_here
-SEARCH_PROVIDER=tavily
-MOCK_SEARCH=true
-SEARCH_CONCURRENCY=2
-MAX_SOURCE_CONTENT_CHARS=20000
-```
-
-`MOCK_SEARCH=true` mặc định và không gọi Tavily hoặc fetch trang web: mỗi query sinh hai nguồn `example.com` với title, snippet, content dựa trên query và provider `mock`. Nội dung có nhãn MOCK DATA, không phải evidence thật. Không cần API key để test.
-
-Để dùng thật, đặt `MOCK_SEARCH=false` và cấu hình `TAVILY_API_KEY` trong `.env`, rồi restart backend. Provider hiện hỗ trợ Tavily; các provider khác có thể thêm qua `search.service.js`. Tavily dùng fetch, POST `/search`, `query`, `max_results=5`, `include_raw_content=text`, timeout 30 giây. `content` của Tavily được dùng làm snippet; `raw_content` được ưu tiên làm nội dung trang. Xem [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search).
-
-### API và curl
-
-Chạy backend với `npm run dev`. Tạo request bằng POST Workflow 1 trước, rồi dùng UUID trả về:
-
-```bash
-# Thay giá trị này bằng data.requestId từ POST /api/research:
-REQUEST_ID="YOUR_REQUEST_ID"
-
-curl -i -X POST "http://localhost:3000/api/research/$REQUEST_ID/search"
-curl "http://localhost:3000/api/research/$REQUEST_ID/sources"
-curl "http://localhost:3000/api/research/$REQUEST_ID"
-```
-
-POST search trả HTTP 200 với `{success:true,data:{requestId,status:"collected",queryCount,sourceCount,sources}}`. Mỗi source có id, query, title, url, normalizedUrl, snippet, content, provider, collectedAt. GET sources trả `{success:true,data:{requestId,sourceCount,sources}}`; khi chưa có nguồn trả 200 với mảng rỗng. Request không tồn tại trả 404. Plan không có query trả 400. GET research phản ánh status `searching`, `collected` hoặc `failed`.
-
-### Chuẩn hóa, nội dung và persistence
-
-URL chỉ chấp nhận HTTP/HTTPS, loại hash, dấu slash cuối path, các `utm_*`, `fbclid`, `gclid`; hostname lowercase và giữ query parameter có ý nghĩa. Dedup theo normalizedUrl; ưu tiên content dài hơn, nếu bằng nhau giữ nguồn đầu tiên. Invalid URL bị bỏ và log warning. Một source trùng giữa nhiều query chỉ giữ query của nguồn được chọn.
-
-Content có sẵn được làm sạch và truncate. Nếu chưa có content, backend tải trang với User-Agent rõ ràng, timeout 15 giây, tối đa ba redirect và HTML 2 MB. Cheerio bỏ script/style/tags và normalize whitespace; text lưu tối đa `MAX_SOURCE_CONTENT_CHARS`. Fetch lỗi giữ nguồn với content rỗng. HTML/text được hỗ trợ; PDF và trang cần JavaScript chưa được trích xuất ở phiên bản này. Địa chỉ nội bộ/loopback bị chặn khi kiểm tra URL và redirect.
-
-Bảng `sources`: `id TEXT PRIMARY KEY`, `request_id` foreign key tới requests, `query`, `title`, `url`, `normalized_url`, `snippet`, `content`, `provider`, `collected_at`; UNIQUE `(request_id, normalized_url)`. Khởi tạo tự động, không xóa dữ liệu Workflow 1. Lưu nhiều nguồn và status collected trong một transaction. Chạy lại cập nhật nguồn cùng URL, giữ id và các nguồn cũ; `sourceCount` là tổng nguồn đã lưu của request. Nếu lần chạy lại thất bại, dữ liệu nguồn trước đó vẫn còn.
-
-### Concurrency và lỗi
-
-Search và content collection dùng tối đa `SEARCH_CONCURRENCY` worker (mặc định 2, cho phép 1–10). Hai lần search đồng thời cho cùng request trong một backend trả 409. Thiết kế hiện dành cho một process backend, chưa có queue phân tán. Sau restart có thể chạy lại request còn status searching.
-
-Một query thất bại được log warning và các query khác vẫn tiếp tục. Nếu tất cả query thất bại hoặc không có nguồn hợp lệ, status failed và HTTP 502. Database/configuration lỗi cũng trả 502; fetch nội dung lỗi riêng không làm fail toàn workflow. Không log key hoặc phản hồi lỗi thô chứa secret.
-
-### n8n và test
-
-Import [Workflow 2 JSON](n8n/workflows/workflow-2-search-collect.json), điền requestId ở node 02, Execute Workflow. [Hướng dẫn từng node và cách nối Workflow 1 → 2](n8n/workflows/WORKFLOW2_SETUP.md).
-
-Chạy `cd backend && npm test`. Test Workflow 2 kiểm tra API, mock không gọi mạng, dedup, invalid URL, partial/all failures, concurrency, 409, content cleaning, truncation, transaction rollback và persistence từ process khác. Tavily được kiểm tra bằng fetch giả lập, không dùng credit thật. Test Workflow 1 vẫn được giữ.
+Internal API yêu cầu header `X-Internal-Api-Key`. POST dispatch còn yêu cầu canonical `Idempotency-Key` lấy từ `progress.currentJob.idempotency_key`. Xem [API và vận hành](docs/FLOW_V2_API.md) để biết chi tiết.
 
 ## Frontend
 
-Frontend trong `frontend/` sử dụng React, Vite, JavaScript, Tailwind CSS, React Router, Lucide React và native fetch. Inter được đóng gói cục bộ nên không cần Google Fonts. Giao diện dashboard sáng với sidebar, form chính, panel tiến trình, responsive cho desktop/tablet/mobile.
-
-### Chạy ứng dụng
-
-Yêu cầu Node.js 22.12 trở lên (Node.js 24 hiện tại dùng được). Mở hai terminal từ project root:
-
-```bash
-# Terminal 1 — backend
-cd backend
-npm install
-npm run dev
-
-# Terminal 2 — frontend
-cd frontend
-npm install
-# Chỉ khi chưa có .env: cp .env.example .env
-npm run dev
-```
-
-Frontend: http://localhost:5173 — Backend: http://localhost:3000.
-
-`frontend/.env.example` có `VITE_API_BASE_URL=http://localhost:3000`. Chỉ đặt cấu hình public trong biến `VITE_*`; không đặt API keys ở frontend. Nếu thay URL, restart Vite. Backend cho phép CORS origin `http://localhost:5173`; khi đổi domain/port frontend, cấu hình `FRONTEND_ORIGIN` trong `backend/.env` rồi restart backend. `npm run preview` dùng port 5173, nên cần dừng dev server trước khi preview. Khi deploy lên host tĩnh, cấu hình SPA fallback tới `index.html` để refresh route hoạt động.
-
-### Trang và chức năng
-
-| Route | Chức năng |
+| Route | Nội dung |
 | --- | --- |
-| `/` | Dashboard, thống kê và nghiên cứu gần đây từ metadata localStorage |
-| `/workflow-1` | Form topic, goal, scope, outputLength; gửi POST `/api/research` |
-| `/research/:requestId` | Đọc GET `/api/research/:id`, hiển thị request, questions và queries; copy nội dung; bắt đầu Search & Collect |
-| `/workflow-2` | Chọn Research Plan hoặc nhập Request ID |
-| `/workflow-2/:requestId` | Kết quả Search & Collect của request |
-| `/research/:requestId/sources` | Đọc GET research và GET sources từ SQLite, hiển thị/filter/sort nguồn |
-| `/sources` | Chọn nghiên cứu trong trình duyệt hoặc nhập ID từ n8n |
-| `/settings` | Hồ sơ demo, API URL và kiểm tra kết nối `/health` |
+| `/` | Dashboard lấy danh sách request và trạng thái run từ backend |
+| `/research/new` | Form tạo nghiên cứu và chạy pipeline tự động |
+| `/research/:requestId/runs/:runId` | Tiến trình, event, tab nguồn/bằng chứng/báo cáo, retry/cancel và export |
+| `/workflow-1`, `/workflow-2`, `/workflow-3`, `/workflow-4` | Các màn hình legacy được giữ trong giai đoạn migration |
 
-Workflow 1: nhập form → POST `/api/research` → lưu requestId gần nhất → chuyển tới trang plan → GET research. POST response không có goal/scope nên trang plan dùng GET để lấy request đầy đủ. `outputLength` mặc định medium; số trang trên thẻ chọn là gợi ý cho báo cáo tương lai.
+Polling có backoff, dừng khi run ở trạng thái cuối, tối đa 240 lượt quan sát hoặc 6 lỗi kết nối liên tiếp. Có nút kết nối lại. Reload trang khôi phục từ requestId/runId trong URL, không tạo run mới. Dashboard v2 không dùng localStorage làm nguồn dữ liệu chính; màn hình legacy vẫn giữ metadata điều hướng cũ.
 
-Workflow 2: click **Bắt đầu Search & Collect** → POST `/api/research/:id/search` → chuyển tới `/research/:id/sources` → GET research và GET sources. Refresh luôn đọc lại backend, không dùng source count/questions/sources giả. Provider badge lấy từ response, hỗ trợ Mock, Tavily và tên provider khác. Có tìm kiếm nội dung, lọc provider/trạng thái, sắp xếp, xem chi tiết và mở URL HTTP/HTTPS an toàn trong tab mới.
+## n8n workflows
 
-Nếu backend còn `planning`/`searching`, trang tự đọc lại GET mỗi 3 giây; refresh không tự gửi lại POST. Form/search có khóa chống gửi lặp, spinner, lỗi từ backend, lỗi kết nối, nút thử lại và empty state. Workflow 3 chỉ hiển thị Chưa triển khai.
+Các workflow hiện hành nằm trong [`n8n/workflows/v2/`](n8n/workflows/v2/):
 
-LocalStorage: `aiResearch:lastRequestId`, `aiResearch:lastResearch`, `aiResearch:history` (tối đa 20 metadata nghiên cứu). Dashboard phản ánh lịch sử đã mở trong trình duyệt, không phải tổng server. Khi storage bị chặn, API và trang kết quả theo URL vẫn hoạt động. Hồ sơ Nguyễn Minh Anh là demo, chưa có auth.
+1. `create-run.json`
+2. `planning-orchestrator.json`
+3. `collecting-orchestrator.json`
+4. `analysis-orchestrator.json`
+5. `evaluation-loop.json`
+6. `report-orchestrator.json`
+7. `full-research-pipeline.json`
 
-Cấu trúc: `src/components/layout/`, `src/components/ui/`, `src/components/research/`, `src/pages/`, `src/hooks/`, `src/services/researchApi.js`, `src/config/api.js`, `src/utils/`. Backend chỉ thêm CORS, giữ nguyên business logic của Workflow 1/2.
+Import workflow, lưu trong editor rồi publish. Gán credential **HTTP Header Auth** cho các node gọi internal API: header `X-Internal-Api-Key`, giá trị bằng key của backend. Không ghi key trực tiếp vào JSON. Bật authentication cho webhook khi triển khai ra ngoài môi trường local.
 
-### Kiểm tra frontend
+Tạo request async trước, sau đó gửi webhook full pipeline:
 
-```bash
-cd backend
-npm test
-cd ../frontend
-npm run build
-npm run test:e2e
+```json
+{
+  "requestId": "REQUEST_ID",
+  "idempotencyKey": "stable-client-key",
+  "options": {
+    "language": "vi",
+    "numberOfSources": 12,
+    "searchMore": true
+  }
+}
 ```
 
-Browser tests dùng Playwright và Google Chrome cài sẵn. Nếu dùng Chromium riêng, đặt `PLAYWRIGHT_CHROME_PATH=/duong/dan/chromium` khi chạy test. Test tự mở frontend port 4173, backend port 4300, database tạm và bật cả hai chế độ mock; không ảnh hưởng database runtime hoặc gọi Gemini/Tavily thật. Hai port test phải đang trống.
+Webhook production sau khi publish: `POST /webhook/research-v2/full-research-pipeline` trên n8n. Workflow full tạo run ở chế độ `orchestration: "n8n"`, dispatch stage đã được backend lên lịch, chờ, poll job, kiểm tra nhánh search-more và trả kết quả cuối. Worker xử lý nghiệp vụ; n8n chỉ phát lệnh và quan sát. Nếu n8n dừng, stage tiếp theo chờ dispatch để có thể tiếp tục an toàn.
 
-Test kiểm tra tạo plan bằng form, nội dung đúng response, POST search, refresh sources từ SQLite, lịch sử, filter, validation, network/HTTP errors, empty state, CORS, mobile drawer và overflow. File build, test artifacts, `.env`, database và node_modules được .gitignore loại bỏ.
+Các orchestrator theo stage nhận thêm `runId` để tiếp tục một run hiện có; chúng có thể theo dõi và giải phóng các stage tiếp theo, không chỉ stage trong tên file. Replay full với cùng request/options/key giữ nguyên run và report. Workflow có giới hạn polling và thời gian thực thi.
 
-Kiểm tra thủ công: mở `/workflow-1`, nhập chủ đề AI trong giáo dục đại học, mục tiêu và phạm vi; tạo plan → kiểm tra questions/queries → bắt đầu Search & Collect → xem sources → refresh trang, nguồn vẫn đọc từ SQLite. Mở Settings → Kiểm tra kết nối để xác nhận `/health`.
+Trong n8n 2.0.3, CLI import chưa tạo publication history cần cho CLI publish; lưu qua editor/API trước khi publish. Hướng dẫn đầy đủ: [n8n Flow v2](n8n/workflows/v2/README.md).
 
-Tham khảo cấu hình: [Vite](https://vite.dev/guide/), [Tailwind với Vite](https://tailwindcss.com/docs/installation/using-vite), [React Router](https://reactrouter.com/start/declarative/installation).
+## Database, migration và độ bền
 
-## Tiến độ Week 1
+Migration `002-flow-v2` chạy transaction khi khởi tạo database, ghi nhận trong `schema_migrations` và bổ sung:
 
-- Node.js backend
-- Express server
-- GET `/health`
-- dotenv
-- nodemon
-- Git/GitHub
-- n8n với Docker
-- n8n kết nối thành công tới Node.js
-- Workflow 1 Research Request & Planning hoàn thành
-- SQLite persistence và API GET research plan hoàn thành
+- `research_runs`, `stage_jobs`, `dispatch_outbox`.
+- `source_versions`, `source_chunks_v2`.
+- `analysis_versions`, `report_versions`, `run_events`.
 
-## Các bước phát triển tiếp theo
+Migration không xóa dữ liệu legacy. Mỗi run giữ input snapshot riêng. Chạy lại analysis/report tạo phiên bản mới; nội dung report cũ được giữ và đánh dấu `historical`. Bằng chứng đã kiểm chứng trong cùng run được giữ khi provider lỗi ở vòng sau, nếu câu hỏi và provenance vẫn phù hợp.
 
-1. Workflow 3: trích xuất, kiểm tra và tổng hợp bằng citation từ sources đã lưu.
-2. RAG cho truy vấn trên các tài liệu đã thu thập.
-3. Agent Loop, retry và theo dõi toàn bộ tiến trình nghiên cứu.
+Worker dùng transaction `BEGIN IMMEDIATE`, lease 30 giây và heartbeat mỗi 5 giây. Kiểm tra owner/generation/lease trước khi commit ngăn worker hết hạn ghi kết quả. Job có recovery và retry có giới hạn. SQLite sử dụng WAL và busy timeout 5 giây. Việc lưu kết quả, event và job tiếp theo được thực hiện atomically.
 
-Nếu backend bị dừng giữa planning, request có thể còn trạng thái `planning`; phiên bản đầu chưa có cơ chế tự chạy lại.
+Trước nâng cấp, dừng worker và sao lưu SQLite nhất quán. Backend/worker phải trỏ cùng file database. Không tự động chuyển evidence legacy sang v2 vì thiếu provenance cần thiết; có thể tạo run v2 mới từ request hiện có. Hướng dẫn: [Kế hoạch triển khai và migration](docs/REBUILD_IMPLEMENTATION_PLAN.md).
 
-## Deploy frontend trên Render Static Site
+## Bảo mật và xử lý lỗi
 
-Frontend Vite + React nằm trong `frontend/`. Cấu hình Render:
+- Internal API có key, so sánh an toàn và kiểm tra run/job.
+- Endpoint tạo run/retry có rate limit; JSON body giới hạn 128 KB và được validate.
+- Provider có timeout, retry exponential backoff và ngân sách bền vững theo run.
+- URL nguồn được chuẩn hóa; kiểm tra địa chỉ private/localhost và đích redirect trước khi tải nội dung.
+- Lỗi provider trả thông báo an toàn; không trả API key hoặc raw provider error.
+- CORS theo môi trường; Nginx production proxy API cùng origin.
+- Backend và worker xử lý graceful shutdown; cancel chặn commit của job đang chạy.
 
-- Root Directory: `frontend`
-- Build Command: `npm ci && npm run build`
-- Publish Directory: `dist`
-- Environment: `VITE_API_BASE_URL=https://ai-research-backend-5gjt.onrender.com`
-- Redirects/Rewrites: Source `/*`, Destination `/index.html`, Action **Rewrite**
+Public research API giữ mô hình chưa có tài khoản/phân quyền của repository. Khi mở ra Internet, cần bổ sung access control ở ứng dụng hoặc reverse proxy; internal key không thay thế quyền truy cập của người dùng cuối.
 
-Rewrite giúp BrowserRouter xử lý khi truy cập trực tiếp hoặc refresh các route
-`/workflow-1`, `/workflow-2`, `/workflow-3`, `/workflow-4` và các route có Request ID.
-Không cần Node server hoặc hash router cho Static Site. Vite dùng base `/` mặc định.
-Thiếu rewrite có thể gây HTTP 404 trước khi React được tải; thiếu route trong React
-sẽ hiển thị trang không tìm thấy sau khi ứng dụng đã tải.
+## Kiểm thử
 
-Kiểm tra build local (Node.js >=22.12):
+Từ repository root:
 
 ```bash
-cd frontend
-VITE_API_BASE_URL=https://ai-research-backend-5gjt.onrender.com npm run build
+npm --prefix backend test
+npm --prefix frontend run build
+npm --prefix frontend run test:e2e
+docker compose config --quiet
 ```
 
-Output là `frontend/dist/index.html` và `frontend/dist/assets/`; không commit `dist/`.
-URL localhost chỉ fallback khi phát triển; production cần `VITE_API_BASE_URL` khi build.
-Biến `VITE_*` xuất hiện trong bundle công khai, không dùng cho API key hoặc secret.
+Playwright cần Google Chrome hoặc cấu hình `PLAYWRIGHT_CHROME_PATH` trỏ tới browser phù hợp. Browser tests tự chạy backend/frontend trên port 4300/4173, dùng SQLite tạm và mock provider. Backend tests cũng sử dụng database tạm, không gọi Gemini/Tavily thật. Môi trường chạy test cần cho phép mở local HTTP server và process con.
 
-Docker Compose tại root phục vụ local trên `http://localhost:8080`, với backend
-`http://localhost:3000`. Nó độc lập với Render Static Site.
+Kết quả kiểm thử của Flow v2: **78 test backend**, **11 test trình duyệt** đạt; frontend build và Docker config/build/up đạt. Webhook n8n thực tế đã kiểm tra đủ sáu stage, replay giữ cùng run/report và search-more dừng sau hai vòng. Chi tiết môi trường, tình huống và giới hạn nằm trong [báo cáo kiểm thử](docs/REBUILD_VALIDATION.md).
+
+## Giới hạn hiện tại
+
+- Các lượt kiểm thử nêu trên chưa gọi Gemini/Tavily trả phí. Nghiên cứu thực tế cần key, quota và kiểm chứng kết quả với provider thật.
+- Evaluator kiểm tra độ phủ, số nguồn đối chiếu và cờ xung đột từ bằng chứng; chưa phải dịch vụ fact-checking hay peer review độc lập.
+- Report tổng hợp có cấu trúc từ evidence hiện tại; độ dài điều khiển mật độ bằng chứng, không bảo đảm số trang cố định.
+- Thu thập nội dung hiện tập trung HTML/text. PDF nguồn và trang cần JavaScript chưa có bộ trích xuất chuyên dụng.
+- API legacy vẫn đồng bộ và có dữ liệu mutable; dùng API theo run để có version history và worker v2.
+
+## Tài liệu liên quan
+
+- [API, vận hành và rollback](docs/FLOW_V2_API.md)
+- [Kiến trúc và kế hoạch migration](docs/REBUILD_IMPLEMENTATION_PLAN.md)
+- [Kết quả kiểm thử Flow v2](docs/REBUILD_VALIDATION.md)
+- [Cấu hình workflow n8n](n8n/workflows/v2/README.md)

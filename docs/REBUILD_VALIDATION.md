@@ -93,4 +93,15 @@ curl http://localhost:15678/healthz
 
 Docker's initial npm install reported body-parser/qs/undici advisories (2 high, 1 moderate). Compatible lockfile updates patched these runtime dependencies. The full audit also identified nodemon's minimatch dependency; a scoped override to minimatch ^11.0.1 preserves nodemon's existing API and avoids npm's suggested breaking downgrade. A real nodemon matcher smoke check confirms JavaScript files match and node_modules remains ignored. Final npm install/audit reports **0 vulnerabilities**. Backend suite was rerun after updates.
 
-Host backend tests used Node 24.21.0; repository engine preference remains Node 22 and Docker integration uses pinned Node 22.14.0. The user's pre-existing lockfile engine edit remains unstaged after the dependency patch is committed.
+Host backend tests used Node 24.21.0; repository engine preference remains Node 22 and Docker integration uses pinned Node 22.14.0. The user's pre-existing lockfile engine edit was originally kept unstaged after the dependency patch. The GitHub publication follow-up explicitly includes it, as requested by the user.
+
+
+## GitHub publication checks — 2026-11-01
+
+Rechecked all Flow v2 changes against origin/main. Rewrote the root README in Vietnamese from scratch to describe the current architecture, Mermaid diagram, pipeline, environment, local/Docker setup, APIs, frontend, n8n, migration, tests and limits. Included the existing user lockfile engine edit so it agrees with backend/package.json.
+
+- Backend npm test: **78 passed, 0 failed, 0 skipped**; run outside sandbox because HTTP/process tests require sockets.
+- Frontend npm run build: passed.
+- Docker Compose config: passed after creating an ignored local root .env with a random INTERNAL_API_KEY; no existing environment file was overwritten. Resolved configuration output is not published because it can contain secrets.
+- git diff --check: passed. Tracked files do not include runtime .env, SQLite databases or credentials.
+- Publication uses a regular branch push and pull-request merge, without force-push, --no-verify or administrative bypass.
