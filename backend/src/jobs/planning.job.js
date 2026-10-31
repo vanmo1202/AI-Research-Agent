@@ -1,1 +1,1 @@
-module.exports=async ctx=>({plan:await ctx.provider.plan(ctx)});
+module.exports = async (ctx) => ({ plan: await ctx.provider.plan(ctx) });

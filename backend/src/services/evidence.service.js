@@ -124,7 +124,7 @@ async function analyze(requestId) {
             await tx.run('DELETE FROM evidence WHERE request_id = ?', [requestId]);
             await tx.run('DELETE FROM chunks WHERE request_id = ?', [requestId]);
             for (const chunk of chunks) await tx.run('INSERT INTO chunks (id, request_id, source_id, chunk_index, content, char_count) VALUES (?, ?, ?, ?, ?, ?)', [chunk.id, requestId, chunk.sourceId, chunk.chunkIndex, chunk.content, chunk.charCount]);
-            for (const item of evidence) await tx.run('INSERT INTO evidence (id, request_id, source_id, chunk_id, research_question, evidence_text, relevance_score, reason, citation_label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [item.id, requestId, item.sourceId, item.chunkId, item.researchQuestion, item.evidenceText, item.relevanceScore, item.reason, item.citationLabel]);
+            for (const item of evidence) await tx.run('INSERT INTO evidence (id, request_id, source_id, chunk_id, research_question, evidence_text, relevance_score, reason, citation_label, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))', [item.id, requestId, item.sourceId, item.chunkId, item.researchQuestion, item.evidenceText, item.relevanceScore, item.reason, item.citationLabel, previous.find(old => old.id === item.id)?.createdAt || null]);
             await tx.run('INSERT OR REPLACE INTO analysis_results (request_id, metadata_json) VALUES (?, ?)', [requestId, JSON.stringify(metadata)]);
             await tx.run('UPDATE requests SET status = ?, updated_at = ? WHERE id = ?', [status, new Date().toISOString(), requestId]);
         });
