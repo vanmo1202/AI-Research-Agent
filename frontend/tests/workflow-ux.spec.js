@@ -140,7 +140,7 @@ test('Report renders semantic Markdown, 4/4 journey and export menu; malicious H
   await page.goto(`/workflow-4/${id}`);
   const article = page.getByRole('article', { name: 'Nội dung báo cáo' });
   await expect(page.getByRole('region', { name: 'Tổng quan báo cáo' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Tạo phiên bản mới' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tạo lại báo cáo' })).toBeVisible();
   await expect(article.getByRole('heading', { level: 1, name: 'Báo cáo học thuật' })).toBeVisible();
   await expect(article.getByRole('heading', { level: 2, name: 'Giới thiệu' })).toBeVisible();
   await expect(article.getByRole('heading', { level: 3, name: 'Phân tích' })).toBeVisible();
