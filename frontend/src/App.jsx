@@ -1,8 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
-import RunDashboardPage from './pages/RunDashboardPage';
-import CreateRunPage from './pages/CreateRunPage';
-import RunProgressPage from './pages/RunProgressPage';
+import DashboardPage from './pages/DashboardPage';
 import Workflow1Page from './pages/Workflow1Page';
 import ResearchPlanPage from './pages/ResearchPlanPage';
 import Workflow2Page from './pages/Workflow2Page';
@@ -17,9 +15,7 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route index element={<RunDashboardPage />} />
-        <Route path="research/new" element={<CreateRunPage />} />
-        <Route path="research/:requestId/runs/:runId" element={<RunProgressPage />} />
+        <Route index element={<DashboardPage />} />
         <Route path="workflow-1" element={<Workflow1Page />} />
         <Route path="research/:requestId" element={<ResearchPlanPage />} />
         <Route path="workflow-2" element={<Workflow2Page />} />

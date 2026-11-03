@@ -148,7 +148,7 @@ npm run dev
 
 - Frontend: <http://localhost:5173>.
 - Backend health: <http://localhost:3000/health>.
-- Trong frontend, chọn **Nghiên cứu tự động** hoặc mở `/research/new`.
+- Trong frontend, mở `/workflow-1` để bắt đầu quy trình nghiên cứu 4 bước. Giao diện **Nghiên cứu tự động** đã được gỡ; API/worker Flow v2 vẫn được giữ để tránh ảnh hưởng dữ liệu và các tích hợp hiện có.
 
 Vite proxy `/api` và `/health` về backend khi phát triển. Để `VITE_API_BASE_URL=` nếu dùng cùng origin. Nếu file `.env` cũ vẫn đặt URL riêng, ứng dụng tiếp tục dùng URL đó.
 
@@ -270,10 +270,8 @@ Internal API yêu cầu header `X-Internal-Api-Key`. POST dispatch còn yêu c�
 
 | Route | Nội dung |
 | --- | --- |
-| `/` | Dashboard lấy danh sách request và trạng thái run từ backend |
-| `/research/new` | Form tạo nghiên cứu và chạy pipeline tự động |
-| `/research/:requestId/runs/:runId` | Tiến trình, event, tab nguồn/bằng chứng/báo cáo, retry/cancel và export |
-| `/workflow-1`, `/workflow-2`, `/workflow-3`, `/workflow-4` | Các màn hình legacy được giữ trong giai đoạn migration |
+| `/` | Dashboard quy trình nghiên cứu 4 bước |
+| `/workflow-1`, `/workflow-2`, `/workflow-3`, `/workflow-4` | Lập kế hoạch, tìm nguồn, phân tích và tạo báo cáo |
 
 Polling có backoff, dừng khi run ở trạng thái cuối, tối đa 240 lượt quan sát hoặc 6 lỗi kết nối liên tiếp. Có nút kết nối lại. Reload trang khôi phục từ requestId/runId trong URL, không tạo run mới. Dashboard v2 không dùng localStorage làm nguồn dữ liệu chính; màn hình legacy vẫn giữ metadata điều hướng cũ.
 
