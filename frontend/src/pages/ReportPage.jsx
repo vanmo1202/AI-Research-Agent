@@ -196,7 +196,7 @@ export default function ReportPage() {
                     )}
                   </div>
                 </div>
-                <div className="insight-report-secondary-actions"><Button variant="secondary" onClick={() => { setEditMode(true); setConfig({ title: report.title || config.title, outputLength: report.outputLength || config.outputLength, style: report.style || config.style, language: "vi" }); }}> <RefreshCw size={15} /> Tạo phiên bản mới</Button><Link to={`/workflow-3/${requestId}`}>Xem bằng chứng <ArrowUpRight size={15} /></Link></div>
+                <div className="insight-report-secondary-actions"><Button variant="secondary" onClick={() => { setEditMode(true); setConfig({ title: report.title || config.title, outputLength: report.outputLength || config.outputLength, style: report.style || config.style, language: "vi" }); }}> <RefreshCw size={15} /> Tạo lại báo cáo</Button><Link to={`/workflow-3/${requestId}`}>Xem bằng chứng <ArrowUpRight size={15} /></Link></div>
                 <ErrorMessage error={exportError} />
                 {exporting && (
                   <p role="status">Đang tạo file {exporting === 'docx' ? 'Word' : 'PDF'}...</p>
@@ -228,7 +228,7 @@ export default function ReportPage() {
           ) : (
             <Card className="insight-config-card">
               <div className="insight-config-heading"><div className="insight-config-mark"><FileBarChart size={23} /></div><div><p className="eyebrow">THIẾT LẬP ĐẦU RA</p><h2>Cấu hình báo cáo</h2><p>Chọn cách trình bày trước khi AI tổng hợp nội dung từ bằng chứng đã có.</p></div></div>
-              {editMode && <div className="insight-edit-note"><ShieldCheck size={17} /> Báo cáo hiện tại vẫn được giữ nguyên cho đến khi bạn tạo phiên bản mới. <Button variant="ghost" onClick={() => setEditMode(false)}>Hủy chỉnh sửa</Button></div>}
+              {editMode && <div className="insight-edit-note"><ShieldCheck size={17} /> Báo cáo hiện tại chỉ bị thay thế sau khi bạn tạo lại thành công. <Button variant="ghost" onClick={() => setEditMode(false)}>Hủy chỉnh sửa</Button></div>}
               <form className="insight-report-form" onSubmit={submit}>
                 <div className="form-grid insight-form-grid">
                   <label>
