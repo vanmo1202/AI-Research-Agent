@@ -98,6 +98,7 @@ test('Evidence journey follows backend status and partial alert aggregates count
       page.getByRole('article').getByRole('heading', { name: item.researchQuestion }),
     ).toBeVisible();
     await expect(page.getByRole('article').getByText('Rất liên quan · 0.8044')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Thống kê phân tích' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Mở nguồn', exact: true })).toHaveAttribute(
       'href',
       source.url,
@@ -105,6 +106,12 @@ test('Evidence journey follows backend status and partial alert aggregates count
   }
   state.status = 'analyzed_partial';
   await page.goto(`/workflow-3/${id}`);
+  await page.getByRole('searchbox', { name: 'Tìm trong bằng chứng' }).fill('không tìm thấy cụm từ này');
+  await expect(page.getByText('Không có bằng chứng phù hợp')).toBeVisible();
+  await page.getByRole('button', { name: 'Xóa bộ lọc' }).click();
+  await expect(page.getByRole('article').getByRole('heading', { name: item.researchQuestion })).toBeVisible();
+  await page.getByRole('button', { name: 'Rất liên quan', exact: true }).click();
+  await expect(page.getByRole('article')).toHaveCount(1);
   const alert = page.getByRole('status', { name: 'Phân tích hoàn tất một phần' });
   await expect(alert).toContainText('2 câu hỏi đã được phân tích.');
   await expect(alert).toContainText('2 câu hỏi chưa thể xử lý');
@@ -132,6 +139,8 @@ test('Report renders semantic Markdown, 4/4 journey and export menu; malicious H
   await fixtures(page, state);
   await page.goto(`/workflow-4/${id}`);
   const article = page.getByRole('article', { name: 'Nội dung báo cáo' });
+  await expect(page.getByRole('region', { name: 'Tổng quan báo cáo' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Tạo phiên bản mới' })).toBeVisible();
   await expect(article.getByRole('heading', { level: 1, name: 'Báo cáo học thuật' })).toBeVisible();
   await expect(article.getByRole('heading', { level: 2, name: 'Giới thiệu' })).toBeVisible();
   await expect(article.getByRole('heading', { level: 3, name: 'Phân tích' })).toBeVisible();
