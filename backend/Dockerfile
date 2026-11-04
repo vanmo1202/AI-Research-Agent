@@ -8,7 +8,7 @@ RUN npm ci --omit=dev
 
 COPY . .
 
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data /app/documents && chmod 700 /app/documents
 
 ENV NODE_ENV=production
 

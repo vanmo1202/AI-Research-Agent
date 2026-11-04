@@ -191,14 +191,15 @@ async function generateJson(systemPrompt, userPayload, options = {}) {
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) throw plannerError('GEMINI_API_KEY is not configured');
     return withRetry(() => runGeminiRequest(async () => {
+        options.signal?.throwIfAborted();
         options.onAttempt?.();
         const response = await fetch(GEMINI_CHAT_COMPLETIONS_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-            signal: AbortSignal.timeout(options.timeoutMs ?? Number(process.env.HTTP_TIMEOUT_MS || 30000)),
+            signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs ?? Number(process.env.HTTP_TIMEOUT_MS || 30000))]) : AbortSignal.timeout(options.timeoutMs ?? Number(process.env.HTTP_TIMEOUT_MS || 30000)),
             body: JSON.stringify({ model: process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash',
                 messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: JSON.stringify(userPayload) }],
-                temperature: 0.2, response_format: { type: 'json_object' } })
+                temperature: 0.2, ...(options.maxOutputTokens ? { max_tokens: options.maxOutputTokens } : {}), response_format: { type: 'json_object' } })
         });
         if (!response.ok) throw await geminiResponseError(response);
         let payload;

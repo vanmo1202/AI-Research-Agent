@@ -16,3 +16,5 @@ coverage
 credentials/
 *.pem
 *.key
+
+data/documents/

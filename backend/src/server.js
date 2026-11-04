@@ -31,6 +31,9 @@ const v2 = require("./routes/run.routes");
 app.use("/api/research", v2.router);
 app.use("/internal", v2.internal);
 app.use("/api/research", researchRoutes);
+const knowledge = require("./knowledge/routes");
+app.use("/api", knowledge.router);
+app.use("/internal/knowledge", knowledge.internal);
 
 // JSON lỗi thống nhất, kể cả body JSON sai cú pháp.
 app.use((error, req, res, next) => {
@@ -38,7 +41,7 @@ app.use((error, req, res, next) => {
     const status = error.status || 500;
     const message = error.type === "entity.parse.failed" ? "Invalid JSON body"
         : status === 413 ? "Request body too large"
-        : status >= 500 && !error.requestId ? "Internal server error" : error.message;
+        : status >= 500 && !error.requestId && !error.safeKnowledge ? "Internal server error" : error.message;
     logger.error("Server", `Request failed (HTTP ${status})`);
     res.status(status).json({ success: false, error: message,
         ...(error.requestId ? { requestId: error.requestId } : {}) });

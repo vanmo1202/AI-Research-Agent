@@ -73,7 +73,7 @@ export default function Sidebar({ open, onClose }) {
       icon: FileText,
       active:
         pathname === '/workflow-1' ||
-        pathname.startsWith('/research/') ||
+        (pathname.startsWith('/research/') && !pathname.includes('/chat')) ||
         pathname.startsWith('/workflow-2'),
     },
     {
@@ -92,6 +92,19 @@ export default function Sidebar({ open, onClose }) {
       icon: FileText,
       active: pathname.startsWith('/workflow-4'),
     },
+    {
+      to: '/documents',
+      label: 'Thư viện tài liệu',
+      icon: FileText,
+      active: pathname.startsWith('/documents'),
+    },
+    {
+      to: id ? `/research/${encodeURIComponent(id)}/chat` : '/chat',
+      label: 'Chat với nghiên cứu',
+      icon: BrainCircuit,
+      active: pathname === '/chat' || pathname.includes('/chat'),
+    },
+    { to: '/memories', label: 'Bộ nhớ AI', icon: Sparkles, active: pathname === '/memories' },
     { to: '/sources', label: 'Nguồn tài liệu', icon: Link2, active: pathname === '/sources' },
     { to: '/settings', label: 'Cài đặt', icon: Settings, active: pathname === '/settings' },
   ];
