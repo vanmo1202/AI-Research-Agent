@@ -1,7 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowRight,
-  ArrowUpRight,
   Check,
   ChevronRight,
   Database,
@@ -9,6 +8,7 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react';
+import SourceList from '../components/research/SourceList';
 import useResearch from '../hooks/useResearch';
 import useSearchAndCollect from '../hooks/useSearchAndCollect';
 import Card from '../components/ui/Card';
@@ -23,47 +23,67 @@ import WorkflowProgress from '../components/research/WorkflowProgress';
 
 export default function ResearchPlanPage() {
   const { requestId } = useParams();
-  const resource = useResearch(requestId);
+  const resource = useResearch(requestId, true);
   const data = resource.data;
   const search = useSearchAndCollect(data?.request, data, resource.reload);
-  if (resource.loading || resource.error)
+  if (resource.loading || !data)
     return (
       <PageState loading={resource.loading} error={resource.error} onRetry={resource.reload} />
     );
   const { request, researchQuestions, searchQueries } = data;
   const planned = researchQuestions.length > 0 && searchQueries.length > 0;
-  const collected = request.status === 'collected';
-  const processing = search.busy || ['planning', 'searching'].includes(request.status);
+  const collected = [
+    'collected',
+    'analyzing',
+    'analyzed',
+    'analyzed_partial',
+    'generating_report',
+    'completed',
+  ].includes(request.status);
+  const processing =
+    search.busy ||
+    ['planning', 'searching', 'translating', 'analyzing', 'generating_report'].includes(
+      request.status,
+    );
   return (
     <div className="page-enter">
       <div className="breadcrumb">
-        <Link to="/workflow-1">Lập kế hoạch nghiên cứu</Link>
+        <Link to="/workflow-1">Lập kế hoạch &amp; Thu thập</Link>
         <ChevronRight size={13} />
-        <strong>Kế hoạch nghiên cứu</strong>
+        <strong>Kết quả nghiên cứu</strong>
       </div>
       <div className="page-intro">
         <div>
           <p className="eyebrow">TỪ Ý TƯỞNG ĐẾN MỘT KẾ HOẠCH RÕ RÀNG</p>
-          <h1>Kế hoạch nghiên cứu</h1>
-          <p>Kế hoạch nghiên cứu của bạn đã sẵn sàng cho bước khám phá tiếp theo.</p>
+          <h1>Lập kế hoạch &amp; Thu thập</h1>
+          <p>Kế hoạch và nguồn tài liệu được cập nhật từ backend.</p>
         </div>
         <StatusBadge status={request.status} />
       </div>
-      <ErrorMessage error={search.error} />
+      <ErrorMessage error={search.error || resource.error} />
+      {request.status === 'failed' && !search.error && (
+        <ErrorMessage
+          error={new Error('Nghiên cứu thất bại. Kế hoạch và nguồn đã lưu được giữ lại.')}
+        />
+      )}
+      <Button variant="ghost" onClick={resource.reload}>
+        Kiểm tra trạng thái
+      </Button>
       <div className="content-with-panel">
         <div className="main-column">
           <ResearchSummary request={request} />
           <ResearchQuestions questions={researchQuestions} />
           <SearchQueries queries={searchQueries} />
+          <SourceList sources={data.collection?.sources || []} />
           <div className="result-bottom">
             <Button to="/workflow-1" variant="secondary">
               <FileText size={16} />
               Tạo nghiên cứu khác
             </Button>
             {collected && (
-              <Button to={`/research/${requestId}/sources`} variant="ghost">
-                Xem nguồn đã thu thập
-                <ArrowUpRight size={17} />
+              <Button to={`/workflow-3/${encodeURIComponent(requestId)}`}>
+                Tiếp tục phân tích bằng chứng
+                <ArrowRight size={17} />
               </Button>
             )}
           </div>
@@ -104,13 +124,19 @@ export default function ResearchPlanPage() {
               className="w-full"
               onClick={search.start}
               loading={processing}
-              disabled={!planned}
+              disabled={
+                !planned ||
+                !!resource.error ||
+                !['planned', 'failed', 'collected'].includes(request.status)
+              }
             >
               {processing
                 ? 'Đang tìm kiếm và thu thập...'
                 : collected
-                  ? 'Chạy lại tìm kiếm và thu thập'
-                  : 'Bắt đầu tìm kiếm & thu thập'}
+                  ? 'Thu thập lại nguồn'
+                  : search.error || request.status === 'failed'
+                    ? 'Thử lại thu thập'
+                    : 'Bắt đầu tìm kiếm & thu thập'}
               {!processing && <ArrowRight size={16} />}
             </Button>
             {processing && (

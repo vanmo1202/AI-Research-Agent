@@ -83,10 +83,10 @@ test('Evidence journey follows backend status and partial alert aggregates count
   const state = { status: 'analyzed' };
   await fixtures(page, state);
   for (const [status, label, count] of [
-    ['analyzed', 'Đã phân tích', '3/4'],
-    ['analyzing', 'Đang phân tích', '2/4'],
-    ['analyzed_partial', 'Hoàn thành một phần', '2/4'],
-    ['failed', 'Phân tích thất bại', '2/4'],
+    ['analyzed', 'Đã phân tích', '2/3'],
+    ['analyzing', 'Đang phân tích', '1/3'],
+    ['analyzed_partial', 'Hoàn thành một phần', '1/3'],
+    ['failed', 'Phân tích thất bại', '1/3'],
   ]) {
     state.status = status;
     await page.goto(`/workflow-3/${id}`);
@@ -106,10 +106,14 @@ test('Evidence journey follows backend status and partial alert aggregates count
   }
   state.status = 'analyzed_partial';
   await page.goto(`/workflow-3/${id}`);
-  await page.getByRole('searchbox', { name: 'Tìm trong bằng chứng' }).fill('không tìm thấy cụm từ này');
+  await page
+    .getByRole('searchbox', { name: 'Tìm trong bằng chứng' })
+    .fill('không tìm thấy cụm từ này');
   await expect(page.getByText('Không có bằng chứng phù hợp')).toBeVisible();
   await page.getByRole('button', { name: 'Xóa bộ lọc' }).click();
-  await expect(page.getByRole('article').getByRole('heading', { name: item.researchQuestion })).toBeVisible();
+  await expect(
+    page.getByRole('article').getByRole('heading', { name: item.researchQuestion }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Rất liên quan', exact: true }).click();
   await expect(page.getByRole('article')).toHaveCount(1);
   const alert = page.getByRole('status', { name: 'Phân tích hoàn tất một phần' });
@@ -150,7 +154,7 @@ test('Report renders semantic Markdown, 4/4 journey and export menu; malicious H
   await expect(article.locator('blockquote')).toContainText('Kết luận thận trọng.');
   await expect(
     page.getByRole('region', { name: 'Hành trình nghiên cứu' }).getByLabel('Số bước đã hoàn thành'),
-  ).toHaveText('4/4');
+  ).toHaveText('3/3');
   await page.getByRole('button', { name: 'Xuất báo cáo', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Xuất Word (.docx)' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'Xuất PDF (.pdf)' })).toBeVisible();

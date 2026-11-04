@@ -18,7 +18,7 @@ export default function Workflow1Page() {
       <div className="breadcrumb">
         <span>Không gian nghiên cứu</span>
         <ChevronRight size={13} />
-        <strong>Lập kế hoạch nghiên cứu</strong>
+        <strong>Lập kế hoạch & Thu thập</strong>
       </div>
       <div className="page-intro">
         <div>
@@ -40,9 +40,9 @@ export default function Workflow1Page() {
               <div className="hero-text">
                 <Badge>
                   <FileText size={12} />
-                  Lập kế hoạch nghiên cứu
+                  Lập kế hoạch & Thu thập
                 </Badge>
-                  <h2>Lập kế hoạch nghiên cứu</h2>
+                <h2>Lập kế hoạch & Thu thập</h2>
                 <p>
                   Mô tả chủ đề, mục tiêu và phạm vi để AI tạo kế hoạch nghiên cứu chi tiết cho bạn.
                 </p>
@@ -104,9 +104,7 @@ export default function Workflow1Page() {
             </span>
             <div>
               <h3>Điều gì sẽ xảy ra tiếp theo?</h3>
-              <p>
-                AI sẽ đề xuất câu hỏi nghiên cứu và truy vấn tìm kiếm phù hợp với mục tiêu của bạn.
-              </p>
+              <p>AI sẽ lập kế hoạch, sau đó tự động tìm kiếm và thu thập tài liệu phù hợp.</p>
             </div>
           </div>
         </aside>

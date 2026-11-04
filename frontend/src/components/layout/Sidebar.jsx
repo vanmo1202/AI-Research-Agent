@@ -7,7 +7,6 @@ import {
   Check,
   AlertTriangle,
   BrainCircuit,
-  Database,
   FileText,
   House,
   Lightbulb,
@@ -66,22 +65,16 @@ export default function Sidebar({ open, onClose }) {
     ...(backend?.id === id ? backend : { status: remembered?.status }),
     stage: pathname.startsWith('/workflow-4') ? 4 : pathname.startsWith('/workflow-3') ? 3 : 2,
   });
-  const sourcesActive = pathname.endsWith('/sources');
   const items = [
     { to: '/', label: 'Tổng quan', icon: House, active: pathname === '/' },
     {
       to: '/workflow-1',
-      label: 'Lập kế hoạch nghiên cứu',
+      label: 'Lập kế hoạch & Thu thập',
       icon: FileText,
       active:
         pathname === '/workflow-1' ||
-        (pathname.startsWith('/research/') && !sourcesActive),
-    },
-    {
-      to: id ? `/workflow-2/${id}` : '/workflow-2',
-      label: 'Tìm kiếm & Thu thập',
-      icon: Database,
-      active: pathname.startsWith('/workflow-2') || sourcesActive,
+        pathname.startsWith('/research/') ||
+        pathname.startsWith('/workflow-2'),
     },
     {
       to: id ? `/workflow-3/${id}` : '/workflow-3',
@@ -148,14 +141,12 @@ export default function Sidebar({ open, onClose }) {
                 <strong>{item.label}</strong>
                 {item.detail && <small>{item.detail}</small>}
               </span>
-              {journeyStep !== undefined &&
-                journey.steps[journeyStep].state === 'complete' && (
-                  <Check size={15} className="nav-step-complete" />
-                )}
-              {journeyStep !== undefined &&
-                journey.steps[journeyStep].state === 'partial' && (
-                  <AlertTriangle size={15} className="nav-step-partial" />
-                )}
+              {journeyStep !== undefined && journey.steps[journeyStep].state === 'complete' && (
+                <Check size={15} className="nav-step-complete" />
+              )}
+              {journeyStep !== undefined && journey.steps[journeyStep].state === 'partial' && (
+                <AlertTriangle size={15} className="nav-step-partial" />
+              )}
               {item.active && <span className="nav-active-dot" />}
             </Link>
           ))}

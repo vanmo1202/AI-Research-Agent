@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getResearch, getSources } from '../services/researchApi';
 import { rememberResearch } from '../utils/researchStorage';
 
@@ -8,7 +8,11 @@ export default function useResearch(requestId, withSources = false) {
   useEffect(() => {
     const controller = new AbortController();
     let timer;
-    setState(current => current.data?.request?.requestId === requestId ? { ...current, error: null } : { loading: true, data: null, error: null });
+    setState((current) =>
+      current.data?.request?.requestId === requestId
+        ? { ...current, error: null }
+        : { loading: true, data: null, error: null },
+    );
     async function load() {
       try {
         const [plan, collection] = await Promise.all([
@@ -19,9 +23,11 @@ export default function useResearch(requestId, withSources = false) {
         setState({ loading: false, data: { ...plan, collection }, error: null });
         rememberResearch(plan.request, plan, collection);
         // Sau refresh, theo dõi công việc đang chạy mà không gửi lại POST.
-        if (['planning', 'searching', 'translating', 'analyzing'].includes(plan.request.status)) timer = setTimeout(load, 1800);
+        if (['planning', 'searching', 'translating', 'analyzing'].includes(plan.request.status))
+          timer = setTimeout(load, 1800);
       } catch (error) {
-        if (!controller.signal.aborted) setState({ loading: false, data: null, error });
+        if (!controller.signal.aborted)
+          setState((current) => ({ ...current, loading: false, error }));
       }
     }
     load();
@@ -30,5 +36,6 @@ export default function useResearch(requestId, withSources = false) {
       clearTimeout(timer);
     };
   }, [requestId, withSources, revision]);
-  return { ...state, reload: () => setRevision((value) => value + 1) };
+  const reload = useCallback(() => setRevision((value) => value + 1), []);
+  return { ...state, reload };
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, AlignLeft, AlignJustify, BookOpen, RotateCcw, Sparkles } from 'lucide-react';
 import Button from '../ui/Button';
 import ErrorMessage from '../ui/ErrorMessage';
+import { startCollection } from '../../services/collectionTasks';
 import { createResearch } from '../../services/researchApi';
 import { rememberResearch } from '../../utils/researchStorage';
 
@@ -40,6 +41,8 @@ export default function ResearchForm() {
       };
       const plan = await createResearch(input);
       rememberResearch({ ...input, requestId: plan.requestId, status: plan.status }, plan);
+      if (!plan.requestId) throw new Error('Backend chưa trả về mã nghiên cứu.');
+      if (plan.status === 'planned') startCollection(plan.requestId, true);
       navigate(`/research/${encodeURIComponent(plan.requestId)}`);
     } catch (error) {
       setError(error);
@@ -166,7 +169,7 @@ export default function ResearchForm() {
         </Button>
         <Button type="submit" loading={busy}>
           {!busy && <Sparkles size={18} />}
-          {busy ? 'Đang tạo kế hoạch...' : 'Tạo kế hoạch nghiên cứu'}
+          {busy ? 'Đang tạo kế hoạch...' : 'Bắt đầu nghiên cứu'}
           {!busy && <ArrowRight size={17} />}
         </Button>
       </div>

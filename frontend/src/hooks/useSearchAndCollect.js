@@ -1,43 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { searchAndCollect } from '../services/researchApi';
-import { rememberResearch } from '../utils/researchStorage';
+import { useEffect, useSyncExternalStore } from 'react';
+import {
+  collectionSnapshot,
+  startCollection,
+  subscribeCollection,
+} from '../services/collectionTasks';
 
 export default function useSearchAndCollect(request, plan, reload) {
-  const navigate = useNavigate();
-  const lock = useRef(false);
-  const mounted = useRef(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
+  const id = request?.requestId;
+  const state = useSyncExternalStore(subscribeCollection, () => collectionSnapshot(id));
   useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  async function start() {
-    if (lock.current) return;
-    lock.current = true;
-    setBusy(true);
-    setError(null);
-    const poll = setInterval(() => { if (mounted.current) reload?.(); }, 1800);
-    try {
-      const result = await searchAndCollect(request.requestId);
-      rememberResearch({ ...request, status: result.status }, plan, result);
-      if (mounted.current) {
-        navigate(`/research/${encodeURIComponent(request.requestId)}/sources`);
-        reload?.();
-      }
-    } catch (error) {
-      if (mounted.current) {
-        setError(error);
-        reload?.();
-      }
-    } finally {
-      clearInterval(poll);
-      lock.current = false;
-      if (mounted.current) setBusy(false);
-    }
-  }
-  return { start, busy, error };
+    if (!id) return;
+    reload?.();
+    if (!state.busy) return;
+    const timer = setInterval(() => reload?.(), 1800);
+    return () => clearInterval(timer);
+  }, [id, state, reload]);
+  return { ...state, start: () => startCollection(id) };
 }

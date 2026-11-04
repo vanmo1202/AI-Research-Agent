@@ -74,7 +74,18 @@ export function researchJourney({
       failed: 'Tạo báo cáo thất bại',
     },
   ];
+  const steps = states.map((state, index) => ({ state, label: labels[index][state] }));
+  const first = states.slice(0, 2).includes('failed')
+    ? { state: 'failed', label: planned ? 'Thu thập thất bại' : 'Lập kế hoạch thất bại' }
+    : states[1] === 'complete'
+      ? { state: 'complete', label: 'Đã lập kế hoạch & thu thập' }
+      : states.slice(0, 2).includes('active')
+        ? steps[states[1] === 'active' ? 1 : 0]
+        : { state: 'pending', label: planned ? 'Đã lập kế hoạch · Chưa thu thập' : 'Chưa bắt đầu' };
+  const workflowSteps = [first, ...steps.slice(2)];
   return {
+    workflowSteps,
+    workflowCompleted: workflowSteps.filter((step) => step.state === 'complete').length,
     completed: states.filter((state) => state === 'complete').length,
     steps: states.map((state, index) => ({ state, label: labels[index][state] })),
   };

@@ -34,14 +34,17 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
     (response) =>
       response.url().endsWith('/api/research') && response.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Tạo kế hoạch nghiên cứu' }).click();
+  const collectionResponse = page.waitForResponse(
+    (response) => response.url().endsWith('/search') && response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Bắt đầu nghiên cứu' }).click();
   await expect(page.getByRole('button', { name: 'Đang tạo kế hoạch...' })).toBeDisabled();
   const response = await planResponse;
   expect(response.status()).toBe(201);
   const { data: plan } = await response.json();
   await expect(page).toHaveURL(new RegExp(`/research/${plan.requestId}$`));
   await expect(
-    page.getByRole('heading', { name: 'Kế hoạch nghiên cứu', exact: true }),
+    page.getByRole('heading', { name: 'Lập kế hoạch & Thu thập', exact: true, level: 1 }),
   ).toBeVisible();
   for (const question of plan.researchQuestions)
     await expect(page.getByText(question.question, { exact: true })).toBeVisible();
@@ -51,31 +54,18 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
   expect(await page.evaluate(() => localStorage.getItem('aiResearch:lastRequestId'))).toBe(
     plan.requestId,
   );
-  await page.reload();
-  await expect(page.getByText(plan.researchQuestions[0].question, { exact: true })).toBeVisible();
-  await page.screenshot({
-    path: '/tmp/ai-research-plan-desktop.png',
-    fullPage: true,
-    animations: 'disabled',
-  });
-  const collectionResponse = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(`/${plan.requestId}/search`) &&
-      response.request().method() === 'POST',
-  );
-  await page.getByRole('button', { name: 'Bắt đầu tìm kiếm & thu thập' }).click();
   const collected = await collectionResponse;
   expect(collected.status()).toBe(200);
   const { data: collection } = await collected.json();
-  await expect(page).toHaveURL(new RegExp(`/research/${plan.requestId}/sources$`));
+  await expect(page).toHaveURL(new RegExp(`/research/${plan.requestId}$`));
   await expect(
-    page.getByRole('heading', { name: 'Tìm kiếm & Thu thập tài liệu', level: 1 }),
+    page.getByRole('heading', { name: 'Lập kế hoạch & Thu thập', level: 1 }),
   ).toBeVisible();
   await expect(page.getByRole('article')).toHaveCount(collection.sourceCount);
   await expect(
     page
       .getByRole('region', { name: 'Hành trình nghiên cứu' })
-      .getByText('Đã thu thập', { exact: true }),
+      .getByText('Đã lập kế hoạch & thu thập', { exact: true }),
   ).toBeVisible();
   for (const source of collection.sources)
     await expect(page.getByRole('heading', { name: source.title, exact: true })).toBeVisible();
@@ -122,7 +112,7 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
 
 test('Validation, backend 404, network error and empty source state', async ({ page, request }) => {
   await page.goto('/workflow-1');
-  await page.getByRole('button', { name: 'Tạo kế hoạch nghiên cứu' }).click();
+  await page.getByRole('button', { name: 'Bắt đầu nghiên cứu' }).click();
   await expect(page).toHaveURL(/workflow-1$/);
   await expect(page.locator('#topic')).toBeFocused();
   await fillResearch(page);
@@ -134,7 +124,7 @@ test('Validation, backend 404, network error and empty source state', async ({ p
   await page.goto('/workflow-1');
   await fillResearch(page);
   await page.route('**/api/research', (route) => route.abort('failed'));
-  await page.getByRole('button', { name: 'Tạo kế hoạch nghiên cứu' }).click();
+  await page.getByRole('button', { name: 'Bắt đầu nghiên cứu' }).click();
   await expect(page.getByRole('alert')).toContainText('Không thể kết nối backend');
   await page.unroute('**/api/research');
   const created = await request.post('http://localhost:4300/api/research', { data: input });
@@ -284,7 +274,7 @@ test('Dashboard, source picker, settings, unknown route and tablet navigation', 
   for (const [route, heading] of [
     ['/', 'Tổng quan dự án nghiên cứu'],
     ['/sources', 'Nguồn tài liệu nghiên cứu'],
-    ['/workflow-2', 'Tìm kiếm & Thu thập tài liệu'],
+    ['/workflow-2', 'Lập kế hoạch & Thu thập'],
     ['/settings', 'Cài đặt không gian nghiên cứu'],
     ['/unknown-page', 'Không tìm thấy trang'],
   ]) {
@@ -295,6 +285,6 @@ test('Dashboard, source picker, settings, unknown route and tablet navigation', 
     ).toBe(true);
   }
   await expect(
-    page.getByRole('link', { name: 'Lập kế hoạch nghiên cứu', exact: true }),
+    page.getByRole('link', { name: 'Lập kế hoạch & Thu thập', exact: true }),
   ).toBeVisible();
 });
