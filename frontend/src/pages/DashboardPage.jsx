@@ -1,181 +1,86 @@
-import { researchJourney } from '../utils/researchJourney';
 import { Link } from 'react-router-dom';
-import {
-  ArrowRight,
-  ArrowUpRight,
-  BrainCircuit,
-  CheckCheck,
-  Database,
-  FileText,
-  Plus,
-  Search,
-  Sparkles,
-} from 'lucide-react';
+import { ArrowRight, ArrowUpRight, BookOpen, BrainCircuit, CheckCircle2, FileText, Files, MessageSquareText, Plus, Sparkles, Workflow } from 'lucide-react';
 import useResearchHistory from '../hooks/useResearchHistory';
-import Button from '../components/ui/Button';
-import Card from '../components/ui/Card';
-import Badge, { StatusBadge } from '../components/ui/Badge';
-import EmptyState from '../components/ui/EmptyState';
-import WorkflowProgress from '../components/research/WorkflowProgress';
+import { researchJourney } from '../utils/researchJourney';
 import { formatDate } from '../utils/format';
+import Button from '../components/ui/Button';
+import { StatusBadge } from '../components/ui/Badge';
+
+const quickLinks = [
+  { to: '/workflow-1', icon: Workflow, label: 'Nghiên cứu mới', description: 'Lập kế hoạch và thu thập nguồn' },
+  { to: '/documents', icon: Files, label: 'Tải lên tài liệu', description: 'Xây dựng thư viện PDF RAG' },
+  { to: '/chat', icon: MessageSquareText, label: 'Chat với tài liệu', description: 'Hỏi đáp kèm nguồn trích dẫn' },
+  { to: '/memories', icon: BrainCircuit, label: 'Agent Memory', description: 'Kiểm chứng và tái sử dụng tri thức' },
+];
+
 export default function DashboardPage() {
   const history = useResearchHistory();
-  const plans = history.filter((item) => item.questionCount > 0).length;
+  const completed = history.filter((item) => {
+    const journey = researchJourney({
+      ...item,
+      planned: item.questionCount > 0,
+      collected: item.sourceCount > 0,
+    });
+    return journey.workflowCompleted === 3;
+  }).length;
   const sourceCount = history.reduce((sum, item) => sum + (item.sourceCount || 0), 0);
-  const latest = history[0];
-  const journeyInput = (item) => ({
-    ...item,
-    status: item?.status,
-    planned: item?.questionCount > 0,
-    collected: item?.sourceCount > 0,
-  });
-  const completed = history.reduce(
-    (sum, item) => sum + researchJourney(journeyInput(item)).completed,
-    0,
-  );
   return (
-    <div className="page-enter">
-      <div className="breadcrumb">
-        <span>Không gian nghiên cứu</span>
-        <span>/</span>
-        <strong>Tổng quan</strong>
-      </div>
-      <div className="page-intro">
+    <div className="page-enter researchos-dashboard">
+      <div className="ro-page-heading">
         <div>
-          <p className="eyebrow">CHÀO MỪNG TRỞ LẠI, VĂN MƠ </p>
-          <h1>Tổng quan dự án nghiên cứu</h1>
-          <p>Một không gian cho những ý tưởng và khám phá tiếp theo của bạn.</p>
+          <p className="ro-kicker">RESEARCH WORKSPACE</p>
+          <h1>Chào bạn! <span aria-hidden="true">👋</span></h1>
+          <p>Tiếp tục hành trình nghiên cứu, tìm hiểu tài liệu và xây dựng tri thức của bạn.</p>
         </div>
-        <Button to="/workflow-1">
-          <Plus size={17} />
-          Nghiên cứu mới
-        </Button>
+        <Button to="/workflow-1"><Plus size={17} /> Nghiên cứu mới</Button>
       </div>
-      <div className="dashboard-banner">
-        <div>
-          <Badge tone="white">
-            <Sparkles size={13} />
-            YOUR RESEARCH COMPANION
-          </Badge>
-          <h2>
-            Ý tưởng lớn.
-            <br />
-            Bắt đầu từ câu hỏi nhỏ.
-          </h2>
-          <p>
-            Biến sự tò mò thành một kế hoạch rõ ràng,
-            <br className="desktop-break" /> cùng AI khám phá những nguồn tri thức mới.
-          </p>
-          <Button to="/workflow-1" variant="white">
-            Bắt đầu nghiên cứu
-            <ArrowRight size={17} />
-          </Button>
+
+      <section className="ro-hero" aria-label="Bắt đầu nghiên cứu">
+        <div className="ro-hero-copy">
+          <span className="ro-hero-eyebrow"><Sparkles size={15} /> AI RESEARCH COMPANION</span>
+          <h2>Bạn muốn nghiên cứu điều gì hôm nay?</h2>
+          <p>Mô tả ý tưởng, AI sẽ giúp bạn lập kế hoạch và tự động thu thập các nguồn phù hợp.</p>
+          <Link to="/workflow-1" className="ro-hero-search">
+            <span>Nhập chủ đề nghiên cứu và bắt đầu khám phá...</span>
+            <span className="ro-hero-arrow"><ArrowRight size={18} /></span>
+          </Link>
         </div>
-        <div className="banner-art" aria-hidden="true">
-          <div className="banner-ring ring-large" />
-          <div className="banner-ring ring-small" />
-          <BrainCircuit size={86} strokeWidth={1} />
-          <span className="banner-float float-file">
-            <FileText size={30} />
-          </span>
-          <span className="banner-float float-search">
-            <Search size={25} />
-          </span>
-          <Sparkles className="banner-sparkle" size={28} />
+        <div className="ro-hero-illustration" aria-hidden="true">
+          <BookOpen size={92} strokeWidth={1.15} />
+          <span className="ro-ai-tag">AI</span>
+          <span className="ro-hero-glow" />
         </div>
-      </div>
-      <div className="dashboard-stats">
-        <Card className="metric-card">
-          <span className="metric-icon blue">
-            <FileText size={22} />
-          </span>
-          <div>
-            <span>Kế hoạch đã tạo</span>
-            <strong>{plans}</strong>
-            <small>Trong lịch sử trình duyệt</small>
-          </div>
-        </Card>
-        <Card className="metric-card">
-          <span className="metric-icon teal">
-            <Database size={22} />
-          </span>
-          <div>
-            <span>Nguồn tài liệu</span>
-            <strong>{sourceCount}</strong>
-            <small>Của các nghiên cứu đã mở</small>
-          </div>
-        </Card>
-        <Card className="metric-card">
-          <span className="metric-icon violet">
-            <CheckCheck size={22} />
-          </span>
-          <div>
-            <span>Bước đã hoàn thành</span>
-            <strong>{completed}</strong>
-            <small>Tổng bước hoàn tất đã ghi nhận</small>
-          </div>
-        </Card>
-      </div>
-      <div className="content-with-panel">
-        <div className="main-column">
-          <Card className="recent-research">
-            <div className="panel-heading">
-              <h2>Nghiên cứu gần đây</h2>
-              <Link to="/sources" className="text-button">
-                Xem thư viện
-                <ArrowUpRight size={15} />
+      </section>
+
+      <section className="ro-stat-grid" aria-label="Thống kê nghiên cứu trong trình duyệt">
+        <div className="ro-stat"><span className="ro-stat-icon indigo"><FileText size={22}/></span><div><strong>{history.length}</strong><span>Nghiên cứu gần đây</span></div></div>
+        <div className="ro-stat"><span className="ro-stat-icon blue"><BookOpen size={22}/></span><div><strong>{sourceCount}</strong><span>Nguồn được ghi nhận</span></div></div>
+        <div className="ro-stat"><span className="ro-stat-icon teal"><CheckCircle2 size={22}/></span><div><strong>{completed}</strong><span>Nghiên cứu hoàn tất</span></div></div>
+      </section>
+      <p className="ro-data-hint">Thống kê dựa trên lịch sử lưu trong trình duyệt này, không phải tổng dữ liệu trên máy chủ.</p>
+
+      <div className="ro-dashboard-columns">
+        <section className="ro-panel">
+          <div className="ro-panel-head"><div><h2>Nghiên cứu gần đây</h2><p>Tiếp tục công việc đang thực hiện</p></div><Link to="/sources">Xem nguồn <ArrowUpRight size={15}/></Link></div>
+          {history.length ? history.slice(0, 6).map((item) => (
+            <Link className="ro-recent-row" to={`/research/${encodeURIComponent(item.requestId)}`} key={item.requestId}>
+              <span className="ro-recent-icon"><FileText size={19}/></span>
+              <span className="ro-recent-copy"><strong>{item.topic}</strong><small>{formatDate(item.createdAt)} · {item.questionCount || 0} câu hỏi · {item.sourceCount || 0} nguồn</small></span>
+              <StatusBadge status={item.status} />
+              <ArrowUpRight className="ro-recent-arrow" size={17}/>
+            </Link>
+          )) : <div className="ro-empty"><BookOpen size={30}/><h3>Chưa có nghiên cứu gần đây</h3><p>Tạo nghiên cứu đầu tiên để bắt đầu khám phá tri thức.</p><Button to="/workflow-1"><Plus size={16}/> Tạo nghiên cứu</Button></div>}
+        </section>
+        <section className="ro-panel">
+          <div className="ro-panel-head"><div><h2>Truy cập nhanh</h2><p>Những công cụ bạn thường dùng</p></div></div>
+          <div className="ro-quick-links">
+            {quickLinks.map(({to,icon:Icon,label,description}) => (
+              <Link to={to} key={to} className="ro-quick-link">
+                <span className="ro-quick-icon"><Icon size={19}/></span><span><strong>{label}</strong><small>{description}</small></span><ArrowRight size={16}/>
               </Link>
-            </div>
-            {history.length ? (
-              history.slice(0, 5).map((item) => (
-                <div className="recent-row" key={item.requestId}>
-                  <span className="icon-tile small">
-                    <FileText size={20} />
-                  </span>
-                  <div>
-                    <Link to={`/research/${item.requestId}`}>{item.topic}</Link>
-                    <small>
-                      {formatDate(item.createdAt)} · {item.questionCount} câu hỏi ·{' '}
-                      {item.queryCount} truy vấn
-                    </small>
-                  </div>
-                  <StatusBadge status={item.status} />
-                  <Link
-                    to={`/research/${item.requestId}`}
-                    className="icon-button"
-                    aria-label={`Mở ${item.topic}`}
-                  >
-                    <ArrowUpRight size={17} />
-                  </Link>
-                </div>
-              ))
-            ) : (
-              <EmptyState
-                title="Ý tưởng đầu tiên đang chờ bạn"
-                description="Tạo yêu cầu nghiên cứu để AI giúp bạn lập kế hoạch và tìm nguồn tài liệu."
-              >
-                <Button to="/workflow-1">
-                  <Plus size={16} />
-                  Tạo kế hoạch nghiên cứu
-                </Button>
-              </EmptyState>
-            )}
-          </Card>
-          <p className="library-note">
-            Thống kê từ tối đa 20 nghiên cứu đã mở trong trình duyệt này; không phải tổng dữ liệu
-            của server.
-          </p>
-        </div>
-        <aside className="right-panel">
-          <WorkflowProgress {...journeyInput(latest)} />
-          <div className="dashboard-quote">
-            <Sparkles size={22} />
-            <p>
-              “Nghiên cứu là nhìn thấy điều mọi người đã thấy, và nghĩ ra điều chưa ai nghĩ tới.”
-            </p>
-            <span>Mỗi câu hỏi đều là một khởi đầu.</span>
+            ))}
           </div>
-        </aside>
+        </section>
       </div>
     </div>
   );
