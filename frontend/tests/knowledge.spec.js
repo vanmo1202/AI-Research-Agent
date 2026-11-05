@@ -60,6 +60,7 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
   await expect(page.locator('.memory-card').getByText('Chờ duyệt', { exact: true })).toBeVisible();
   await page.getByRole('checkbox', { name: 'Cho phép đề xuất dùng ở nghiên cứu khác' }).check();
   await page.getByRole('button', { name: 'Phê duyệt', exact: true }).click();
+  await page.getByRole('button', { name: 'Đã xác minh', exact: true }).click();
   await expect(
     page.locator('.memory-card').getByText('Đã xác minh', { exact: true }),
   ).toBeVisible();
