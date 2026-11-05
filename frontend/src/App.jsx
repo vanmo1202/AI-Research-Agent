@@ -16,6 +16,7 @@ import DocumentDetailPage from './pages/DocumentDetailPage';
 import ResearchChatPage from './pages/ResearchChatPage';
 import AgentMemoryPage from './pages/AgentMemoryPage';
 import './knowledge.css';
+import './researchos.css';
 export default function App() {
   return (
     <Routes>
