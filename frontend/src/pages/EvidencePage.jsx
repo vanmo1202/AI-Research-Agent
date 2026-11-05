@@ -4,6 +4,7 @@ import { researchJourney } from '../utils/researchJourney';
 import { Link, useParams } from 'react-router-dom';
 import { BrainCircuit, ChevronRight, ExternalLink, FileText, Sparkles, Search, BookOpen, Layers3, Target, ArrowUpRight, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import ResearchStepper from '../components/research/ResearchStepper';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -137,6 +138,7 @@ export default function EvidencePage() {
           </p>
         </Alert>
       )}
+      <ResearchStepper status={status} />
       <div className="content-with-panel">
         <div className="main-column">
           {evidence.length > 0 ? (

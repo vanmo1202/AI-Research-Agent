@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
+import ResearchStepper from '../components/research/ResearchStepper';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import ResearchForm from '../components/research/ResearchForm';
@@ -33,6 +34,7 @@ export default function Workflow1Page() {
           Research workspace
         </Badge>
       </div>
+      <ResearchStepper status="planning" />
       <div className="content-with-panel">
         <div className="main-column">
           <Card className="planning-card">

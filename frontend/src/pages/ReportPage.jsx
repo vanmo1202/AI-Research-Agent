@@ -2,6 +2,7 @@ import '../styles/research-workspace.css';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronRight, Download, FileBarChart, FileText, File, LockKeyhole, BookOpen, CheckCircle2, Layers3, ArrowUpRight, RefreshCw, ShieldCheck } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import ResearchStepper from '../components/research/ResearchStepper';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -158,6 +159,7 @@ export default function ReportPage() {
         <div className="insight-stat"><span className="insight-stat-icon sky"><FileText size={20} /></span><div><span>Định dạng xuất</span><strong>2</strong><small>Word (.docx) và PDF (.pdf)</small></div></div>
       </section>
       <ErrorMessage error={error} />
+      <ResearchStepper status={request.status} />
       <div className="content-with-panel">
         <div className="main-column">
           {report && !editMode ? (

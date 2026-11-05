@@ -11,6 +11,7 @@ import {
 import SourceList from '../components/research/SourceList';
 import useResearch from '../hooks/useResearch';
 import useSearchAndCollect from '../hooks/useSearchAndCollect';
+import ResearchStepper from '../components/research/ResearchStepper';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import ErrorMessage from '../components/ui/ErrorMessage';
@@ -60,6 +61,7 @@ export default function ResearchPlanPage() {
         </div>
         <StatusBadge status={request.status} />
       </div>
+      <ResearchStepper status={request.status} />
       <ErrorMessage error={search.error || resource.error} />
       {request.status === 'failed' && !search.error && (
         <ErrorMessage
