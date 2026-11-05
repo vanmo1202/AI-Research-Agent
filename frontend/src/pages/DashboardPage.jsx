@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, BookOpen, BrainCircuit, CheckCircle2, FileText, Files, MessageSquareText, Plus, Sparkles, Workflow } from 'lucide-react';
 import useResearchHistory from '../hooks/useResearchHistory';
+import useKnowledge from '../hooks/useKnowledge';
+import { getWorkspaceKey } from '../services/knowledgeApi';
 import { researchJourney } from '../utils/researchJourney';
 import { formatDate } from '../utils/format';
 import Button from '../components/ui/Button';
@@ -15,6 +17,9 @@ const quickLinks = [
 
 export default function DashboardPage() {
   const history = useResearchHistory();
+  const unlocked = Boolean(getWorkspaceKey());
+  const documents = useKnowledge(unlocked ? '/documents' : null);
+  const memories = useKnowledge(unlocked ? '/memories?status=verified' : null);
   const completed = history.filter((item) => {
     const journey = researchJourney({
       ...item,
@@ -54,10 +59,11 @@ export default function DashboardPage() {
 
       <section className="ro-stat-grid" aria-label="Thống kê nghiên cứu trong trình duyệt">
         <div className="ro-stat"><span className="ro-stat-icon indigo"><FileText size={22}/></span><div><strong>{history.length}</strong><span>Nghiên cứu gần đây</span></div></div>
-        <div className="ro-stat"><span className="ro-stat-icon blue"><BookOpen size={22}/></span><div><strong>{sourceCount}</strong><span>Nguồn được ghi nhận</span></div></div>
-        <div className="ro-stat"><span className="ro-stat-icon teal"><CheckCircle2 size={22}/></span><div><strong>{completed}</strong><span>Nghiên cứu hoàn tất</span></div></div>
+        <div className="ro-stat"><span className="ro-stat-icon blue"><Files size={22}/></span><div><strong>{unlocked ? (documents.data?.length ?? '—') : '—'}</strong><span>Tài liệu PDF</span></div></div>
+        <div className="ro-stat"><span className="ro-stat-icon teal"><BrainCircuit size={22}/></span><div><strong>{unlocked ? (memories.data?.length ?? '—') : '—'}</strong><span>Bộ nhớ đã xác minh</span></div></div>
+        <div className="ro-stat"><span className="ro-stat-icon indigo"><CheckCircle2 size={22}/></span><div><strong>{completed}</strong><span>Nghiên cứu hoàn tất</span></div></div>
       </section>
-      <p className="ro-data-hint">Thống kê dựa trên lịch sử lưu trong trình duyệt này, không phải tổng dữ liệu trên máy chủ.</p>
+      <p className="ro-data-hint">Số nghiên cứu lấy từ lịch sử trình duyệt; PDF và Memory lấy từ workspace đã mở khóa. Dấu — nghĩa là chưa có quyền xem hoặc dữ liệu chưa tải xong.</p>
 
       <div className="ro-dashboard-columns">
         <section className="ro-panel">
