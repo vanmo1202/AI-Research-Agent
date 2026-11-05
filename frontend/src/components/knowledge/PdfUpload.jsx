@@ -26,9 +26,9 @@ export default function PdfUpload({ onUploaded }) {
   }
   return <form className="ro-pdf-form" onSubmit={upload}>
     <label className="ro-pdf-file-label"><FileUp size={16}/><span className="sr-only">Chọn PDF</span>
-      <input ref={input} type="file" aria-label="Chọn tệp PDF" accept="application/pdf,.pdf" required disabled={busy}/>
+      <input ref={input} type="file" aria-label="Tải PDF" accept="application/pdf,.pdf" required disabled={busy}/>
     </label>
-    <Button type="submit" loading={busy}><UploadCloud size={16}/> Tải lên PDF</Button>
+    <Button type="submit" aria-label="Tải tài liệu" loading={busy}><UploadCloud size={16}/> Tải lên PDF</Button>
     {error && <div className="ro-upload-note"><ErrorMessage error={error}/></div>}
     {note && <p className="ro-upload-note" role="status">{note}</p>}
   </form>;

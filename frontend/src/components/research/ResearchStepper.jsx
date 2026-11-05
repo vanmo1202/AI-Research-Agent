@@ -10,7 +10,7 @@ export default function ResearchStepper({status}){
   const analyzed=['analyzed','analyzed_partial','generating_report','completed'].includes(status);
   const done=status==='completed';
   const states=[collected?'done':'active',analyzed?'done':collected?'active':'pending',done?'done':analyzed?'active':'pending'];
-  return <nav className="ro-workflow-stepper" aria-label="Tiến trình nghiên cứu">
+  return <div className="ro-workflow-stepper" aria-label="Tiến trình nghiên cứu">
     {steps.map((step,i)=>{
       const Icon=states[i]==='done'?Check:step.icon;
       return <div className="ro-step-group" key={step.title}>
@@ -21,5 +21,5 @@ export default function ResearchStepper({status}){
         </div>
       </div>;
     })}
-  </nav>;
+  </div>;
 }

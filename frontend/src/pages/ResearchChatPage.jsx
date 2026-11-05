@@ -15,7 +15,7 @@ function Chat(){
   const {requestId,chatId}=useParams(),navigate=useNavigate(),history=useResearchHistory();
   const [lookup,setLookup]=useState(''),[scope,setScope]=useState('documents'),[selected,setSelected]=useState([]),
     [memories,setMemories]=useState([]),[accepted,setAccepted]=useState([]),[error,setError]=useState(null),
-    [busy,setBusy]=useState(false),[creating,setCreating]=useState(false),lock=useRef(false);
+    [busy,setBusy]=useState(false),[creating,setCreating]=useState(!chatId),lock=useRef(false);
   const encoded=encodeURIComponent(requestId||'');
   const chats=useKnowledge(requestId?`/research/${encoded}/chats`:null);
   const docs=useKnowledge(requestId?`/documents?researchId=${encoded}`:null);

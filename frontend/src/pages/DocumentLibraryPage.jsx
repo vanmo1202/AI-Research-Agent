@@ -51,7 +51,7 @@ function Library() {
         {!!documents.length && <div className={`ro-document-list ${view==='grid'?'as-grid':''}`}>
           {view==='list' && <div className="ro-document-header"><span>TÊN TÀI LIỆU</span><span>TRANG</span><span>DUNG LƯỢNG</span><span>TRẠNG THÁI</span><span>CHI TIẾT</span></div>}
           {documents.map((d)=>(
-            <Link to={`/documents/${encodeURIComponent(d.id)}`} key={d.id} className="ro-document-row">
+            <Link to={`/documents/${encodeURIComponent(d.id)}`} key={d.id} className="ro-document-row" aria-label={d.filename}>
               <span className="ro-file-cell"><span className="ro-pdf-icon"><FileText size={20}/></span><span title={d.filename}>{d.filename}</span></span>
               <span className="ro-doc-meta"><small className="ro-mobile-label">Trang</small>{d.page_count ?? '—'}</span>
               <span className="ro-doc-meta"><small className="ro-mobile-label">Dung lượng</small>{typeof d.byte_size === 'number' ? `${(d.byte_size/1048576).toFixed(2)} MB` : '—'}</span>

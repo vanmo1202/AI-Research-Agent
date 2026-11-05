@@ -64,7 +64,7 @@ export default function Sidebar({ open, onClose }) {
           <p className="ro-nav-caption">{group.label}</p>
           {group.items.map(({icon:Icon,step,...item}) => <Link key={item.label} to={item.to}
             className={`nav-item ${item.active?'active':''}`} onClick={onClose}
-            aria-current={item.active?'page':undefined} aria-label={item.label}>
+            aria-current={item.active?'page':undefined} aria-label={item.label === 'Agent Memory' ? 'Bộ nhớ AI' : item.label}>
             <Icon size={18} strokeWidth={1.9}/><span className="nav-label"><strong>{item.label}</strong></span>
             {step!==undefined && journey.workflowSteps?.[step]?.state==='complete' && <Check className="nav-step-complete" size={14}/>}
             {step!==undefined && journey.workflowSteps?.[step]?.state==='partial' && <AlertTriangle className="nav-step-partial" size={14}/>}

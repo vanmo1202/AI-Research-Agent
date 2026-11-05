@@ -39,7 +39,7 @@ export default function ChatPanel({ chatId }) {
         <label className="sr-only" htmlFor="ro-chat-question">Câu hỏi</label>
         <textarea id="ro-chat-question" required maxLength={2000} rows={2} placeholder="Nhập câu hỏi tiếp theo..."
           value={question} onChange={e=>setQuestion(e.target.value)} disabled={busy||pending}/>
-        <Button type="submit" loading={busy} disabled={busy||pending||!!result.error}><Send size={16}/><span>Gửi</span></Button>
+        <Button type="submit" aria-label="Gửi câu hỏi" loading={busy} disabled={busy||pending||!!result.error}><Send size={16}/><span>Gửi</span></Button>
       </form>
     </section>
     <aside className="ro-chat-sources" aria-label="Nguồn trích dẫn">

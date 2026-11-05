@@ -63,7 +63,7 @@ export default function DashboardPage() {
         <section className="ro-panel">
           <div className="ro-panel-head"><div><h2>Nghiên cứu gần đây</h2><p>Tiếp tục công việc đang thực hiện</p></div><Link to="/sources">Xem nguồn <ArrowUpRight size={15}/></Link></div>
           {history.length ? history.slice(0, 6).map((item) => (
-            <Link className="ro-recent-row" to={`/research/${encodeURIComponent(item.requestId)}`} key={item.requestId}>
+            <Link className="ro-recent-row" to={`/research/${encodeURIComponent(item.requestId)}`} key={item.requestId} aria-label={item.topic}>
               <span className="ro-recent-icon"><FileText size={19}/></span>
               <span className="ro-recent-copy"><strong>{item.topic}</strong><small>{formatDate(item.createdAt)} · {item.questionCount || 0} câu hỏi · {item.sourceCount || 0} nguồn</small></span>
               <StatusBadge status={item.status} />
