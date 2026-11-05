@@ -295,3 +295,10 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select{bo
  .ro-chat-content{padding:11px!important}
  .ro-chat-picker{padding:20px}
 }
+
+
+.ro-report-actions{padding:19px!important;display:grid;gap:10px;margin-bottom:17px}
+.ro-report-actions h2{font-size:14px;font-weight:720;color:#253653}
+.ro-report-actions p{font-size:11px;color:#8592a6;line-height:1.6}
+.ro-report-actions .button{justify-content:center;min-height:39px;font-size:12px}
+.ro-report-actions .button-secondary{background:#f7f9ff;color:#3c55d6;border-color:#dfe6fa}

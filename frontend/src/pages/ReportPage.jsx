@@ -284,6 +284,16 @@ export default function ReportPage() {
           )}
         </div>
         <aside className="right-panel">
+          {report && <Card className="ro-report-actions">
+            <h2>Hành động</h2>
+            <p>Xuất báo cáo đã lưu về máy của bạn.</p>
+            <Button className="w-full" disabled={Boolean(exporting)} loading={exporting === 'pdf'} onClick={() => download('pdf')}>
+              <Download size={16} /> Xuất PDF
+            </Button>
+            <Button variant="secondary" className="w-full" disabled={Boolean(exporting)} loading={exporting === 'docx'} onClick={() => download('docx')}>
+              <FileText size={16} /> Xuất Word (.docx)
+            </Button>
+          </Card>}
           <WorkflowProgress
             stage={4}
             status={busy ? 'generating_report' : request.status}
