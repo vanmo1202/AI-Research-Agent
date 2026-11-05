@@ -272,7 +272,7 @@ test('Dashboard, source picker, settings, unknown route and tablet navigation', 
 }) => {
   await page.setViewportSize({ width: 1024, height: 900 });
   for (const [route, heading] of [
-    ['/', 'Tổng quan dự án nghiên cứu'],
+    ['/', 'Chào bạn!'],
     ['/sources', 'Nguồn tài liệu nghiên cứu'],
     ['/workflow-2', 'Lập kế hoạch & Thu thập'],
     ['/settings', 'Cài đặt không gian nghiên cứu'],
@@ -285,6 +285,6 @@ test('Dashboard, source picker, settings, unknown route and tablet navigation', 
     ).toBe(true);
   }
   await expect(
-    page.getByRole('link', { name: 'Lập kế hoạch & Thu thập', exact: true }),
+    page.getByRole('link', { name: 'Quy trình nghiên cứu', exact: true }),
   ).toBeVisible();
 });

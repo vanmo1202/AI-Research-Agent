@@ -364,3 +364,7 @@ Kết quả kiểm thử của Flow v2: **78 test backend**, **11 test trình du
 - [Kiến trúc và kế hoạch migration](docs/REBUILD_IMPLEMENTATION_PLAN.md)
 - [Kết quả kiểm thử Flow v2](docs/REBUILD_VALIDATION.md)
 - [Cấu hình workflow n8n](n8n/workflows/v2/README.md)
+
+## Research Knowledge Workspace
+
+PDF upload, grounded research chat and reviewed agent memory: [setup, APIs, limits and backup guide](docs/knowledge-workspace.md). New n8n workflows: [import guide](n8n/workflows/knowledge/README.md).

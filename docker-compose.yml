@@ -6,16 +6,20 @@ x-backend: &backend
   environment: &backend-env
     PORT: 3000
     RESEARCH_DB_PATH: /app/data/research.db
+    DOCUMENT_STORAGE_PATH: /app/documents
+    KNOWLEDGE_WORKSPACE_KEY: ${KNOWLEDGE_WORKSPACE_KEY:-}
     FRONTEND_ORIGIN: http://localhost:8080
     INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in root .env}
   volumes:
     - research_data:/app/data
+    - document_data:/app/documents
   networks: [research]
   restart: unless-stopped
 
 services:
   backend:
     <<: *backend
+    mem_limit: 512m
     ports: ['127.0.0.1:3000:3000']
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -25,8 +29,9 @@ services:
       start_period: 15s
   worker:
     <<: *backend
+    mem_limit: 768m
     command: ['npm', 'run', 'worker']
-    stop_grace_period: 40s
+    stop_grace_period: 60s
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
@@ -76,4 +81,5 @@ networks:
     driver: bridge
 volumes:
   research_data:
+  document_data:
   n8n_data:

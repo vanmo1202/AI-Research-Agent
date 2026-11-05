@@ -22,6 +22,17 @@ for (const signal of ["SIGINT", "SIGTERM"])
     );
   beat();
   setInterval(beat, 10000).unref();
+  const knowledgeLoop = (async () => {
+    while (!stopping) {
+      try {
+        if (!(await require("../knowledge/ingestion").runOnce()))
+          await new Promise((resolve) => setTimeout(resolve, 750));
+      } catch {
+        console.error("[Knowledge] Ingestion queue unavailable; retrying");
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+    }
+  })();
   while (!stopping) {
     try {
       if (!(await runOnce({ owner, signal: abort.signal })))
@@ -31,6 +42,7 @@ for (const signal of ["SIGINT", "SIGTERM"])
       await new Promise((r) => setTimeout(r, 1500));
     }
   }
+  await knowledgeLoop;
   process.exit(0);
 })().catch(() => {
   console.error("[Worker] Startup failed");

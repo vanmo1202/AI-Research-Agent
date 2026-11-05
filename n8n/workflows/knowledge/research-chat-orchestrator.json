@@ -1,0 +1,152 @@
+{
+  "name": "Knowledge · Research chat orchestrator",
+  "active": false,
+  "nodes": [
+    {
+      "id": "dd4e5469-2317-4c9f-b2ea-98b63005021e",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "knowledge/research-chat-orchestrator",
+        "responseMode": "responseNode",
+        "authentication": "headerAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "f69d9169-60cd-442c-a0f2-0b1c6f5ff0a1",
+      "name": "Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const b=$json.body||{};if(!/^[a-f0-9-]{36}$/.test(b.chatId||'')||typeof b.content!=='string'||!b.content.trim()||b.content.length>2000||typeof b.clientToken!=='string'||b.clientToken.length>100)throw new Error('chatId/content/clientToken required');return [{json:{chatId:b.chatId,content:b.content,clientToken:b.clientToken}}];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "98878a11-5ac7-4c53-997f-f54a7b2cdb74",
+      "name": "Backend state",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:3000/api/chats/{{ $json.chatId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 40000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({content: $json.content, clientToken: $json.clientToken}) }}"
+      },
+      "retryOnFail": false,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "2916d4e3-a393-427a-bc5e-c549935fe87e",
+      "name": "Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "a1c97323-eb0b-4913-adb6-a540cf836b1e",
+      "name": "Error result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        660,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {success:false,error:\"Knowledge automation failed; inspect backend status before retry\"} }}",
+        "options": {
+          "responseCode": 502
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate": {
+      "main": [
+        [
+          {
+            "node": "Backend state",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backend state": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 60,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none"
+  }
+}

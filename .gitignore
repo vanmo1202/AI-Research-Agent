@@ -35,3 +35,6 @@ coverage/
 .DS_Store
 .vscode/
 .idea/
+
+# Uploaded knowledge documents (runtime data)
+backend/data/documents/

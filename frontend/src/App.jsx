@@ -11,6 +11,12 @@ import NotFoundPage from './pages/NotFoundPage';
 import EvidencePage from './pages/EvidencePage';
 import ReportPage from './pages/ReportPage';
 import RequestPicker from './components/research/RequestPicker';
+import DocumentLibraryPage from './pages/DocumentLibraryPage';
+import DocumentDetailPage from './pages/DocumentDetailPage';
+import ResearchChatPage from './pages/ResearchChatPage';
+import AgentMemoryPage from './pages/AgentMemoryPage';
+import './knowledge.css';
+import './researchos.css';
 export default function App() {
   return (
     <Routes>
@@ -25,6 +31,12 @@ export default function App() {
         <Route path="workflow-3/:requestId" element={<EvidencePage />} />
         <Route path="workflow-4/:requestId" element={<ReportPage />} />
         <Route path="research/:requestId/sources" element={<Workflow2Page />} />
+        <Route path="documents" element={<DocumentLibraryPage />} />
+        <Route path="documents/:documentId" element={<DocumentDetailPage />} />
+        <Route path="chat" element={<ResearchChatPage />} />
+        <Route path="research/:requestId/chat" element={<ResearchChatPage />} />
+        <Route path="research/:requestId/chat/:chatId" element={<ResearchChatPage />} />
+        <Route path="memories" element={<AgentMemoryPage />} />
         <Route path="sources" element={<SourcesPage />} />
         <Route path="sources/:sourceId" element={<SourceDetailPage />} />
         <Route path="settings" element={<SettingsPage />} />
