@@ -272,7 +272,7 @@ test('Dashboard, source picker, settings, unknown route and tablet navigation', 
 }) => {
   await page.setViewportSize({ width: 1024, height: 900 });
   for (const [route, heading] of [
-    ['/', 'Chào bạn! 👋'],
+    ['/', 'Chào bạn!'],
     ['/sources', 'Nguồn tài liệu nghiên cứu'],
     ['/workflow-2', 'Lập kế hoạch & Thu thập'],
     ['/settings', 'Cài đặt không gian nghiên cứu'],
