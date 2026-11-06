@@ -113,5 +113,6 @@ async function initializeDatabase() {
     await require("../migrations/002-flow-v2")({ transaction });
     await require("../migrations/003-knowledge")({ transaction });
     await require("../migrations/004-user-auth")({ transaction });
+    await require("../migrations/005-query-indexes")({ transaction });
 }
 module.exports = { run, get, all, transaction, initializeDatabase };

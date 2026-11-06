@@ -1,5 +1,4 @@
 const express = require("express");
-const { timingSafeEqual } = require("node:crypto");
 const { db, guard, check, research, document, now, text } = require("./common");
 const docs = require("./documents");
 const chat = require("./chat");
@@ -188,16 +187,17 @@ router.post("/research/:requestId/memory-recall", async (req, res) => {
   );
 });
 const internal = express.Router();
-internal.use((req, res, next) => {
-  const expected = process.env.INTERNAL_API_KEY || "",
-    actual = req.get("X-Internal-Api-Key") || "";
-  if (
-    !expected ||
-    Buffer.byteLength(expected) !== Buffer.byteLength(actual) ||
-    !timingSafeEqual(Buffer.from(expected), Buffer.from(actual))
-  )
-    return res.status(401).json({ success: false, error: "Unauthorized" });
-  next();
+internal.use(require("../auth/internal").internalAuth);
+// Service automation is scoped to an explicitly configured account, never to webhook owner input.
+internal.post("/chats/:id/messages", async (req, res) => {
+  const { activeUser } = require("../auth/internal");
+  const user = await activeUser(process.env.INTERNAL_RESEARCH_USER_ID);
+  check(user, "Active internal research owner required", 503);
+  const requestId = text(req.body?.requestId, 100);
+  await research(requestId, user.id);
+  const session = await chat.session(req.params.id, user.id);
+  check(session.request_id === requestId, "Chat not found", 404);
+  ok(res, await chat.send(session.id, user.id, req.body), 201);
 });
 internal.get("/status", async (req, res) =>
   ok(res, {

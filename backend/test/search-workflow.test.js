@@ -167,16 +167,95 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
             assert.equal((await model.getSourcesByRequestId(id)).length, 0);
             assert.equal((await api(`/api/research/${id}`)).body.data.request.status, "planned");
         });
-        await t.test("SQLite persistence from independent process", () => {
+        await t.test("SQLite persistence from independent process", async persistence => {
+            // Own the setup: an earlier failed subtest must not look like lost SQLite data.
+            const mockEnvironment = { MOCK_SEARCH: process.env.MOCK_SEARCH, MOCK_LLM: process.env.MOCK_LLM };
+            process.env.MOCK_SEARCH = "true";
+            process.env.MOCK_LLM = "true";
+            persistence.after(() => {
+                for (const [key, value] of Object.entries(mockEnvironment)) {
+                    if (value === undefined) delete process.env[key];
+                    else process.env[key] = value;
+                }
+            });
+            persistence.mock.method(search, "searchWeb", originalSearch);
+            persistence.mock.method(content, "fetchPageContent", originalContent);
+            const persistenceId = await create();
+            const collected = await api(`/api/research/${persistenceId}/search`, "POST");
+            assert.equal(collected.status, 200, JSON.stringify(collected.body));
+            assert.equal(collected.body.data.sourceCount, 8);
+
+            const { snapshot } = require("./helpers/sqlite-snapshot.cjs");
+            const parent = await snapshot(db, persistenceId);
+            const actualPath = await fs.realpath(databasePath);
+            assert.equal(await fs.realpath(process.env.RESEARCH_DB_PATH), actualPath);
+            assert.equal(await fs.realpath(parent.databasePath), actualPath);
+            assert.equal(parent.journalMode, "wal");
+            assert.equal(parent.count, 8, "Parent did not commit the eight collected sources");
+            assert.equal(parent.request.status, "collected");
+            assert.equal(parent.request.owner_id, "fixture-user");
+
             const backendRoot = path.resolve(__dirname, "..");
-            const result = spawnSync(process.execPath, ["-e", `
-                const db = new (require('sqlite3').Database)(process.argv[1]);
-                db.get('SELECT count(*) AS count FROM sources WHERE request_id = ?', [process.argv[2]], (error, row) => {
-                    if (error) process.exit(1); console.log(row.count); db.close();
+            const reader = path.join(__dirname, "helpers/sqlite-snapshot.cjs");
+            function readChild(file = databasePath) {
+                return spawnSync(process.execPath, [reader, file, persistenceId], {
+                    cwd: backendRoot,
+                    env: { ...process.env, RESEARCH_DB_PATH: file },
+                    encoding: "utf8",
+                    timeout: 10000,
                 });
-            `, databasePath, requestId], { cwd: backendRoot, encoding: "utf8" });
-            assert.equal(result.status, 0, result.stderr || result.error?.message);
-            assert.equal(result.stdout.trim(), "8", result.stderr || "Independent process read an unexpected source count");
+            }
+            function committedSnapshot(expected) {
+                const result = readChild();
+                const diagnostic = JSON.stringify({
+                    databasePath, parentDatabasePath: expected.databasePath, requestId: persistenceId,
+                    parentCount: expected.count, expectedCount: 8,
+                    status: result.status, signal: result.signal,
+                    error: result.error?.message, stdout: result.stdout, stderr: result.stderr,
+                });
+                assert.ifError(result.error);
+                assert.equal(result.signal, null, diagnostic);
+                assert.equal(result.status, 0, diagnostic);
+                let child;
+                assert.doesNotThrow(() => { child = JSON.parse(result.stdout); }, diagnostic);
+                assert.equal(child.count, 8, "Independent process read an unexpected source count: " + diagnostic);
+                assert.deepEqual(child, expected, "Parent and child snapshots differ: " + diagnostic);
+                return { child, result };
+            }
+            const observed = committedSnapshot(parent);
+            persistence.diagnostic(JSON.stringify({
+                parentCount: parent.count, childCount: observed.child.count, expectedCount: 8,
+                databasePath: parent.databasePath, journalMode: parent.journalMode,
+                status: observed.result.status, signal: observed.result.signal, stderr: observed.result.stderr,
+            }));
+
+            await persistence.test("WAL readers see the last COMMIT while a writer is active", async () => {
+                await db.transaction(async tx => {
+                    await tx.run("UPDATE sources SET content=? WHERE id=?", ["Committed persistence probe", parent.sources[0].id]);
+                    committedSnapshot(parent); // No checkpoint or writer close: read committed WAL data.
+                });
+                const afterCommit = await snapshot(db, persistenceId);
+                assert.notEqual(afterCommit.sources[0].contentHash, parent.sources[0].contentHash);
+                committedSnapshot(afterCommit);
+            });
+            await persistence.test("ROLLBACK is invisible to an independent reader", async () => {
+                const beforeRollback = await snapshot(db, persistenceId);
+                await assert.rejects(db.transaction(async tx => {
+                    await tx.run("UPDATE sources SET content=? WHERE id=?", ["Must roll back", parent.sources[0].id]);
+                    committedSnapshot(beforeRollback);
+                    throw new Error("Injected rollback");
+                }), /Injected rollback/);
+                assert.deepEqual(await snapshot(db, persistenceId), beforeRollback);
+                committedSnapshot(beforeRollback);
+            });
+            await persistence.test("A wrong path fails instead of creating an empty database", async () => {
+                const missing = path.join(directory, "missing-reader.db");
+                const result = readChild(missing);
+                assert.ifError(result.error);
+                assert.equal(result.status, 1, JSON.stringify(result));
+                assert.match(result.stderr, /SQLITE_CANTOPEN/);
+                await assert.rejects(fs.access(missing), { code: "ENOENT" });
+            });
         });
     } finally {
         global.fetch = networkFetch;

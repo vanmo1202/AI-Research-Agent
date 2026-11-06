@@ -188,7 +188,79 @@ test("Auth sessions, CSRF, ownership, legacy preservation, revocation and thrott
     ).status,
     503,
   );
+
+  const chatUrl = `/internal/knowledge/chats/${chat.body.data.id}/messages`;
+  const chatBody = {
+    requestId: id,
+    content: "Summarize sources",
+    clientToken: "internal-chat-test",
+  };
+  assert.equal((await call(chatUrl, { body: chatBody })).status, 401);
+  assert.equal(
+    (
+      await call(chatUrl, {
+        body: chatBody,
+        headers: { "X-Internal-Api-Key": "internal-test" },
+      })
+    ).status,
+    503,
+  );
+  process.env.INTERNAL_RESEARCH_USER_ID = b.body.data.id;
+  assert.equal(
+    (
+      await call(chatUrl, {
+        body: { ...chatBody, ownerId: a.body.data.id },
+        headers: { "X-Internal-Api-Key": "internal-test" },
+      })
+    ).status,
+    404,
+  );
   process.env.INTERNAL_RESEARCH_USER_ID = a.body.data.id;
+
+  assert.equal(
+    (
+      await call(chatUrl, {
+        body: chatBody,
+        headers: { "X-Internal-Api-Key": "internal-test" },
+      })
+    ).status,
+    201,
+  );
+  assert.equal(
+    (
+      await call(chatUrl, {
+        body: chatBody,
+        headers: { "X-Internal-Api-Key": "internal-test" },
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await call(chatUrl, {
+        body: { ...chatBody, requestId: "legacy" },
+        headers: { "X-Internal-Api-Key": "internal-test" },
+      })
+    ).status,
+    404,
+  );
+  const dashboardA = await call("/api/dashboard", { cookie: a.cookie }),
+    dashboardB = await call("/api/dashboard", { cookie: b.cookie });
+  assert.equal(dashboardA.body.data.researchCount, 1);
+  assert.equal(dashboardB.body.data.researchCount, 0);
+  assert.equal(dashboardA.body.data.documentCount, 1);
+  assert.equal(dashboardB.body.data.documentCount, 0);
+  assert.equal(dashboardA.body.data.recentResearch[0].requestId, id);
+  assert.deepEqual(dashboardB.body.data.recentResearch, []);
+  assert.equal((await call("/api/dashboard")).status, 401);
+
+  const internalExport = await fetch(
+    base + "/internal/research/reports/private-report/export/pdf",
+    { headers: { "X-Internal-Api-Key": "internal-test" } },
+  );
+  assert.equal(internalExport.status, 200);
+  assert.match(internalExport.headers.get("content-type"), /application\/pdf/);
+  await internalExport.arrayBuffer();
   const internal = await call("/internal/research", {
     body: { topic: "Internal", goal: "Goal", executionMode: "async" },
     headers: { "X-Internal-Api-Key": "internal-test" },

@@ -19,8 +19,8 @@ async function verify(password, encoded) {
   return crypto.timingSafeEqual(actual, Buffer.from(hash, "hex"));
 }
 function passwordPolicy(value) {
-  if (typeof value !== "string" || value.length < 12 || value.length > 128)
-    throw error("Mật khẩu cần từ 12 đến 128 ký tự.");
+  if (typeof value !== "string" || value.length < 6 || value.length > 128)
+    throw error("Mật khẩu cần từ 6 đến 128 ký tự.");
 }
 function csrf(req, res, next) {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
@@ -68,13 +68,10 @@ function limit(req, res, next) {
   const entry = windows.get(key) || { count: 0, until: now + 900000 };
   windows.set(key, entry);
   if (++entry.count > Math.max(1, Number(process.env.AUTH_RATE_LIMIT) || 30))
-    return res
-      .status(429)
-      .set("Retry-After", "900")
-      .json({
-        success: false,
-        error: "Quá nhiều lần thử. Vui lòng thử lại sau.",
-      });
+    return res.status(429).set("Retry-After", "900").json({
+      success: false,
+      error: "Quá nhiều lần thử. Vui lòng thử lại sau.",
+    });
   next();
 }
 function setCookie(res, token) {
@@ -83,14 +80,16 @@ function setCookie(res, token) {
     sameSite: "lax",
     secure:
       process.env.COOKIE_SECURE === "true" ||
-      process.env.NODE_ENV === "production",
+      (process.env.FRONTEND_ORIGIN || "").startsWith("https://") ||
+      (process.env.COOKIE_SECURE !== "false" &&
+        process.env.NODE_ENV === "production"),
     path: "/",
     maxAge: ttl,
   });
 }
-async function issue(res, user) {
+async function issue(connection, user) {
   const token = crypto.randomBytes(32).toString("hex");
-  await db.run(
+  await connection.run(
     "INSERT INTO user_sessions(id,user_id,token_hash,created_at,expires_at) VALUES(?,?,?,?,?)",
     [
       crypto.randomUUID(),
@@ -100,9 +99,13 @@ async function issue(res, user) {
       new Date(Date.now() + ttl).toISOString(),
     ],
   );
-  setCookie(res, token);
+  return token;
 }
 const router = express.Router();
+router.use((req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
 router.use(csrf);
 router.post("/register", limit, async (req, res) => {
   const { email, name, password } = req.body || {};
@@ -124,17 +127,21 @@ router.post("/register", limit, async (req, res) => {
   };
   const hash = await hashPassword(password),
     now = new Date().toISOString();
+  let token;
   try {
-    await db.run(
-      "INSERT INTO users(id,email,name,password_hash,created_at,updated_at) VALUES(?,?,?,?,?,?)",
-      [user.id, user.email, user.name, hash, now, now],
-    );
+    token = await db.transaction(async (tx) => {
+      await tx.run(
+        "INSERT INTO users(id,email,name,password_hash,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+        [user.id, user.email, user.name, hash, now, now],
+      );
+      return issue(tx, user);
+    });
   } catch (e) {
     if (e.code === "SQLITE_CONSTRAINT")
       throw error("Không thể tạo tài khoản với thông tin này.");
     throw e;
   }
-  await issue(res, user);
+  setCookie(res, token);
   res.status(201).json({ success: true, data: user });
 });
 router.post("/login", limit, async (req, res) => {
@@ -156,7 +163,21 @@ router.post("/login", limit, async (req, res) => {
   );
   if (!user || !valid || user.status !== "active")
     throw error("Thông tin đăng nhập không hợp lệ.", 401);
-  await issue(res, user);
+  const token = await db.transaction(async (tx) => {
+    // Verification is expensive and stays outside the write lock. Recheck its snapshot inside it.
+    const current = await tx.get(
+      "SELECT password_hash,status FROM users WHERE id=?",
+      [user.id],
+    );
+    if (
+      !current ||
+      current.status !== "active" ||
+      current.password_hash !== user.password_hash
+    )
+      throw error("Thông tin đăng nhập không hợp lệ.", 401);
+    return issue(tx, user);
+  });
+  setCookie(res, token);
   res.json({
     success: true,
     data: { id: user.id, email: user.email, name: user.name, role: user.role },
@@ -186,7 +207,13 @@ router.post("/change-password", limit, authenticate, async (req, res) => {
     throw error("Mật khẩu hiện tại không hợp lệ.");
   const hash = await hashPassword(password),
     now = new Date().toISOString();
-  await db.transaction(async (tx) => {
+  const token = await db.transaction(async (tx) => {
+    const current = await tx.get(
+      "SELECT u.password_hash FROM users u JOIN user_sessions s ON s.user_id=u.id WHERE u.id=? AND u.status='active' AND s.id=? AND s.revoked_at IS NULL AND s.expires_at>?",
+      [req.owner, req.user.session_id, new Date().toISOString()],
+    );
+    if (!current || current.password_hash !== user.password_hash)
+      throw error("Phiên đăng nhập đã thay đổi. Vui lòng đăng nhập lại.", 401);
     await tx.run("UPDATE users SET password_hash=?,updated_at=? WHERE id=?", [
       hash,
       now,
@@ -196,8 +223,9 @@ router.post("/change-password", limit, authenticate, async (req, res) => {
       now,
       req.owner,
     ]);
+    return issue(tx, req.user);
   });
-  await issue(res, req.user);
+  setCookie(res, token);
   res.json({ success: true, data: { changed: true } });
 });
 module.exports = { router, authenticate, csrf, hashPassword };

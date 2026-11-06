@@ -74,4 +74,30 @@ test("Offline transfer backs up first, preserves data, and rolls back on duplica
     fs.readdirSync(directory).filter((p) => p.includes(".backup-")).length,
     2,
   );
+  // A legacy chat pointing at another user's research must abort the entire transfer.
+  await db.run("UPDATE documents SET sha256='distinct' WHERE id='old'");
+  await db.run(
+    "INSERT INTO users(id,email,name,password_hash,created_at,updated_at) VALUES('other','other@example.test','Other','unused',?,?)",
+    [now, now],
+  );
+  await db.run(
+    "INSERT INTO requests(id,topic,goal,owner_id) VALUES('other-research','Other','Goal','other')",
+  );
+  await db.run(
+    "INSERT INTO chat_sessions(id,owner_id,request_id,title,scope,document_ids_json,created_at) VALUES('inconsistent','workspace','other-research','Legacy','research','[]',?)",
+    [now],
+  );
+  const mismatch = transfer("owner@example.test");
+  assert.equal(mismatch.status, 1);
+  assert.match(mismatch.stderr, /Ownership relationship mismatch/);
+  assert.equal(
+    (await db.get("SELECT owner_id FROM chat_sessions WHERE id='inconsistent'"))
+      .owner_id,
+    "workspace",
+  );
+  assert.equal(
+    (await db.get("SELECT owner_id FROM requests WHERE id='rollback'"))
+      .owner_id,
+    "workspace",
+  );
 });

@@ -9,6 +9,9 @@ const logger = require("./utils/logger");
 const { getSettings } = require("./utils/settings");
 
 const app = express();
+// Only explicitly configured proxy addresses may supply a client address.
+const trustedProxies = (process.env.TRUSTED_PROXY_CIDRS || '').split(',').map(s => s.trim()).filter(Boolean);
+if (trustedProxies.length) app.set('trust proxy', trustedProxies);
 
 // Chỉ cho phép frontend dev gọi API từ browser; không thay đổi logic workflow.
 app.use(cors({ exposedHeaders: ['Content-Disposition'], credentials: true, origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173" }));
@@ -30,22 +33,12 @@ app.get("/health", (req, res) => {
 const auth = require('./auth');
 app.use('/api/auth', auth.router);
 app.use('/api', auth.csrf, auth.authenticate);
+app.get('/api/dashboard', require('./auth/dashboard'));
 app.use('/api/research', require('./auth/ownership').researchAccess);
 const v2 = require("./routes/run.routes");
 app.use("/api/research", v2.router);
-v2.internal.use('/research', async (req,res,next) => {
-  try {
-    const db=require('./config/database');
-    const parts=req.path.split('/').filter(Boolean);
-    let request;
-    if(parts[0] === 'runs') request=await db.get('SELECT q.* FROM requests q JOIN research_runs r ON r.request_id=q.id WHERE r.id=?',[parts[1]]);
-    else if(parts[0]) request=await db.get('SELECT * FROM requests WHERE id=?',[parts[0]]);
-    const owner=request?.owner_id || (!parts.length ? process.env.INTERNAL_RESEARCH_USER_ID : null);
-    const user=owner && await db.get("SELECT id,name,email,role FROM users WHERE id=? AND status='active'",[owner]);
-    if(!user) return res.status(parts.length?404:503).json({success:false,error:'Active internal research owner required'});
-    req.owner=user.id; req.user=user; next();
-  } catch(e){next(e);}
-}, require('./auth/ownership').researchAccess, v2.router, researchRoutes);
+v2.internal.use('/research', require('./auth/internal').internalResearchOwner,
+  require('./auth/ownership').researchAccess, v2.router, researchRoutes);
 app.use("/internal", v2.internal);
 app.use("/api/research", researchRoutes);
 const knowledge = require("./knowledge/routes");

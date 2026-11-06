@@ -38,7 +38,12 @@ async function main() {
         [user.id],
       );
     const invalid = await tx.get(
-      `SELECT 1 FROM research_documents d JOIN requests r ON r.id=d.request_id JOIN documents p ON p.id=d.document_id WHERE d.owner_id<>r.owner_id OR d.owner_id<>p.owner_id LIMIT 1`,
+      `SELECT 1 FROM research_documents d JOIN requests r ON r.id=d.request_id JOIN documents p ON p.id=d.document_id WHERE d.owner_id<>r.owner_id OR d.owner_id<>p.owner_id
+       UNION ALL SELECT 1 FROM chat_sessions c JOIN requests r ON r.id=c.request_id WHERE c.owner_id<>r.owner_id
+       UNION ALL SELECT 1 FROM agent_memories m JOIN requests r ON r.id=m.request_id WHERE m.owner_id<>r.owner_id
+       UNION ALL SELECT 1 FROM agent_memories m JOIN chat_messages v ON v.id=m.message_id JOIN chat_sessions c ON c.id=v.chat_id WHERE m.owner_id<>c.owner_id OR m.request_id<>c.request_id
+       UNION ALL SELECT 1 FROM memory_evidence_links l JOIN agent_memories m ON m.id=l.memory_id JOIN documents d ON d.id=l.document_id WHERE m.owner_id<>d.owner_id
+       UNION ALL SELECT 1 FROM memory_evidence_links l JOIN agent_memories m ON m.id=l.memory_id JOIN sources s ON s.id=l.source_id JOIN requests r ON r.id=s.request_id WHERE m.owner_id<>r.owner_id LIMIT 1`,
     );
     if (invalid)
       throw new Error(
