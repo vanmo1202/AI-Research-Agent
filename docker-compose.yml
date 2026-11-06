@@ -8,6 +8,7 @@ x-backend: &backend
     RESEARCH_DB_PATH: /app/data/research.db
     DOCUMENT_STORAGE_PATH: /app/documents
     FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
+    TRUSTED_PROXY_CIDRS: ${FRONTEND_PROXY_IP:-172.30.240.2}/32
     COOKIE_SECURE: ${COOKIE_SECURE:-false}
     INTERNAL_RESEARCH_USER_ID: ${INTERNAL_RESEARCH_USER_ID:-}
     INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in root .env}
@@ -20,6 +21,10 @@ x-backend: &backend
 services:
   backend:
     <<: *backend
+    networks:
+      research: {}
+      browser_proxy:
+        ipv4_address: ${BACKEND_PROXY_IP:-172.30.240.3}
     mem_limit: 512m
     ports: ['127.0.0.1:3000:3000']
     healthcheck:
@@ -50,7 +55,9 @@ services:
     ports: ['127.0.0.1:8080:80']
     depends_on:
       backend: {condition: service_healthy}
-    networks: [research]
+    networks:
+      browser_proxy:
+        ipv4_address: ${FRONTEND_PROXY_IP:-172.30.240.2}
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1/']
       interval: 15s
@@ -78,6 +85,11 @@ services:
       start_period: 30s
     restart: unless-stopped
 networks:
+  browser_proxy:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${BROWSER_PROXY_SUBNET:-172.30.240.0/29}
   research:
     driver: bridge
 volumes:
