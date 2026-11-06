@@ -13,6 +13,9 @@ Required schema:
 Rules:
 - exactly 4 research questions
 - exactly 4 search queries
+- every query must explicitly name the specific subject and disciplinary meaning, never only a generic word or ambiguous synonym
+- retain the topic, goal and scope in each query; translate technical concepts faithfully for English queries
+- vary the question focus (theory, methods, applications, exercises) without switching domains
 - queries should be concise and useful for web search
 - each search query must correspond to the research question at the same array index
 - questions must follow the topic, goal and scope, using the user's language
@@ -180,7 +183,7 @@ async function generateResearchPlan(input) {
     } else {
         throw plannerError("MOCK_LLM must be true or false");
     }
-    const validated = validatePlan(plan);
+    const validated = require("./source-relevance.service").anchorPlan(input, validatePlan(plan));
     logger.info("Planner", `Generated ${validated.researchQuestions.length} research questions`);
     logger.info("Planner", `Generated ${validated.searchQueries.length} search queries`);
     return validated;
@@ -189,7 +192,7 @@ async function generateJson(systemPrompt, userPayload, options = {}) {
     const { runGeminiRequest } = require('../utils/geminiLimiter');
     const { geminiResponseError, retryableGeminiError } = require('../utils/geminiError');
     const apiKey = process.env.GEMINI_API_KEY?.trim();
-    if (!apiKey) throw plannerError('GEMINI_API_KEY is not configured');
+    if (!apiKey) throw Object.assign(plannerError('GEMINI_API_KEY is not configured'), {provider:'gemini'});
     return withRetry(() => runGeminiRequest(async () => {
         options.signal?.throwIfAborted();
         options.onAttempt?.();
@@ -207,9 +210,12 @@ async function generateJson(systemPrompt, userPayload, options = {}) {
             if (['AbortError', 'TimeoutError', 'TypeError'].includes(error.name)) throw error;
             throw plannerError('Gemini returned invalid JSON');
         }
+        const finish = payload?.choices?.[0]?.finish_reason;
+        if (finish === 'length') throw Object.assign(plannerError('Gemini output exceeded limit'), {code:'GEMINI_OUTPUT_TRUNCATED'});
+        if (finish && finish !== 'stop') throw Object.assign(plannerError('Gemini output blocked'), {code:'GEMINI_OUTPUT_BLOCKED'});
         try { return JSON.parse(String(payload?.choices?.[0]?.message?.content || '').trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1')); }
         catch { throw plannerError('Gemini returned invalid JSON'); }
     }), { label: options.label || 'Gemini', retryCount: options.retryCount, baseDelay: options.baseDelay,
-        jitterMs: options.jitterMs ?? 0, onRetry: options.onRetry, shouldRetry: retryableGeminiError });
+        jitterMs: options.jitterMs ?? 0, onRetry: options.onRetry, shouldRetry: retryableGeminiError }).catch(error => { error.provider = 'gemini'; throw error; });
 }
 module.exports = { generateResearchPlan, validatePlan, parseGeminiPlan, generateJson, RESEARCH_PLANNER_SYSTEM_PROMPT };

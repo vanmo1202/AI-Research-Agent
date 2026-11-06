@@ -3,6 +3,8 @@ const { db, hash, now, check, match, normalize } = require("./common");
 const { sourceHash } = require("./retrieval");
 const { createChunks } = require("../services/chunk.service");
 async function resolve(link, owner, connection = db) {
+  if (link.kind === "source" && String(link.source_id).startsWith("web:"))
+    return require("./auto-research").resolve(link, owner, connection);
   if (link.kind === "document") {
     const c = await connection.get(
       `SELECT c.*,d.sha256,d.filename FROM document_chunks c JOIN documents d ON d.id=c.document_id
@@ -23,11 +25,12 @@ async function resolve(link, owner, connection = db) {
   }
   if (link.kind === "evidence") {
     const e = await connection.get(
-      "SELECT e.*,s.title,s.url,s.content_vi,s.content,s.source_language,s.translation_status FROM evidence e JOIN sources s ON s.id=e.source_id JOIN requests r ON r.id=e.request_id WHERE e.id=? AND s.id=? AND r.owner_id=?",
+      "SELECT e.*,s.title,s.url,s.content_vi,s.content,s.source_language,s.translation_status,r.topic,r.goal,r.scope FROM evidence e JOIN sources s ON s.id=e.source_id JOIN requests r ON r.id=e.request_id WHERE e.id=? AND s.id=? AND r.owner_id=?",
       [link.reference_id, link.source_id, owner],
     );
     if (
       !e ||
+      !require("../services/source-relevance.service").evaluateSource(e, { content: e.content, contentVi: e.content_vi, title: e.title }).accepted ||
       !createChunks(e.request_id, {
         id: e.source_id,
         content: e.content,
@@ -54,7 +57,7 @@ async function resolve(link, owner, connection = db) {
       ),
     };
   }
-  const row = await connection.get("SELECT s.* FROM sources s JOIN requests r ON r.id=s.request_id WHERE s.id=? AND r.owner_id=?", [
+  const row = await connection.get("SELECT s.*,r.topic,r.goal,r.scope FROM sources s JOIN requests r ON r.id=s.request_id WHERE s.id=? AND r.owner_id=?", [
     link.source_id, owner,
   ]);
   const source = row && {
@@ -67,7 +70,7 @@ async function resolve(link, owner, connection = db) {
     sourceLanguage: row.source_language,
     translationStatus: row.translation_status,
   };
-  if (!source) return null;
+  if (!source || !require("../services/source-relevance.service").evaluateSource(row, source).accepted) return null;
   const chunk = createChunks(source.requestId, source).find(
     (c) => c.id === link.reference_id,
   );
@@ -83,23 +86,27 @@ async function resolve(link, owner, connection = db) {
       }
     : null;
 }
-async function validate(m, owner) {
-  const links = await db.all(
+async function validate(m, owner, connection = db) {
+  const links = await connection.all(
     "SELECT * FROM memory_evidence_links WHERE memory_id=?",
     [m.id],
   );
-  let valid = links.length > 0;
+  let valid = links.length > 0 && m.content_hash === hash(normalize(m.content));
   for (const link of links) {
-    const source = await resolve(link, owner);
+    const source = await resolve(link, owner, connection);
+    link.title = source?.title || null;
+    link.url = source?.url || null;
     if (
       !source ||
+      normalize(link.quote).length < 12 ||
+      normalize(m.content) !== normalize(link.quote) ||
       source.versionHash !== link.version_hash ||
       !normalize(source.content).includes(normalize(link.quote))
     )
       valid = false;
   }
   if (!valid && !["stale", "rejected"].includes(m.status)) {
-    await db.run(
+    await connection.run(
       "UPDATE agent_memories SET status='stale',updated_at=? WHERE id=?",
       [now(), m.id],
     );
@@ -109,7 +116,7 @@ async function validate(m, owner) {
 }
 async function getValid(id, owner, requestId) {
   const m = await db.get(
-    "SELECT * FROM agent_memories WHERE id=? AND owner_id=? AND status='verified' AND (request_id=? OR kind='cross_research')",
+    "SELECT * FROM agent_memories WHERE id=? AND owner_id=? AND status='verified' AND (request_id IS ? OR kind='cross_research')",
     [id, owner, requestId],
   );
   if (!m) return null;
@@ -119,6 +126,7 @@ async function getValid(id, owner, requestId) {
 async function candidates(session, messageId, citations) {
   // Extractive candidates: no unverified generated sentence is promoted to factual memory.
   for (const c of citations.slice(0, 3)) {
+    if (c.memoryId) continue;
     const content = normalize(c.quote).slice(0, 1000),
       contentHash = hash(content);
     if (content.length < 20) continue;
@@ -134,7 +142,7 @@ async function candidates(session, messageId, citations) {
         session.owner_id,
         tx,
       );
-      if (!live || live.versionHash !== c.versionHash) return;
+      if (!live || live.versionHash !== c.versionHash || !normalize(live.content).includes(content)) return;
       const count = await tx.get(
         "SELECT COUNT(*) AS n FROM agent_memories WHERE owner_id=?",
         [session.owner_id],
@@ -199,37 +207,23 @@ async function list(owner, query = "", status) {
   return result.filter((m) => !status || m.status === status);
 }
 async function approve(id, owner, crossResearch) {
-  const m = await db.get(
-    "SELECT * FROM agent_memories WHERE id=? AND owner_id=?",
-    [id, owner],
-  );
-  check(m, "Memory not found", 404);
-  check(
-    ["candidate", "verified"].includes(m.status),
-    "Only current candidates can be approved",
-    409,
-  );
-  const valid = await validate(m, owner);
-  check(valid.valid, "Memory source is stale", 409);
-  // Transaction rechecks status so concurrent document deletion cannot resurrect a stale candidate.
-  const r = await db.run(
-    "UPDATE agent_memories SET status='verified',kind=?,verification_json=?,updated_at=? WHERE id=? AND owner_id=? AND status IN ('candidate','verified')",
-    [
-      crossResearch ? "cross_research" : "research",
-      JSON.stringify({
-        approvedBy: owner,
-        approvedAt: now(),
-        sourceValidatedAt: now(),
-        method: "human-reviewed-extractive-quote",
-      }),
-      now(),
-      id,
-      owner,
-    ],
-  );
-  check(r.changes, "Memory changed; reload before approving", 409);
-  return { status: "verified" };
+  const result = await db.transaction(async tx => {
+    const m = await tx.get('SELECT * FROM agent_memories WHERE id=? AND owner_id=?', [id, owner]);
+    check(m, 'Memory not found', 404);
+    check(['candidate', 'verified'].includes(m.status), 'Only current candidates can be approved', 409);
+    const valid = await validate(m, owner, tx);
+    // Commit invalidation, then return a conflict; never resurrect a concurrent stale source.
+    if (!valid.valid) return { stale: true };
+    await tx.run("UPDATE agent_memories SET status='verified',kind=?,verification_json=?,updated_at=? WHERE id=? AND owner_id=?", [
+      crossResearch ? 'cross_research' : 'research',
+      JSON.stringify({ approvedBy: owner, approvedAt: now(), sourceValidatedAt: now(), method: 'human-reviewed-extractive-quote' }),
+      now(), id, owner]);
+    return { status: 'verified' };
+  });
+  check(!result.stale, 'Memory source is stale', 409);
+  return result;
 }
+
 async function maintain(owner) {
   if (owner === undefined) {
     const owners = await db.all('SELECT DISTINCT owner_id FROM agent_memories');

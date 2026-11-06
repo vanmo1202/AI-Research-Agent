@@ -53,11 +53,10 @@ function cleanContent(value) {
     .trim()
     .slice(0, positiveInteger("MAX_SOURCE_CONTENT_CHARS", 20000, 1000000));
 }
-async function fetchPageContent(url) {
+async function fetchPageContent(url, options = {}) {
   logger.info("Content", "Fetching page content");
-  const signal = AbortSignal.timeout(
-    Number(process.env.HTTP_TIMEOUT_MS || 30000),
-  );
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? Number(process.env.HTTP_TIMEOUT_MS || 30000));
+  const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
   try {
     let current = url;
     // Kiểm tra cả đích redirect; không tự theo redirect tới mạng nội bộ.

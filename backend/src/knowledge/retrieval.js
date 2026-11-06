@@ -5,7 +5,8 @@ const { scoreChunk } = require("../services/relevance.service");
 const sourceHash = (s) =>
   hash(JSON.stringify([s.contentVi || s.content || "", s.url]));
 async function sourceContexts(requestId) {
-  const sources = (await sourceModel.getSourcesByRequestId(requestId)).slice(
+  const request = await require('../models/request.model').findById(requestId);
+  const sources = require('../services/source-relevance.service').eligibleSources(request || {}, await sourceModel.getSourcesByRequestId(requestId)).slice(
     0,
     40,
   );
@@ -24,18 +25,7 @@ async function sourceContexts(requestId) {
 function score(query, content) {
   const value = scoreChunk(query, content);
   if (value > 0) return value;
-  // Preserve useful two-letter research terms (AI, ML) ignored by the legacy scorer.
-  const short = (
-    normalize(query)
-      .toLowerCase()
-      .match(/[\p{L}\p{N}]+/gu) || []
-  ).filter((t) => t.length === 2);
-  const actual = new Set(
-    normalize(content)
-      .toLowerCase()
-      .match(/[\p{L}\p{N}]+/gu) || [],
-  );
-  return short.some((t) => actual.has(t)) ? 0.1 : 0;
+  return 0;
 }
 async function retrieve(session, question, topK = 6) {
   const result = [],
@@ -44,7 +34,7 @@ async function retrieve(session, question, topK = 6) {
     // Revalidate access and attachment at every retrieval, not only at session creation.
     for (const id of docIds) {
       await document(id, session.owner_id, true);
-      check(
+      if (session.request_id !== null) check(
         await db.get(
           "SELECT 1 FROM research_documents WHERE request_id=? AND document_id=? AND owner_id=?",
           [session.request_id, id, session.owner_id],
@@ -53,7 +43,7 @@ async function retrieve(session, question, topK = 6) {
         409,
       );
     }
-    const query = match(question);
+    const query = require("../services/source-relevance.service").searchTerms(question).map(term => `"${term}"`).join(" OR ");
     if (query) {
       const rows = await db.all(
         `SELECT c.*,d.filename,d.sha256,bm25(document_chunks_fts) AS rank
@@ -75,7 +65,7 @@ async function retrieve(session, question, topK = 6) {
       );
     }
   }
-  if (session.scope !== "documents") {
+  if (session.request_id && session.scope !== "documents") {
     const evidence = await db.all(
       `SELECT e.*,s.title_vi,s.title,s.url,s.content_vi,s.content FROM evidence e JOIN sources s ON s.id=e.source_id WHERE e.request_id=? AND s.request_id=? ORDER BY e.relevance_score DESC LIMIT 200`,
       [session.request_id, session.request_id],

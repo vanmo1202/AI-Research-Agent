@@ -9,6 +9,7 @@ const logger = require('../utils/logger');
 const llm = require('./llm.service');
 const { positiveInteger } = require('../utils/settings');
 const { mapWithConcurrency } = require('../utils/concurrency');
+const topical = require('./source-relevance.service');
 const { detectSourceLanguage } = require('../utils/language');
 
 function httpError(message, status) { return Object.assign(new Error(message), { status }); }
@@ -16,8 +17,11 @@ function rowEvidence(row) { return { id: row.id, requestId: row.request_id, sour
     researchQuestion: row.research_question, evidenceText: row.evidence_text, relevanceScore: row.relevance_score,
     reason: row.reason, citationLabel: row.citation_label, createdAt: row.created_at }; }
 async function getEvidence(requestId) {
+    const request = await requestModel.findById(requestId);
+    if (!request) return [];
+    const allowed = new Set(topical.eligibleSources(request, await sourceModel.getSourcesByRequestId(requestId)).map(s => s.id));
     return (await database.all('SELECT * FROM evidence WHERE request_id = ? ORDER BY relevance_score DESC, rowid', [requestId]))
-        .map(rowEvidence).filter(item => detectSourceLanguage({ content: item.evidenceText }) === 'vi');
+        .map(rowEvidence).filter(item => allowed.has(item.sourceId) && detectSourceLanguage({ content: item.evidenceText }) === 'vi');
 }
 async function getAnalysis(requestId) {
     const row = await database.get('SELECT metadata_json FROM analysis_results WHERE request_id = ?', [requestId]);
@@ -56,9 +60,9 @@ async function analyze(requestId) {
         const request = await requestModel.findById(requestId);
         if (!request) throw httpError('Research request not found', 404);
         const plan = await planModel.findByRequestId(requestId);
-        const sources = await sourceModel.getSourcesByRequestId(requestId);
+        const sources = topical.eligibleSources(request, await sourceModel.getSourcesByRequestId(requestId));
         if (!plan.researchQuestions.length) throw httpError('Research plan is missing', 400);
-        if (!sources.length) throw httpError('No sources available', 400);
+        if (!sources.length) throw httpError('Không có nguồn phù hợp để phân tích. Hãy tìm kiếm lại.', 400);
         const chunks = sources.flatMap(source => chunkService.createChunks(requestId, source));
         const previous = await getEvidence(requestId);
         const metrics = { geminiCalls: 0, cacheHits: 0, rateLimitRetries: 0 };
@@ -71,11 +75,11 @@ async function analyze(requestId) {
         let quotaError;
         await requestModel.updateStatus(requestId, 'analyzing');
         const results = await mapWithConcurrency(plan.researchQuestions, positiveInteger('RAG_ANALYSIS_CONCURRENCY', 1, 10), async (question, index) => {
-            const ranked = relevance.rankChunks(`${request.topic} ${request.goal} ${question.question}`, chunks).filter(item => item.relevanceScore >= min);
+            const ranked = relevance.rankChunks(`${request.topic} ${request.goal} ${question.question}`, chunks).filter(item => (item.relevanceScore > 0 || (mock && min === 0)) && item.relevanceScore >= min);
             const unique = ranked.filter((item, i) => ranked.findIndex(other => other.content === item.content) === i).slice(0, topK);
             const context = buildContext(question, unique, sources, maxChars);
             logger.info('Workflow3', `question ${index + 1} selected ${context.chunks.length} chunks`);
-            const hash = createHash('sha256').update(JSON.stringify(['vi-evidence-v1', context, mock, process.env.GEMINI_MODEL || 'gemini-2.5-flash'])).digest('hex');
+            const hash = createHash('sha256').update(JSON.stringify(['vi-evidence-relevance-v2', context, mock, process.env.GEMINI_MODEL || 'gemini-2.5-flash'])).digest('hex');
             const cached = await database.get('SELECT evidence_json FROM evidence_cache WHERE request_id = ? AND question_id = ? AND input_hash = ?', [requestId, question.id, hash]);
             if (cached) { metrics.cacheHits++; return { questionId: question.id, status: 'complete', evidence: JSON.parse(cached.evidence_json), hash }; }
             try {
@@ -100,6 +104,7 @@ async function analyze(requestId) {
                 const evidence = extracted.map(item => {
                     const chunk = valid.get(item.chunkId);
                     if (!chunk || chunk.sourceId !== item.sourceId || typeof item.evidenceText !== 'string' || !item.evidenceText.trim() ||
+                        !topical.evaluateSource(request, { content: item.evidenceText }).accepted ||
                         typeof item.reason !== 'string' || detectSourceLanguage({ content: item.evidenceText }) !== 'vi' || detectSourceLanguage({ content: item.reason }) !== 'vi') throw new Error('Invalid evidence mapping or language');
                     return { id: randomUUID(), requestId, sourceId: item.sourceId, chunkId: item.chunkId, researchQuestion: question.question,
                         evidenceText: item.evidenceText, relevanceScore: unique.find(c => c.id === item.chunkId)?.relevanceScore || 0,

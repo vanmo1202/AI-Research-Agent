@@ -28,7 +28,7 @@ function Memory() {
         <div>
           <p className="ro-kicker">TRI THỨC / BỘ NHỚ</p>
           <h1>Bộ nhớ AI</h1>
-          <p>Quản lý, xác minh và tái sử dụng tri thức đã được lưu từ các nghiên cứu.</p>
+          <p>Duyệt trích đoạn từ PDF và hội thoại. Chỉ tái sử dụng bộ nhớ bạn đã phê duyệt.</p>
         </div>
         <span className="ro-memory-icon">
           <BrainCircuit size={24} />

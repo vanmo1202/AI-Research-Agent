@@ -8,6 +8,7 @@ export default function MemoryReviewPanel({ memories, selected, onChange }) {
         <label className="knowledge-checkbox" key={m.id}>
           <input
             type="checkbox"
+            disabled={!selected.includes(m.id) && selected.length >= 8}
             checked={selected.includes(m.id)}
             onChange={(e) =>
               onChange(

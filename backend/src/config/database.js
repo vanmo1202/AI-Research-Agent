@@ -114,5 +114,7 @@ async function initializeDatabase() {
     await require("../migrations/003-knowledge")({ transaction });
     await require("../migrations/004-user-auth")({ transaction });
     await require("../migrations/005-query-indexes")({ transaction });
+    await require("../migrations/006-document-chats")({ transaction });
+    await require("../migrations/007-auto-research-chat")({ transaction });
 }
 module.exports = { run, get, all, transaction, initializeDatabase };

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import WorkspaceAccess from '../components/knowledge/WorkspaceAccess';
 import DocumentStatus from '../components/knowledge/DocumentStatus';
 import PdfViewer from '../components/knowledge/PdfViewer';
-import useKnowledge from '../hooks/useKnowledge';
+import useKnowledge, { pollDocuments } from '../hooks/useKnowledge';
 import useResearchHistory from '../hooks/useResearchHistory';
 import { knowledgeApi, resourcePath } from '../services/knowledgeApi';
 import Button from '../components/ui/Button';
@@ -13,8 +13,9 @@ function Detail() {
   const { documentId } = useParams(),
     [params, setParams] = useSearchParams(),
     navigate = useNavigate();
-  const result = useKnowledge(resourcePath('documents', documentId), true),
+  const result = useKnowledge(resourcePath('documents', documentId), pollDocuments),
     history = useResearchHistory();
+  const researches = useKnowledge('/research');
   const [requestId, setRequestId] = useState(''),
     [error, setError] = useState(null),
     [note, setNote] = useState(''),
@@ -77,6 +78,11 @@ function Detail() {
           </div>
           <Card className="knowledge-card">
             <div className="knowledge-actions">
+              {doc.status === 'ready' && (
+                <Button to={`/chat?documentId=${encodeURIComponent(documentId)}`}>
+                  Chat với PDF này
+                </Button>
+              )}
               {doc.status === 'failed' && (
                 <Button disabled={busy} onClick={() => act('retry')}>
                   Thử lại lập chỉ mục
@@ -100,6 +106,21 @@ function Detail() {
                 act('attach');
               }}
             >
+              <label>
+                Chọn nghiên cứu theo chủ đề
+                <select
+                  value={(researches.data || []).some((r) => r.id === requestId) ? requestId : ''}
+                  onChange={(e) => setRequestId(e.target.value)}
+                >
+                  <option value="">Chọn nghiên cứu đã có</option>
+                  {researches.data?.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.topic}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <ErrorMessage error={researches.error} />
               <label>
                 Mã nghiên cứu
                 <input
@@ -155,7 +176,11 @@ function Detail() {
                   </Button>
                 )}
                 <p className="chat-content">
-                  {pageData.data?.content || 'Trang không có lớp văn bản.'}
+                  {pageData.loading
+                    ? 'Đang tải văn bản trang...'
+                    : pageData.error
+                      ? ''
+                      : pageData.data?.content || 'Trang không có lớp văn bản.'}
                 </p>
               </Card>
             </>

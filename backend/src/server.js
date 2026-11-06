@@ -54,6 +54,7 @@ app.use((error, req, res, next) => {
         : status >= 500 && !error.requestId && !error.safeKnowledge ? "Internal server error" : error.message;
     logger.error("Server", `Request failed (HTTP ${status})`);
     res.status(status).json({ success: false, error: message,
+        ...(error.safeKnowledge && error.code ? {code:error.code,stage:error.stage} : {}),
         ...(error.requestId ? { requestId: error.requestId } : {}) });
 });
 

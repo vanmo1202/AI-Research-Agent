@@ -24,6 +24,7 @@ function Chat() {
     [busy, setBusy] = useState(false),
     [creating, setCreating] = useState(!chatId),
     lock = useRef(false);
+  const [internet, setInternet] = useState(true);
   const encoded = encodeURIComponent(requestId || '');
   const chats = useKnowledge(requestId ? `/research/${encoded}/chats` : null);
   const docs = useKnowledge(requestId ? `/documents?researchId=${encoded}` : null);
@@ -37,6 +38,8 @@ function Chat() {
       const session = await knowledgeApi(`/research/${encoded}/chats`, {
         method: 'POST',
         body: {
+          mode: 'auto',
+          internetEnabled: internet,
           scope,
           documentIds: scope === 'research' ? [] : selected,
           memoryIds: scope === 'combined' ? accepted : [],
@@ -140,6 +143,7 @@ function Chat() {
           <p className="ro-kicker">TRI THỨC / ĐỐI THOẠI</p>
           <h1>Chat với tài liệu</h1>
           <p>Hỏi đáp dựa trên tài liệu, nghiên cứu và tri thức đã được xác minh.</p>
+          <Link to="/chat">Chat PDF trực tiếp, không cần nghiên cứu</Link>
         </div>
         <Link className="button button-secondary" to={`/research/${encoded}`}>
           <ArrowLeft size={15} /> Xem nghiên cứu
@@ -154,6 +158,14 @@ function Chat() {
             </Button>
             {creating && (
               <form onSubmit={create} className="knowledge-form ro-new-chat-form">
+                <label className="knowledge-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={internet}
+                    onChange={(e) => setInternet(e.target.checked)}
+                  />
+                  Tự tìm Internet khi cần (Tavily)
+                </label>
                 <label>
                   Phạm vi nguồn
                   <select value={scope} onChange={(e) => setScope(e.target.value)}>
@@ -254,7 +266,11 @@ function Chat() {
               {chats.loading ? (
                 <p role="status">Đang kiểm tra hội thoại...</p>
               ) : chats.data?.some((c) => c.id === chatId) ? (
-                <ChatPanel key={chatId} chatId={chatId} />
+                <ChatPanel
+                  key={chatId}
+                  chatId={chatId}
+                  session={chats.data.find((c) => c.id === chatId)}
+                />
               ) : (
                 <ErrorMessage
                   error={

@@ -16,7 +16,9 @@ async function generate(requestId, input) {
     const request = await requestModel.findById(requestId); if (!request) throw httpError('Research request not found', 404);
     if (request.status !== 'analyzed_partial' && request.status !== 'analyzed' && request.status !== 'completed') throw httpError('Research must be analyzed first', 409);
     const config = validateConfig(input); const evidence = await evidenceService.getEvidence(requestId); if (!evidence.length) throw httpError('No relevant evidence found', 400);
-    const sources = await sourceModel.getSourcesByRequestId(requestId); await requestModel.updateStatus(requestId, 'generating_report'); logger.info('Report', `Building context for request ${requestId}`);
+    const sources = require('./source-relevance.service').eligibleSources(request, await sourceModel.getSourcesByRequestId(requestId));
+    for (const item of evidence) item.citationLabel = `[Nguồn ${sources.findIndex(s => s.id === item.sourceId) + 1}]`;
+    await requestModel.updateStatus(requestId, 'generating_report'); logger.info('Report', `Building context for request ${requestId}`);
     try {
         let result = mockReport(request, evidence, sources, config);
         if (process.env.MOCK_LLM === 'false' && process.env.MOCK_REPORT !== 'true') {

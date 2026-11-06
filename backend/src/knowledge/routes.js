@@ -18,6 +18,10 @@ router.use(
   ],
   guard,
 );
+router.get('/knowledge/config', (req, res) => ok(res, {
+  autoResearch: require('./auto-budget').limits(),
+  maxUploadBytes: docs.maxBytes(), maxPages: require('../utils/settings').positiveInteger('DOCUMENT_MAX_PAGES', 100, 100), ocr: false,
+}));
 router.post("/documents", async (req, res) => {
   const count = await db.get(
     "SELECT COUNT(*) AS n,COALESCE(SUM(byte_size),0) AS bytes FROM documents WHERE deleted_at IS NULL",
@@ -116,13 +120,28 @@ router.get("/research/:requestId/chats", async (req, res) => {
   ok(
     res,
     await db.all(
-      "SELECT id,title,scope,document_ids_json,memory_ids_json,created_at FROM chat_sessions WHERE owner_id=? AND request_id=? ORDER BY created_at DESC LIMIT 100",
+      "SELECT id,title,scope,document_ids_json,memory_ids_json,created_at,auto_research,internet_enabled FROM chat_sessions WHERE owner_id=? AND request_id=? ORDER BY created_at DESC LIMIT 100",
       [req.owner, req.params.requestId],
     ),
   );
 });
+// Document-only sessions require no research creation or planner/provider call.
+router.post('/chats', async (req, res) => {
+  check(req.body.requestId === undefined || req.body.requestId === null, 'Use research chat endpoint for research context');
+  ok(res, await chat.create(req.owner, null, req.body), 201);
+});
+router.get('/chats', async (req, res) => ok(res, await db.all(
+  'SELECT id,title,scope,request_id,document_ids_json,memory_ids_json,created_at,auto_research,internet_enabled FROM chat_sessions WHERE owner_id=? ORDER BY created_at DESC,rowid DESC LIMIT 100', [req.owner])));
+router.get('/chats/:id', async (req, res) => {
+  const { owner_id, active_token, busy_until, ...safe } = await chat.session(req.params.id, req.owner);
+  ok(res, safe);
+});
+router.patch('/chats/:id/preferences', async (req,res) => {
+  const {owner_id,active_token,busy_until,...safe}=await chat.preferences(req.params.id,req.owner,req.body);
+  ok(res,safe);
+});
 router.get("/chats/:id/messages", async (req, res) =>
-  ok(res, await chat.messages(req.params.id, req.owner)),
+  ok(res, await chat.messages(req.params.id, req.owner, req.query.before)),
 );
 router.post("/chats/:id/messages", async (req, res) =>
   ok(res, await chat.send(req.params.id, req.owner, req.body), 201),
