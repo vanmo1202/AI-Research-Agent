@@ -56,14 +56,16 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://host.docker.internal:3000/api/research",
+        "url": "http://backend:3000/internal/research",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {
           "timeout": 90000
-        }
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "id": "create-research-plan",
       "name": "Create Research Plan",
@@ -72,7 +74,13 @@
       "position": [
         480,
         0
-      ]
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_INTERNAL_HEADER_CREDENTIAL",
+          "name": "Research Internal API"
+        }
+      }
     },
     {
       "parameters": {

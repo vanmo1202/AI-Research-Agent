@@ -23,7 +23,7 @@ export default function SourcesPage() {
       <RequestPicker />
       <p className="library-note">
         Lịch sử bên dưới được lưu trong trình duyệt này. Nghiên cứu từ n8n hoặc thiết bị khác có thể
-        mở bằng Request ID.
+        mở bằng mã nghiên cứu.
       </p>
     </div>
   );

@@ -101,7 +101,7 @@ function Detail() {
               }}
             >
               <label>
-                Request ID
+                Mã nghiên cứu
                 <input
                   list="research-history"
                   required

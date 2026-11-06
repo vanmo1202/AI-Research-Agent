@@ -1,10 +1,10 @@
 const database = require("../config/database");
 async function create(request) {
     await database.run(`INSERT INTO requests
-        (id, topic, goal, scope, output_length, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, topic, goal, scope, output_length, status, created_at, updated_at, owner_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [request.id, request.topic, request.goal, request.scope, request.outputLength,
-        request.status, request.createdAt, request.createdAt]);
+        request.status, request.createdAt, request.createdAt, request.ownerId || "workspace"]);
 }
 async function updateStatus(id, status) {
     await database.run("UPDATE requests SET status = ?, updated_at = ? WHERE id = ?",

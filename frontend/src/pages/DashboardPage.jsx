@@ -1,93 +1,299 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, BookOpen, BrainCircuit, CheckCircle2, FileText, Files, MessageSquareText, Plus, Sparkles, Workflow } from 'lucide-react';
-import useResearchHistory from '../hooks/useResearchHistory';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BookOpen,
+  BrainCircuit,
+  CheckCircle2,
+  FileText,
+  Files,
+  MessageSquareText,
+  Plus,
+  Workflow,
+} from 'lucide-react';
 import useKnowledge from '../hooks/useKnowledge';
-import { getWorkspaceKey } from '../services/knowledgeApi';
-import { researchJourney } from '../utils/researchJourney';
 import { formatDate } from '../utils/format';
+import { researchJourney } from '../utils/researchJourney';
 import Button from '../components/ui/Button';
 import { StatusBadge } from '../components/ui/Badge';
-
-const quickLinks = [
-  { to: '/workflow-1', icon: Workflow, label: 'Nghiên cứu mới', description: 'Lập kế hoạch và thu thập nguồn' },
-  { to: '/documents', icon: Files, label: 'Tải lên tài liệu', description: 'Xây dựng thư viện PDF RAG' },
-  { to: '/chat', icon: MessageSquareText, label: 'Chat với tài liệu', description: 'Hỏi đáp kèm nguồn trích dẫn' },
-  { to: '/memories', icon: BrainCircuit, label: 'Agent Memory', description: 'Kiểm chứng và tái sử dụng tri thức' },
+import ErrorMessage from '../components/ui/ErrorMessage';
+import PageHeader from '../components/ui/PageHeader';
+import SectionHeading from '../components/ui/SectionHeading';
+import MetricCard from '../components/ui/MetricCard';
+import Skeleton from '../components/ui/Skeleton';
+import ResearchOrbit from '../components/dashboard/ResearchOrbit';
+const tools = [
+  {
+    to: '/documents',
+    icon: Files,
+    label: 'Thư viện tài liệu',
+    description: 'Lưu trữ PDF và truy xuất nguồn gốc.',
+  },
+  {
+    to: '/chat',
+    icon: MessageSquareText,
+    label: 'Đối thoại với tri thức',
+    description: 'Đặt câu hỏi, tìm câu trả lời có dẫn chứng.',
+  },
+  {
+    to: '/memories',
+    icon: BrainCircuit,
+    label: 'Bộ nhớ AI',
+    description: 'Kiểm chứng và kết nối những điều đã học.',
+  },
 ];
-
+const steps = [
+  { label: 'Đặt câu hỏi', description: 'Xác định chủ đề và lập kế hoạch.', path: 'research' },
+  { label: 'Thu thập nguồn', description: 'Tìm kiếm, chọn lọc tài liệu.', path: 'workflow-2' },
+  {
+    label: 'Phân tích bằng chứng',
+    description: 'Đối chiếu và làm rõ luận điểm.',
+    path: 'workflow-3',
+  },
+  { label: 'Viết báo cáo', description: 'Tổng hợp, trích dẫn và xuất bản.', path: 'workflow-4' },
+];
 export default function DashboardPage() {
-  const history = useResearchHistory();
-  const unlocked = Boolean(getWorkspaceKey());
-  const documents = useKnowledge(unlocked ? '/documents' : null);
-  const memories = useKnowledge(unlocked ? '/memories?status=verified' : null);
-  const completed = history.filter((item) => {
-    const journey = researchJourney({
-      ...item,
-      planned: item.questionCount > 0,
-      collected: item.sourceCount > 0,
-    });
-    return journey.workflowCompleted === 3;
-  }).length;
-  const sourceCount = history.reduce((sum, item) => sum + (item.sourceCount || 0), 0);
+  const summary = useKnowledge('/dashboard');
+  const history = summary.data?.recentResearch || [];
+  const latest = history[0];
+  const latestId = latest?.requestId;
+  const journey = researchJourney({
+    status: latest?.status,
+    planned: (latest?.questionCount || 0) > 0,
+  });
+  const metrics = [
+    {
+      icon: FileText,
+      key: 'researchCount',
+      label: 'Nghiên cứu gần đây',
+      note: 'Những câu hỏi đang được khám phá',
+      tone: 'forest',
+    },
+    {
+      icon: Files,
+      key: 'documentCount',
+      label: 'Tài liệu PDF',
+      note: 'Nguồn tư liệu trong thư viện',
+      tone: 'terracotta',
+    },
+    {
+      icon: BrainCircuit,
+      key: 'verifiedMemoryCount',
+      label: 'Bộ nhớ đã xác minh',
+      note: 'Tri thức đã được bạn kiểm chứng',
+      tone: 'teal',
+    },
+    {
+      icon: CheckCircle2,
+      key: 'completedCount',
+      label: 'Nghiên cứu hoàn tất',
+      note: 'Từ ý tưởng đến một bản báo cáo',
+      tone: 'forest',
+    },
+  ];
   return (
-    <div className="page-enter researchos-dashboard">
-      <div className="ro-page-heading">
-        <div>
-          <p className="ro-kicker">RESEARCH WORKSPACE</p>
-          <h1>Chào bạn! <span aria-hidden="true">👋</span></h1>
-          <p>Tiếp tục hành trình nghiên cứu, tìm hiểu tài liệu và xây dựng tri thức của bạn.</p>
+    <div className="page-enter studio-dashboard">
+      <PageHeader
+        eyebrow="Không gian nghiên cứu của bạn"
+        title={
+          <>
+            Không chỉ tìm kiếm.
+            <br />
+            <em>Hãy khám phá.</em>
+          </>
+        }
+        description="Dành một khoảng lặng cho những câu hỏi lớn."
+      >
+        <Button to="/workflow-1">
+          <Plus size={18} />
+          Nghiên cứu mới
+        </Button>
+      </PageHeader>
+      <section className="studio-hero" aria-labelledby="studio-hero-title">
+        <div className="studio-hero-copy">
+          <p className="studio-eyebrow">
+            <span className="studio-small-rule" />
+            Trạm nghiên cứu của bạn
+          </p>
+          <h2 id="studio-hero-title">
+            Một câu hỏi hay,
+            <br />
+            mở ra <em>vạn khả năng.</em>
+          </h2>
+          <p>
+            Một nơi để tìm tòi, kết nối bằng chứng và biến những ý tưởng rời rạc thành tri thức có
+            căn cứ.
+          </p>
+          <Button to="/workflow-1">
+            Bắt đầu nghiên cứu
+            <ArrowRight size={18} />
+          </Button>
+          <span className="studio-hero-note">Có dẫn chứng. Có chiều sâu. Theo nhịp của bạn.</span>
         </div>
-        <Button to="/workflow-1"><Plus size={17} /> Nghiên cứu mới</Button>
+        <ResearchOrbit />
+        <span className="studio-hero-caption" aria-hidden="true">
+          Từ ý tưởng đến báo cáo
+        </span>
+      </section>
+      <section
+        className="studio-metrics"
+        aria-label="Thống kê tài khoản"
+        aria-busy={summary.loading}
+      >
+        {metrics.map(({ key, ...metric }) => (
+          <MetricCard
+            key={key}
+            {...metric}
+            value={summary.data?.[key]}
+            loading={summary.loading}
+            error={summary.error}
+          />
+        ))}
+      </section>
+      <div className="studio-data-note">
+        <span className="studio-quiet-dot" />
+        <p>Thống kê từ dữ liệu tài khoản của bạn.</p>
       </div>
-
-      <section className="ro-hero" aria-label="Bắt đầu nghiên cứu">
-        <div className="ro-hero-copy">
-          <span className="ro-hero-eyebrow"><Sparkles size={15} /> AI RESEARCH COMPANION</span>
-          <h2>Bạn muốn nghiên cứu điều gì hôm nay?</h2>
-          <p>Mô tả ý tưởng, AI sẽ giúp bạn lập kế hoạch và tự động thu thập các nguồn phù hợp.</p>
-          <Link to="/workflow-1" className="ro-hero-search">
-            <span>Nhập chủ đề nghiên cứu và bắt đầu khám phá...</span>
-            <span className="ro-hero-arrow"><ArrowRight size={18} /></span>
-          </Link>
-        </div>
-        <div className="ro-hero-illustration" aria-hidden="true">
-          <BookOpen size={92} strokeWidth={1.15} />
-          <span className="ro-ai-tag">AI</span>
-          <span className="ro-hero-glow" />
-        </div>
-      </section>
-
-      <section className="ro-stat-grid" aria-label="Thống kê nghiên cứu trong trình duyệt">
-        <div className="ro-stat"><span className="ro-stat-icon indigo"><FileText size={22}/></span><div><strong>{history.length}</strong><span>Nghiên cứu gần đây</span></div></div>
-        <div className="ro-stat"><span className="ro-stat-icon blue"><Files size={22}/></span><div><strong>{unlocked ? (documents.data?.length ?? '—') : '—'}</strong><span>Tài liệu PDF</span></div></div>
-        <div className="ro-stat"><span className="ro-stat-icon teal"><BrainCircuit size={22}/></span><div><strong>{unlocked ? (memories.data?.length ?? '—') : '—'}</strong><span>Bộ nhớ đã xác minh</span></div></div>
-        <div className="ro-stat"><span className="ro-stat-icon indigo"><CheckCircle2 size={22}/></span><div><strong>{completed}</strong><span>Nghiên cứu hoàn tất</span></div></div>
-      </section>
-      <p className="ro-data-hint">Số nghiên cứu lấy từ lịch sử trình duyệt; PDF và Memory lấy từ workspace đã mở khóa. Dấu — nghĩa là chưa có quyền xem hoặc dữ liệu chưa tải xong.</p>
-
-      <div className="ro-dashboard-columns">
-        <section className="ro-panel">
-          <div className="ro-panel-head"><div><h2>Nghiên cứu gần đây</h2><p>Tiếp tục công việc đang thực hiện</p></div><Link to="/sources">Xem nguồn <ArrowUpRight size={15}/></Link></div>
-          {history.length ? history.slice(0, 6).map((item) => (
-            <Link className="ro-recent-row" to={`/research/${encodeURIComponent(item.requestId)}`} key={item.requestId} aria-label={item.topic}>
-              <span className="ro-recent-icon"><FileText size={19}/></span>
-              <span className="ro-recent-copy"><strong>{item.topic}</strong><small>{formatDate(item.createdAt)} · {item.questionCount || 0} câu hỏi · {item.sourceCount || 0} nguồn</small></span>
-              <StatusBadge status={item.status} />
-              <ArrowUpRight className="ro-recent-arrow" size={17}/>
+      {summary.loading && (
+        <p role="status" className="sr-only">
+          Đang tải tổng quan…
+        </p>
+      )}
+      <ErrorMessage error={summary.error} />
+      {summary.error && (
+        <Button variant="secondary" onClick={summary.reload}>
+          Tải lại tổng quan
+        </Button>
+      )}
+      <div className="studio-dashboard-columns">
+        <section className="studio-recent" aria-labelledby="recent-title">
+          <SectionHeading
+            id="recent-title"
+            eyebrow="Trên bàn làm việc"
+            title="Nghiên cứu gần đây"
+            description="Tiếp tục từ nơi bạn đang dừng lại."
+          >
+            <Link className="studio-text-link" to="/sources">
+              Xem nguồn
+              <ArrowUpRight size={16} />
             </Link>
-          )) : <div className="ro-empty"><BookOpen size={30}/><h3>Chưa có nghiên cứu gần đây</h3><p>Tạo nghiên cứu đầu tiên để bắt đầu khám phá tri thức.</p><Button to="/workflow-1"><Plus size={16}/> Tạo nghiên cứu</Button></div>}
+          </SectionHeading>
+          {summary.loading ? (
+            <div className="studio-recent-skeleton" aria-hidden="true">
+              {[0, 1, 2].map((n) => (
+                <Skeleton key={n} />
+              ))}
+            </div>
+          ) : summary.error ? (
+            <p className="studio-unavailable">
+              Chưa thể tải danh sách nghiên cứu. Hãy thử tải lại tổng quan.
+            </p>
+          ) : history.length ? (
+            <div className="studio-recent-list">
+              {history.slice(0, 6).map((item, index) => (
+                <Link
+                  className="studio-research-row"
+                  key={item.requestId}
+                  to={`/research/${encodeURIComponent(item.requestId)}`}
+                  aria-label={item.topic}
+                >
+                  <span className="studio-row-number" aria-hidden="true">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span className="studio-research-copy">
+                    <strong>{item.topic}</strong>
+                    <small>
+                      {formatDate(item.createdAt)}
+                      <span aria-hidden="true"> · </span>
+                      {item.questionCount || 0} câu hỏi<span aria-hidden="true"> · </span>
+                      {item.sourceCount || 0} nguồn
+                    </small>
+                  </span>
+                  <StatusBadge status={item.status} />
+                  <ArrowUpRight size={20} className="studio-row-arrow" />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="studio-empty">
+              <BookOpen size={34} strokeWidth={1.3} />
+              <div>
+                <h3>Chưa có nghiên cứu gần đây</h3>
+                <p>
+                  Mỗi hành trình tri thức bắt đầu bằng một câu hỏi. Hãy bắt đầu với điều bạn đang tò
+                  mò.
+                </p>
+              </div>
+              <Button variant="secondary" to="/workflow-1">
+                <Plus size={17} />
+                Tạo nghiên cứu
+              </Button>
+            </div>
+          )}
         </section>
-        <section className="ro-panel">
-          <div className="ro-panel-head"><div><h2>Truy cập nhanh</h2><p>Những công cụ bạn thường dùng</p></div></div>
-          <div className="ro-quick-links">
-            {quickLinks.map(({to,icon:Icon,label,description}) => (
-              <Link to={to} key={to} className="ro-quick-link">
-                <span className="ro-quick-icon"><Icon size={19}/></span><span><strong>{label}</strong><small>{description}</small></span><ArrowRight size={16}/>
-              </Link>
-            ))}
-          </div>
+        <section className="studio-journey" aria-labelledby="journey-title">
+          <SectionHeading
+            id="journey-title"
+            eyebrow="Phương pháp"
+            title="Một hành trình, bốn bước"
+            description={
+              latest
+                ? `Tiến trình nghiên cứu: ${latest.topic}`
+                : 'Từ sự tò mò đến những kết luận có cơ sở.'
+            }
+          />
+          <ol className="studio-journey-steps">
+            {steps.map((step, index) => {
+              const state = latest ? journey.steps[index] : null;
+              const to = latestId
+                ? index === 0
+                  ? `/research/${encodeURIComponent(latestId)}`
+                  : `/${step.path}/${encodeURIComponent(latestId)}`
+                : '/workflow-1';
+              return (
+                <li key={step.label} data-state={state?.state || 'pending'}>
+                  <Link to={to}>
+                    <span className="studio-step-index">
+                      {String(index + 1).padStart(2, '0')}
+                      {state?.state === 'complete' && (
+                        <CheckCircle2 size={14} aria-label="Hoàn tất" />
+                      )}
+                    </span>
+                    <h3>{step.label}</h3>
+                    <p>{step.description}</p>
+                    {state && <small>{state.label}</small>}
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
         </section>
       </div>
+      <section className="studio-tool-section" aria-labelledby="tools-title">
+        <SectionHeading
+          id="tools-title"
+          title="Những công cụ cho sự tò mò"
+          description="Mọi nguồn tư liệu. Cùng một không gian."
+        />
+        <div className="studio-tools">
+          {tools.map(({ to, icon: Icon, label, description }) => (
+            <Link to={to} key={to} className="studio-tool">
+              <Icon size={24} strokeWidth={1.5} />
+              <div>
+                <h3>{label}</h3>
+                <p>{description}</p>
+              </div>
+              <ArrowUpRight size={19} />
+            </Link>
+          ))}
+        </div>
+      </section>
+      <footer className="studio-dashboard-footer">
+        <span>ResearchOS</span>
+        <p>Không gian cho tư duy độc lập.</p>
+        <Workflow size={17} aria-hidden="true" />
+      </footer>
     </div>
   );
 }

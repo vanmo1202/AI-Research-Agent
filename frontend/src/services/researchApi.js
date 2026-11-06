@@ -5,6 +5,7 @@ async function request(path, { method = 'GET', body, signal } = {}) {
   let response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: 'include',
       method,
       signal,
       ...(body !== undefined
@@ -15,6 +16,7 @@ async function request(path, { method = 'GET', body, signal } = {}) {
     if (error.name === 'AbortError') throw error;
     throw new Error('Không thể kết nối backend. Kiểm tra server, địa chỉ API và cấu hình CORS.');
   }
+  if (response.status === 401) window.dispatchEvent(new Event('auth:expired'));
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload?.success) {
     const error = new Error(payload?.error || `Yêu cầu thất bại (HTTP ${response.status}).`);
@@ -56,10 +58,13 @@ export async function checkHealth(signal) {
 async function exportReportFile(requestId, format) {
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${resource(requestId)}/report/export/${format}`);
+    response = await fetch(`${API_BASE_URL}${resource(requestId)}/report/export/${format}`, {
+      credentials: 'include',
+    });
   } catch {
     throw new Error(`Không thể xuất báo cáo ${format === 'docx' ? 'Word' : 'PDF'}.`);
   }
+  if (response.status === 401) window.dispatchEvent(new Event('auth:expired'));
   if (!response.ok) {
     const error = new Error(`Không thể xuất báo cáo ${format === 'docx' ? 'Word' : 'PDF'}.`);
     error.status = response.status;

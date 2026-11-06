@@ -368,3 +368,7 @@ Kết quả kiểm thử của Flow v2: **78 test backend**, **11 test trình du
 ## Research Knowledge Workspace
 
 PDF upload, grounded research chat and reviewed agent memory: [setup, APIs, limits and backup guide](docs/knowledge-workspace.md). New n8n workflows: [import guide](n8n/workflows/knowledge/README.md).
+
+## User accounts
+
+Public APIs now require session authentication. See [configuration, internal automation and safe legacy ownership transfer](docs/authentication.md). Existing workspace data remains locked until an administrator transfers ownership.

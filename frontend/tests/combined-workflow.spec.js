@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './auth-fixture';
 const id = 'combined-request';
 async function setup(page, status = 'planned') {
   const state = { status, creates: 0, searches: 0 };

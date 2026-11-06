@@ -1,10 +1,89 @@
 {
   "name": "AI Research Agent - Phân tích bằng chứng & RAG",
   "nodes": [
-    { "parameters": {}, "id": "manual", "name": "Manual Trigger", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [240, 300] },
-    { "parameters": { "method": "POST", "url": "=http://host.docker.internal:3000/api/research/{{$json.requestId}}/analyze", "options": {} }, "id": "analyze", "name": "Phân tích bằng chứng", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [500, 300] },
-    { "parameters": { "method": "GET", "url": "=http://host.docker.internal:3000/api/research/{{$json.data.requestId || $json.requestId}}/evidence", "options": {} }, "id": "evidence", "name": "Đọc bằng chứng", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [760, 300] }
+    {
+      "parameters": {},
+      "id": "manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:3000/internal/research/{{$json.requestId}}/analyze",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "analyze",
+      "name": "Phân tích bằng chứng",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_INTERNAL_HEADER_CREDENTIAL",
+          "name": "Research Internal API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:3000/internal/research/{{$json.data.requestId || $json.requestId}}/evidence",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "evidence",
+      "name": "Đọc bằng chứng",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_INTERNAL_HEADER_CREDENTIAL",
+          "name": "Research Internal API"
+        }
+      }
+    }
   ],
-  "connections": { "Manual Trigger": { "main": [[{ "node": "Phân tích bằng chứng", "type": "main", "index": 0 }]] }, "Phân tích bằng chứng": { "main": [[{ "node": "Đọc bằng chứng", "type": "main", "index": 0 }]] } },
-  "active": false, "settings": {}, "versionId": "workflow-3"
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Phân tích bằng chứng",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phân tích bằng chứng": {
+      "main": [
+        [
+          {
+            "node": "Đọc bằng chứng",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "workflow-3"
 }

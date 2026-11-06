@@ -5,7 +5,7 @@ const reportService = require("../services/report.service");
 async function create(req, res, next) {
     try {
         logger.info("Research", "Request received");
-        const data = await researchService.createResearchRequest(req.researchInput);
+        const data = await researchService.createResearchRequest({...req.researchInput, ownerId:req.owner});
         res.status(201).json({ success: true, data });
     } catch (error) { next(error); }
 }

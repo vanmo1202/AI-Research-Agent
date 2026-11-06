@@ -42,7 +42,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "=http://backend:3000/api/research/{{ $('Context').first().json.requestId }}/runs/{{ $('Context').first().json.runId }}/progress",
+        "url": "=http://backend:3000/internal/research/{{ $('Context').first().json.requestId }}/runs/{{ $('Context').first().json.runId }}/progress",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -54,12 +54,20 @@
         },
         "options": {
           "timeout": 15000
-        }
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 1000,
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_INTERNAL_HEADER_CREDENTIAL",
+          "name": "Research Internal API"
+        }
+      }
     },
     {
       "id": "e7bb1c53-7567-4c02-b046-fe6c6f5cba61",

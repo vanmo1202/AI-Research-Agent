@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useAuth } from '../auth/AuthProvider';
+import { useState, useRef, useEffect } from 'react';
 import { Check, Cpu, Globe2, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 import { API_BASE_URL } from '../config/api';
 import { checkHealth } from '../services/researchApi';
@@ -7,30 +8,40 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import ErrorMessage from '../components/ui/ErrorMessage';
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const pending = useRef(null);
+  useEffect(() => () => pending.current?.abort(), []);
   const [busy, setBusy] = useState(false);
   const [health, setHealth] = useState(null);
   const [error, setError] = useState(null);
   async function checkConnection() {
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
     setBusy(true);
     setError(null);
     setHealth(null);
     try {
-      setHealth(await checkHealth(AbortSignal.timeout(10000)));
+      const result = await checkHealth(
+        AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]),
+      );
+      if (!controller.signal.aborted) setHealth(result);
     } catch (error) {
+      if (controller.signal.aborted) return;
       setError(
         error.name === 'TimeoutError' ? new Error('Backend không phản hồi trong 10 giây.') : error,
       );
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) setBusy(false);
     }
   }
   return (
     <div className="page-enter">
       <div className="page-intro">
         <div>
-          <p className="eyebrow">WORKSPACE SETTINGS</p>
+          <p className="eyebrow">KHÔNG GIAN CÁ NHÂN</p>
           <h1>Cài đặt không gian nghiên cứu</h1>
-          <p>Thông tin kết nối và hồ sơ cho phiên bản demo của bạn.</p>
+          <p>Thông tin kết nối và hồ sơ tài khoản của bạn.</p>
         </div>
       </div>
       <div className="settings-grid">
@@ -67,19 +78,20 @@ export default function SettingsPage() {
               <span className="heading-icon violet">
                 <UserRound size={20} />
               </span>
-              Hồ sơ demo
+              Tài khoản của bạn
             </h2>
-            <Badge tone="neutral">Demo</Badge>
+            <Badge tone="neutral">{user.role === 'admin' ? 'Quản trị viên' : 'Thành viên'}</Badge>
           </div>
           <div className="settings-profile">
-            <span className="avatar large">M</span>
+            <span className="avatar large">{user.name.slice(0, 1).toLocaleUpperCase()}</span>
             <div>
-              <h3>Văn Mơ</h3>
-              <p>Sinh viên · Research workspace</p>
+              <h3>{user.name}</h3>
+              <p>{user.email}</p>
             </div>
           </div>
           <p>
-            Phiên bản hiện tại sử dụng hồ sơ minh họa, chưa có đăng nhập hoặc quản lý tài khoản.
+            Phiên đăng nhập được bảo vệ bằng cookie HttpOnly. Bạn có thể đổi mật khẩu và đăng xuất
+            trong menu tài khoản.
           </p>
           <div className="settings-info">
             <ShieldCheck size={18} />
@@ -92,7 +104,7 @@ export default function SettingsPage() {
               <span className="heading-icon teal">
                 <Cpu size={20} />
               </span>
-              Research engine
+              Công cụ nghiên cứu
             </h2>
           </div>
           <div className="engine-grid">

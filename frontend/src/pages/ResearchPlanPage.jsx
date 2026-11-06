@@ -156,7 +156,7 @@ export default function ResearchPlanPage() {
           />
           <div className="soft-note">
             <Sparkles size={16} />
-            <span>Kế hoạch có thể được mở lại bất cứ lúc nào bằng Request ID.</span>
+            <span>Kế hoạch có thể được mở lại bất cứ lúc nào bằng mã nghiên cứu.</span>
           </div>
         </aside>
       </div>

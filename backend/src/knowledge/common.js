@@ -1,4 +1,4 @@
-const { createHash, timingSafeEqual } = require("node:crypto");
+const { createHash } = require("node:crypto");
 const db = require("../config/database");
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const now = () => new Date().toISOString();
@@ -8,35 +8,16 @@ const check = (condition, message, status = 400) => {
   if (!condition) throw fail(message, status);
 };
 function guard(req, res, next) {
-  const key = process.env.KNOWLEDGE_WORKSPACE_KEY;
-  if (!key || key.length < 24)
-    return next(
-      fail(
-        "Knowledge workspace disabled: configure a key of at least 24 characters",
-        503,
-      ),
-    );
-  const actual = req.get("X-Workspace-Key") || "";
-  if (
-    Buffer.byteLength(actual) !== Buffer.byteLength(key) ||
-    !timingSafeEqual(Buffer.from(actual), Buffer.from(key))
-  )
-    return next(fail("Workspace access denied", 401));
-  // Single trusted workspace, never derived from client-supplied ownerId.
-  req.owner = "workspace";
+  if (!req.user) return next(fail('Vui lòng đăng nhập.',401));
   if (req.body === undefined) req.body = {};
-  if (
-    req.body === null ||
-    Array.isArray(req.body) ||
-    typeof req.body !== "object"
-  )
-    return next(fail("Invalid request body"));
+  if (!req.body || Array.isArray(req.body) || typeof req.body !== 'object') return next(fail('Invalid request body'));
   next();
 }
-async function research(id) {
+async function research(id, owner) {
   check(typeof id === "string" && id.length <= 100, "Invalid research ID");
   const row = await db.get("SELECT * FROM requests WHERE id=?", [id]);
   check(row, "Research request not found", 404);
+  if (owner !== undefined) check(row.owner_id === owner, "Research request not found", 404);
   return row;
 }
 async function document(id, owner, ready = false) {

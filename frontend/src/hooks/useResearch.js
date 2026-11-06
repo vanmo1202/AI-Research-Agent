@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getResearch, getSources } from '../services/researchApi';
+import { collectionSnapshot } from '../services/collectionTasks';
 import { rememberResearch } from '../utils/researchStorage';
 
 export default function useResearch(requestId, withSources = false) {
@@ -23,7 +24,10 @@ export default function useResearch(requestId, withSources = false) {
         setState({ loading: false, data: { ...plan, collection }, error: null });
         rememberResearch(plan.request, plan, collection);
         // Sau refresh, theo dõi công việc đang chạy mà không gửi lại POST.
-        if (['planning', 'searching', 'translating', 'analyzing'].includes(plan.request.status))
+        if (
+          ['planning', 'searching', 'translating', 'analyzing'].includes(plan.request.status) &&
+          !collectionSnapshot(requestId).busy
+        )
           timer = setTimeout(load, 1800);
       } catch (error) {
         if (!controller.signal.aborted)

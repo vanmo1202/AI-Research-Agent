@@ -23,6 +23,7 @@ export default defineConfig({
       url: 'http://localhost:4300/health',
       env: {
         PORT: '4300',
+        AUTH_RATE_LIMIT: '200',
         MOCK_LLM: 'true',
         MOCK_SEARCH: 'true',
         FRONTEND_ORIGIN: 'http://localhost:4173',

@@ -1,6 +1,18 @@
-import '../styles/research-workspace.css';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronRight, Download, FileBarChart, FileText, File, LockKeyhole, BookOpen, CheckCircle2, Layers3, ArrowUpRight, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+  ChevronRight,
+  Download,
+  FileBarChart,
+  FileText,
+  File,
+  LockKeyhole,
+  BookOpen,
+  CheckCircle2,
+  Layers3,
+  ArrowUpRight,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import ResearchStepper from '../components/research/ResearchStepper';
 import Card from '../components/ui/Card';
@@ -148,15 +160,54 @@ export default function ReportPage() {
         <div>
           <p className="eyebrow">BƯỚC 4 · TỔNG HỢP TRI THỨC</p>
           <h1>Tạo báo cáo nghiên cứu</h1>
-          <p>Tổng hợp bằng chứng đã xác thực thành tài liệu có cấu trúc, trích dẫn và bản xuất Word/PDF.</p>
-          <div className="insight-hero-links"><Link to={`/workflow-3/${requestId}`}><BookOpen size={15} /> Kiểm tra bằng chứng</Link>{report && <span><CheckCircle2 size={15} /> Báo cáo đã lưu</span>}</div>
+          <p>
+            Tổng hợp bằng chứng đã xác thực thành tài liệu có cấu trúc, trích dẫn và bản xuất
+            Word/PDF.
+          </p>
+          <div className="insight-hero-links">
+            <Link to={`/workflow-3/${requestId}`}>
+              <BookOpen size={15} /> Kiểm tra bằng chứng
+            </Link>
+            {report && (
+              <span>
+                <CheckCircle2 size={15} /> Báo cáo đã lưu
+              </span>
+            )}
+          </div>
         </div>
         <Badge tone={report ? 'teal' : 'violet'}>{report ? 'Đã hoàn thành' : 'Sẵn sàng'}</Badge>
       </div>
       <section className="insight-metrics insight-report-metrics" aria-label="Tổng quan báo cáo">
-        <div className="insight-stat"><span className="insight-stat-icon indigo"><Layers3 size={20} /></span><div><span>Bằng chứng đầu vào</span><strong>{evidenceCount}</strong><small>Đoạn trích từ phân tích</small></div></div>
-        <div className="insight-stat"><span className="insight-stat-icon mint"><BookOpen size={20} /></span><div><span>Tài liệu tham khảo</span><strong>{referenceCount}</strong><small>{report ? 'Đã đưa vào báo cáo' : 'Sẽ hiển thị khi tạo xong'}</small></div></div>
-        <div className="insight-stat"><span className="insight-stat-icon sky"><FileText size={20} /></span><div><span>Định dạng xuất</span><strong>2</strong><small>Word (.docx) và PDF (.pdf)</small></div></div>
+        <div className="insight-stat">
+          <span className="insight-stat-icon indigo">
+            <Layers3 size={20} />
+          </span>
+          <div>
+            <span>Bằng chứng đầu vào</span>
+            <strong>{evidenceCount}</strong>
+            <small>Đoạn trích từ phân tích</small>
+          </div>
+        </div>
+        <div className="insight-stat">
+          <span className="insight-stat-icon mint">
+            <BookOpen size={20} />
+          </span>
+          <div>
+            <span>Tài liệu tham khảo</span>
+            <strong>{referenceCount}</strong>
+            <small>{report ? 'Đã đưa vào báo cáo' : 'Sẽ hiển thị khi tạo xong'}</small>
+          </div>
+        </div>
+        <div className="insight-stat">
+          <span className="insight-stat-icon sky">
+            <FileText size={20} />
+          </span>
+          <div>
+            <span>Định dạng xuất</span>
+            <strong>2</strong>
+            <small>Word (.docx) và PDF (.pdf)</small>
+          </div>
+        </div>
       </section>
       <ErrorMessage error={error} />
       <ResearchStepper status={request.status} />
@@ -165,9 +216,16 @@ export default function ReportPage() {
           {report && !editMode ? (
             <>
               <Card className="report-card">
-                <div className="insight-report-kicker"><FileBarChart size={17} /><span>BÁO CÁO ĐÃ HOÀN THÀNH</span><Badge tone="teal">Sẵn sàng xuất file</Badge></div>
+                <div className="insight-report-kicker">
+                  <FileBarChart size={17} />
+                  <span>BÁO CÁO ĐÃ HOÀN THÀNH</span>
+                  <Badge tone="teal">Sẵn sàng xuất file</Badge>
+                </div>
                 <div className="panel-heading report-toolbar">
-                  <div className="insight-report-heading"><h2>{report.title}</h2><p>Được tạo từ bằng chứng nghiên cứu và lưu tại backend của bạn.</p></div>
+                  <div className="insight-report-heading">
+                    <h2>{report.title}</h2>
+                    <p>Được tạo từ bằng chứng nghiên cứu và lưu tại backend của bạn.</p>
+                  </div>
                   <div className="export-menu" ref={menuRef} onKeyDown={menuKeys}>
                     <button
                       ref={menuButton}
@@ -198,30 +256,62 @@ export default function ReportPage() {
                     )}
                   </div>
                 </div>
-                <div className="insight-report-secondary-actions"><Button variant="secondary" onClick={() => { setEditMode(true); setConfig({ title: report.title || config.title, outputLength: report.outputLength || config.outputLength, style: report.style || config.style, language: "vi" }); }}> <RefreshCw size={15} /> Tạo lại báo cáo</Button><Link to={`/workflow-3/${requestId}`}>Xem bằng chứng <ArrowUpRight size={15} /></Link></div>
+                <div className="insight-report-secondary-actions">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setEditMode(true);
+                      setConfig({
+                        title: report.title || config.title,
+                        outputLength: report.outputLength || config.outputLength,
+                        style: report.style || config.style,
+                        language: 'vi',
+                      });
+                    }}
+                  >
+                    {' '}
+                    <RefreshCw size={15} /> Tạo lại báo cáo
+                  </Button>
+                  <Link to={`/workflow-3/${requestId}`}>
+                    Xem bằng chứng <ArrowUpRight size={15} />
+                  </Link>
+                </div>
                 <ErrorMessage error={exportError} />
                 {exporting && (
                   <p role="status">Đang tạo file {exporting === 'docx' ? 'Word' : 'PDF'}...</p>
                 )}
-                <article className="report-document insight-report-paper" aria-label="Nội dung báo cáo">
+                <article
+                  className="report-document insight-report-paper"
+                  aria-label="Nội dung báo cáo"
+                >
                   <Suspense fallback={<p>Đang hiển thị báo cáo...</p>}>
                     <ReportMarkdown>{content}</ReportMarkdown>
                   </Suspense>
                 </article>
               </Card>
               <Card className="report-references-card">
-                <div className="insight-section-heading"><div><p className="eyebrow">DANH MỤC NGUỒN</p><h2>Tài liệu tham khảo</h2><p>Các nguồn được báo cáo trích dẫn, có thể mở để đối chiếu.</p></div><Badge>{referenceCount} nguồn</Badge></div>
+                <div className="insight-section-heading">
+                  <div>
+                    <p className="eyebrow">DANH MỤC NGUỒN</p>
+                    <h2>Tài liệu tham khảo</h2>
+                    <p>Các nguồn được báo cáo trích dẫn, có thể mở để đối chiếu.</p>
+                  </div>
+                  <Badge>{referenceCount} nguồn</Badge>
+                </div>
                 <ol className="report-references">
                   {(report.references || []).map((ref) => (
                     <li key={ref.citationLabel}>
-                      <strong>{ref.citationLabel}</strong><span className="insight-reference-detail">{ref.title || "Nguồn tài liệu"}
-                      {safeExternalUrl(ref.url) ? (
-                        <a href={ref.url} target="_blank" rel="noopener noreferrer">
-                          {ref.url}
-                        </a>
-                      ) : (
-                        <span>{ref.url}</span>
-                      )}</span>
+                      <strong>{ref.citationLabel}</strong>
+                      <span className="insight-reference-detail">
+                        {ref.title || 'Nguồn tài liệu'}
+                        {safeExternalUrl(ref.url) ? (
+                          <a href={ref.url} target="_blank" rel="noopener noreferrer">
+                            {ref.url}
+                          </a>
+                        ) : (
+                          <span>{ref.url}</span>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ol>
@@ -229,8 +319,25 @@ export default function ReportPage() {
             </>
           ) : (
             <Card className="insight-config-card">
-              <div className="insight-config-heading"><div className="insight-config-mark"><FileBarChart size={23} /></div><div><p className="eyebrow">THIẾT LẬP ĐẦU RA</p><h2>Cấu hình báo cáo</h2><p>Chọn cách trình bày trước khi AI tổng hợp nội dung từ bằng chứng đã có.</p></div></div>
-              {editMode && <div className="insight-edit-note"><ShieldCheck size={17} /> Báo cáo hiện tại chỉ bị thay thế sau khi bạn tạo lại thành công. <Button variant="ghost" onClick={() => setEditMode(false)}>Hủy chỉnh sửa</Button></div>}
+              <div className="insight-config-heading">
+                <div className="insight-config-mark">
+                  <FileBarChart size={23} />
+                </div>
+                <div>
+                  <p className="eyebrow">THIẾT LẬP ĐẦU RA</p>
+                  <h2>Cấu hình báo cáo</h2>
+                  <p>Chọn cách trình bày trước khi AI tổng hợp nội dung từ bằng chứng đã có.</p>
+                </div>
+              </div>
+              {editMode && (
+                <div className="insight-edit-note">
+                  <ShieldCheck size={17} /> Báo cáo hiện tại chỉ bị thay thế sau khi bạn tạo lại
+                  thành công.{' '}
+                  <Button variant="ghost" onClick={() => setEditMode(false)}>
+                    Hủy chỉnh sửa
+                  </Button>
+                </div>
+              )}
               <form className="insight-report-form" onSubmit={submit}>
                 <div className="form-grid insight-form-grid">
                   <label>
@@ -272,11 +379,25 @@ export default function ReportPage() {
                     </select>
                   </label>
                 </div>
-                <div className="insight-form-footer"><div><strong>Trước khi tạo báo cáo</strong><p>Kiểm tra rằng các nguồn và bằng chứng đã được đối chiếu. Báo cáo sử dụng tiếng Việt.</p></div><Button type="submit" disabled={!ready || evidenceCount === 0} loading={busy}><FileBarChart size={17} /> {editMode ? "Tạo lại báo cáo" : "Tạo báo cáo nghiên cứu"}</Button></div>
+                <div className="insight-form-footer">
+                  <div>
+                    <strong>Trước khi tạo báo cáo</strong>
+                    <p>
+                      Kiểm tra rằng các nguồn và bằng chứng đã được đối chiếu. Báo cáo sử dụng tiếng
+                      Việt.
+                    </p>
+                  </div>
+                  <Button type="submit" disabled={!ready || evidenceCount === 0} loading={busy}>
+                    <FileBarChart size={17} />{' '}
+                    {editMode ? 'Tạo lại báo cáo' : 'Tạo báo cáo nghiên cứu'}
+                  </Button>
+                </div>
                 {(!ready || evidenceCount === 0) && (
                   <p className="field-hint insight-form-warning">
                     <LockKeyhole size={14} />
-                    {ready ? "Chưa có bằng chứng phù hợp để tạo báo cáo. Hãy quay lại bước phân tích." : "Cần hoàn thành bước Phân tích bằng chứng & RAG trước."}
+                    {ready
+                      ? 'Chưa có bằng chứng phù hợp để tạo báo cáo. Hãy quay lại bước phân tích.'
+                      : 'Cần hoàn thành bước Phân tích bằng chứng & RAG trước.'}
                   </p>
                 )}
               </form>
@@ -284,16 +405,29 @@ export default function ReportPage() {
           )}
         </div>
         <aside className="right-panel">
-          {report && <Card className="ro-report-actions">
-            <h2>Hành động</h2>
-            <p>Xuất báo cáo đã lưu về máy của bạn.</p>
-            <Button className="w-full" disabled={Boolean(exporting)} loading={exporting === 'pdf'} onClick={() => download('pdf')}>
-              <Download size={16} /> Xuất PDF
-            </Button>
-            <Button variant="secondary" className="w-full" disabled={Boolean(exporting)} loading={exporting === 'docx'} onClick={() => download('docx')}>
-              <FileText size={16} /> Xuất Word (.docx)
-            </Button>
-          </Card>}
+          {report && (
+            <Card className="ro-report-actions">
+              <h2>Hành động</h2>
+              <p>Xuất báo cáo đã lưu về máy của bạn.</p>
+              <Button
+                className="w-full"
+                disabled={Boolean(exporting)}
+                loading={exporting === 'pdf'}
+                onClick={() => download('pdf')}
+              >
+                <Download size={16} /> Xuất PDF
+              </Button>
+              <Button
+                variant="secondary"
+                className="w-full"
+                disabled={Boolean(exporting)}
+                loading={exporting === 'docx'}
+                onClick={() => download('docx')}
+              >
+                <FileText size={16} /> Xuất Word (.docx)
+              </Button>
+            </Card>
+          )}
           <WorkflowProgress
             stage={4}
             status={busy ? 'generating_report' : request.status}
@@ -304,10 +438,17 @@ export default function ReportPage() {
             evidenceCount={evidenceCount}
           />
           <Card className="insight-side-note">
-            <div className="insight-side-note-icon"><ShieldCheck size={19} /></div>
+            <div className="insight-side-note-icon">
+              <ShieldCheck size={19} />
+            </div>
             <h3>Kiểm soát chất lượng</h3>
-            <p>Báo cáo được tổng hợp từ bằng chứng đã lưu. Hãy mở nguồn gốc và rà soát trích dẫn trước khi sử dụng.</p>
-            <Link to={`/workflow-3/${requestId}`}>Xem lại bằng chứng <ArrowUpRight size={15} /></Link>
+            <p>
+              Báo cáo được tổng hợp từ bằng chứng đã lưu. Hãy mở nguồn gốc và rà soát trích dẫn
+              trước khi sử dụng.
+            </p>
+            <Link to={`/workflow-3/${requestId}`}>
+              Xem lại bằng chứng <ArrowUpRight size={15} />
+            </Link>
           </Card>
         </aside>
       </div>

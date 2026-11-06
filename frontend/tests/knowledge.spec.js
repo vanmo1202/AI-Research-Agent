@@ -1,9 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './auth-fixture';
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../../backend/package.json', import.meta.url));
 const PDFDocument = require('pdfkit');
-const key = 'e2e-knowledge-workspace-private-key';
-const headers = { 'X-Workspace-Key': key };
+const headers = {};
 function pdf() {
   return new Promise((resolve) => {
     const p = new PDFDocument(),
@@ -25,9 +24,6 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
   });
   const { data: plan } = await created.json();
   await page.goto('/documents');
-  await expect(page.getByRole('heading', { name: 'Mở Knowledge Workspace' })).toBeVisible();
-  await page.getByLabel('Khóa workspace', { exact: true }).fill(key);
-  await page.getByRole('button', { name: 'Mở workspace', exact: true }).click();
   await page
     .getByLabel('Tải PDF', { exact: true })
     .setInputFiles({
@@ -41,7 +37,7 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
   await expect(page.getByRole('status').filter({ hasText: 'Sẵn sàng' })).toBeVisible({
     timeout: 20000,
   });
-  await page.getByLabel('Request ID', { exact: true }).fill(plan.requestId);
+  await page.getByLabel('Mã nghiên cứu', { exact: true }).fill(plan.requestId);
   await page.getByRole('button', { name: 'Gắn vào nghiên cứu', exact: true }).click();
   await expect(page.getByText('Đã gắn tài liệu vào nghiên cứu.')).toBeVisible();
   await page.getByRole('link', { name: 'Chat với nghiên cứu', exact: true }).last().click();
@@ -56,7 +52,7 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
     .getAttribute('href');
   await page.reload();
   await expect(page.getByRole('link', { name: 'Mở PDF · Trang 1' })).toBeVisible();
-  await page.getByRole('navigation').getByRole('link', { name: 'Bộ nhớ AI', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Điều hướng workspace' }).getByRole('link', { name: 'Bộ nhớ AI', exact: true }).click();
   await expect(page.locator('.memory-card').getByText('Chờ duyệt', { exact: true })).toBeVisible();
   await page.getByRole('checkbox', { name: 'Cho phép đề xuất dùng ở nghiên cứu khác' }).check();
   await page.getByRole('button', { name: 'Phê duyệt', exact: true }).click();
@@ -72,10 +68,9 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
       .toBe(true);
   }
-  await page.getByRole('button', { name: 'Khóa workspace', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Mở Knowledge Workspace' })).toBeVisible();
-  const denied = await request.get('http://localhost:4300/api/documents');
+  await page.getByLabel('Menu tài khoản').click();
+  await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Chào mừng trở lại'})).toBeVisible();
+  const denied=await request.get('http://localhost:4300/api/documents');
   expect(denied.status()).toBe(401);
-  const docs = await request.get('http://localhost:4300/api/documents', { headers });
-  expect(docs.ok()).toBe(true);
 });

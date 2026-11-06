@@ -42,7 +42,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "=http://backend:3000/api/research/{{ $json.requestId }}/runs",
+        "url": "=http://backend:3000/internal/research/{{ $json.requestId }}/runs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -57,12 +57,20 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { ...$json.options, orchestration: 'n8n' } }}"
+        "jsonBody": "={{ { ...$json.options, orchestration: 'n8n' } }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 1000,
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_INTERNAL_HEADER_CREDENTIAL",
+          "name": "Research Internal API"
+        }
+      }
     },
     {
       "id": "0ce10b1b-e36f-4753-8ad4-eaa2fa30aa13",
@@ -75,7 +83,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "=http://backend:3000/api/research/{{ $('Context').first().json.requestId }}/runs/{{ $('Create run').first().json.data.runId }}/progress",
+        "url": "=http://backend:3000/internal/research/{{ $('Context').first().json.requestId }}/runs/{{ $('Create run').first().json.data.runId }}/progress",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -87,12 +95,20 @@
         },
         "options": {
           "timeout": 15000
-        }
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 1000,
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_INTERNAL_HEADER_CREDENTIAL",
+          "name": "Research Internal API"
+        }
+      }
     },
     {
       "id": "2f9112de-4f53-4e69-adbb-35cd2bdf0872",

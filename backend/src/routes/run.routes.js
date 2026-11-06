@@ -1,6 +1,5 @@
 const router = require("express").Router();
 const c = require("../controllers/run.controller");
-const { timingSafeEqual } = require("node:crypto");
 const windows = new Map();
 function limit(req, res, next) {
   const id = req.ip,
@@ -37,17 +36,7 @@ for (const format of ["docx", "pdf"])
       .send(file.buffer);
   });
 const internal = require("express").Router();
-internal.use((req, res, next) => {
-  const expected = process.env.INTERNAL_API_KEY,
-    actual = req.get("X-Internal-Api-Key") || "";
-  if (
-    !expected ||
-    Buffer.byteLength(expected) !== Buffer.byteLength(actual) ||
-    !timingSafeEqual(Buffer.from(expected), Buffer.from(actual))
-  )
-    return res.status(401).json({ success: false, error: "Unauthorized" });
-  next();
-});
+internal.use(require("../auth/internal").internalAuth);
 internal.post("/runs/:runId/jobs", c.dispatch);
 internal.get("/jobs/:jobId", c.job);
 module.exports = { router, internal };

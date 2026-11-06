@@ -1,5 +1,4 @@
 import {
-  BrainCircuit,
   ChevronRight,
   CircleCheck,
   FileText,
@@ -31,7 +30,7 @@ export default function Workflow1Page() {
         </div>
         <Badge tone="teal">
           <span className="status-dot" />
-          Research workspace
+          Không gian nghiên cứu
         </Badge>
       </div>
       <ResearchStepper status="planning" />
@@ -49,17 +48,8 @@ export default function Workflow1Page() {
                   Mô tả chủ đề, mục tiêu và phạm vi để AI tạo kế hoạch nghiên cứu chi tiết cho bạn.
                 </p>
               </div>
-              <div className="planner-art" aria-hidden="true">
-                <span className="art-orbit orbit-one" />
-                <span className="art-orbit orbit-two" />
-                <span className="art-brain">
-                  <BrainCircuit size={37} strokeWidth={1.4} />
-                </span>
-                <span className="art-file">
-                  <FileText size={25} />
-                </span>
-                <Sparkles className="art-sparkle" size={21} />
-                <span className="art-dot" />
+              <div className="planner-art studio-workflow-number" aria-hidden="true">
+                01.
               </div>
             </div>
             <ResearchForm />

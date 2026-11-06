@@ -7,7 +7,7 @@ exports.list = async (req, res) =>
   ok(
     res,
     await db.all(`SELECT r.*, (SELECT id FROM research_runs WHERE request_id=r.id ORDER BY rowid DESC LIMIT 1) latestRunId,
- (SELECT status FROM research_runs WHERE request_id=r.id ORDER BY rowid DESC LIMIT 1) runStatus FROM requests r ORDER BY r.created_at DESC LIMIT 200`),
+ (SELECT status FROM research_runs WHERE request_id=r.id ORDER BY rowid DESC LIMIT 1) runStatus FROM requests r WHERE r.owner_id=? ORDER BY r.created_at DESC LIMIT 200`, [req.owner]),
   );
 exports.create = async (req, res) => {
   const r = await service.create(

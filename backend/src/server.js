@@ -9,9 +9,12 @@ const logger = require("./utils/logger");
 const { getSettings } = require("./utils/settings");
 
 const app = express();
+// Only explicitly configured proxy addresses may supply a client address.
+const trustedProxies = (process.env.TRUSTED_PROXY_CIDRS || '').split(',').map(s => s.trim()).filter(Boolean);
+if (trustedProxies.length) app.set('trust proxy', trustedProxies);
 
 // Chỉ cho phép frontend dev gọi API từ browser; không thay đổi logic workflow.
-app.use(cors({ exposedHeaders: ['Content-Disposition'], origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173" }));
+app.use(cors({ exposedHeaders: ['Content-Disposition'], credentials: true, origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173" }));
 app.use(express.json({ limit: "128kb" }));
 
 app.get("/", (req, res) => {
@@ -27,8 +30,15 @@ app.get("/health", (req, res) => {
     });
 });
 
+const auth = require('./auth');
+app.use('/api/auth', auth.router);
+app.use('/api', auth.csrf, auth.authenticate);
+app.get('/api/dashboard', require('./auth/dashboard'));
+app.use('/api/research', require('./auth/ownership').researchAccess);
 const v2 = require("./routes/run.routes");
 app.use("/api/research", v2.router);
+v2.internal.use('/research', require('./auth/internal').internalResearchOwner,
+  require('./auth/ownership').researchAccess, v2.router, researchRoutes);
 app.use("/internal", v2.internal);
 app.use("/api/research", researchRoutes);
 const knowledge = require("./knowledge/routes");

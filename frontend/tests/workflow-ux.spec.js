@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './auth-fixture';
 import fs from 'node:fs/promises';
 const id = '11111111-2222-3333-4444-555555555555';
 const source = {
@@ -150,7 +150,7 @@ test('Report renders semantic Markdown, 4/4 journey and export menu; malicious H
   await expect(article.getByRole('heading', { level: 3, name: 'Phân tích' })).toBeVisible();
   await expect(article.locator('strong')).toHaveText('quan trọng');
   await expect(article.locator('ul li')).toHaveText('Mục tiếng Việt');
-  await expect(article.locator('ol li')).toHaveText('Bước kiểm tra');
+  await expect(article.locator('.report-markdown-content ol li')).toHaveText('Bước kiểm tra');
   await expect(article.locator('blockquote')).toContainText('Kết luận thận trọng.');
   await expect(
     page.getByRole('region', { name: 'Hành trình nghiên cứu' }).getByLabel('Số bước đã hoàn thành'),
@@ -239,7 +239,7 @@ test('Source detail collapses long Vietnamese content and uses Vietnamese pendin
 }) => {
   const state = { status: 'collected' };
   await fixtures(page, state);
-  await page.addInitScript((value) => localStorage.setItem('aiResearch:lastRequestId', value), id);
+  await page.addInitScript((value) => localStorage.setItem(`${window.__testUserId}:aiResearch:lastRequestId`, value), id);
   const previous = { ...source };
   try {
     source.contentVi = 'Nội dung tiếng Việt đã được dịch. '.repeat(60);

@@ -1,3 +1,4 @@
+require("./helpers/session");
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -25,7 +26,7 @@ test('Saved report exports: real DOCX/PDF, Unicode fonts, canonical citations an
     global.fetch = () => { throw new Error('Export must not call any external API'); };
     try {
         await t.test('DOCX endpoint contains real zipped Word XML, body, headings and source hyperlinks', async () => {
-            const response = await fetch(`${base}/api/research/${id}/report/export/docx`, { headers: { Origin: 'http://localhost:5173' } });
+            const response = await require("./helpers/session").fixtureFetch(`${base}/api/research/${id}/report/export/docx`, { headers: { Origin: 'http://localhost:5173' } });
             assert.equal(response.status, 200);
             assert.match(response.headers.get('content-type'), /^application\/vnd.openxmlformats-officedocument.wordprocessingml.document/);
             assert.equal(response.headers.get('content-disposition'), 'attachment; filename="Bao_cao_nghien_cuu_12345678.docx"');
@@ -40,7 +41,7 @@ test('Saved report exports: real DOCX/PDF, Unicode fonts, canonical citations an
             await fs.writeFile('/tmp/ai-research-export-check.docx', buffer);
         });
         await t.test('PDF endpoint returns actual multi-page PDF with embedded Unicode font and original reference link', async () => {
-            const response = await fetch(`${base}/api/research/${id}/report/export/pdf`);
+            const response = await require("./helpers/session").fixtureFetch(`${base}/api/research/${id}/report/export/pdf`);
             assert.equal(response.status, 200); assert.match(response.headers.get('content-type'), /^application\/pdf/);
             assert.equal(response.headers.get('content-disposition'), 'attachment; filename="Bao_cao_nghien_cuu_12345678.pdf"');
             const buffer = Buffer.from(await response.arrayBuffer()); assert.ok(buffer.length > 5000);
@@ -50,9 +51,9 @@ test('Saved report exports: real DOCX/PDF, Unicode fonts, canonical citations an
             await fs.writeFile('/tmp/ai-research-export-check.pdf', buffer);
         });
         await t.test('Missing report/request and invalid IDs have JSON errors; exports do not mutate stored content', async () => {
-            for (const [requestId, status] of [['no-report', 404], ['missing-request', 404], ['invalid%20id', 400]]) {
+            for (const [requestId, status] of [['no-report', 404], ['missing-request', 404], ['invalid%20id', 404]]) {
                 for (const format of ['docx', 'pdf']) {
-                    const response = await fetch(`${base}/api/research/${requestId}/report/export/${format}`);
+                    const response = await require("./helpers/session").fixtureFetch(`${base}/api/research/${requestId}/report/export/${format}`);
                     assert.equal(response.status, status); assert.equal((await response.json()).success, false);
                 }
             }
