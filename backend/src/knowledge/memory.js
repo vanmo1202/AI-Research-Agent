@@ -23,8 +23,8 @@ async function resolve(link, owner, connection = db) {
   }
   if (link.kind === "evidence") {
     const e = await connection.get(
-      "SELECT e.*,s.title,s.url,s.content_vi,s.content,s.source_language,s.translation_status FROM evidence e JOIN sources s ON s.id=e.source_id WHERE e.id=? AND s.id=?",
-      [link.reference_id, link.source_id],
+      "SELECT e.*,s.title,s.url,s.content_vi,s.content,s.source_language,s.translation_status FROM evidence e JOIN sources s ON s.id=e.source_id JOIN requests r ON r.id=e.request_id WHERE e.id=? AND s.id=? AND r.owner_id=?",
+      [link.reference_id, link.source_id, owner],
     );
     if (
       !e ||
@@ -54,8 +54,8 @@ async function resolve(link, owner, connection = db) {
       ),
     };
   }
-  const row = await connection.get("SELECT * FROM sources WHERE id=?", [
-    link.source_id,
+  const row = await connection.get("SELECT s.* FROM sources s JOIN requests r ON r.id=s.request_id WHERE s.id=? AND r.owner_id=?", [
+    link.source_id, owner,
   ]);
   const source = row && {
     id: row.id,
@@ -217,7 +217,7 @@ async function approve(id, owner, crossResearch) {
     [
       crossResearch ? "cross_research" : "research",
       JSON.stringify({
-        approvedBy: "workspace-user",
+        approvedBy: owner,
         approvedAt: now(),
         sourceValidatedAt: now(),
         method: "human-reviewed-extractive-quote",
@@ -230,7 +230,13 @@ async function approve(id, owner, crossResearch) {
   check(r.changes, "Memory changed; reload before approving", 409);
   return { status: "verified" };
 }
-async function maintain(owner = "workspace") {
+async function maintain(owner) {
+  if (owner === undefined) {
+    const owners = await db.all('SELECT DISTINCT owner_id FROM agent_memories');
+    const results = [];
+    for (const row of owners) results.push(await maintain(row.owner_id));
+    return results;
+  }
   const rows = await db.all(
     "SELECT * FROM agent_memories WHERE owner_id=? AND status IN ('candidate','verified') ORDER BY COALESCE(last_checked_at,'') LIMIT 200",
     [owner],

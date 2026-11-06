@@ -4,23 +4,11 @@
 
 Requires the existing backend Node range (22–24); PDF.js is pinned to 5.4.624. PDF text extraction follows [PDF.js Node support](https://github.com/mozilla/pdf.js/wiki/Frequently-Asked-Questions). Two direct dependencies were added: Busboy (streaming multipart) and PDF.js (including its Node canvas primitives). No vector server, Redis, OCR or local model is used.
 
-For Docker, keep existing `.env` files and `INTERNAL_API_KEY`. Supply the new workspace key from your shell or secret manager:
-
-```sh
-export KNOWLEDGE_WORKSPACE_KEY="$(openssl rand -hex 32)"
-docker compose config --quiet
-docker compose up -d --build backend worker frontend n8n
-```
-
-These commands are instructions, not an assertion that the stack was deployed. Enter this workspace key in the new UI access form. It is sent in `X-Workspace-Key`, retained in sessionStorage for that tab, never put in a URL or Vite build. Lock workspace clears it. Use HTTPS and a trusted private host; all key holders share one workspace. Missing/short server keys disable all knowledge APIs (503), wrong keys return 401. `ownerId` supplied by clients is ignored.
-
-This is **single-workspace access control**, not user authentication. Legacy research endpoints still have their previous access behavior. Do not expose the whole application publicly without gateway authentication/VPN and TLS. Per-user private research requires real authenticated request ownership before enabling multiple tenants. The workspace key must differ from the existing internal automation key.
-
-For local development, export the same workspace key and optionally `DOCUMENT_STORAGE_PATH=/absolute/private/path` in both backend and worker shells, then run the existing backend, worker and frontend scripts. Without Docker, PDF files default to `backend/data/documents`; files are gitignored and excluded from Docker context.
+Authentication now uses per-user session cookies. See [authentication and legacy migration](authentication.md) for configuration, backup and transfer instructions. Backend and worker must share `RESEARCH_DB_PATH` and PDF storage. The previous workspace key has been removed.
 
 ## Use
 
-1. Open **Thư viện tài liệu**, enter the workspace key and upload a PDF. Processing is asynchronous; backend/worker must share storage and database.
+1. Open **Thư viện tài liệu**, sign in and upload a PDF. Processing is asynchronous; backend/worker must share storage and database.
 2. Wait for ready. The detail screen provides PDF display, page text, explicit retry, deletion and attach/detach by existing Research Request ID.
 3. Open **Chat với nghiên cứu**, select that research, choose PDF/research/combined scope and create a chat. Only ready, attached PDFs can be selected. Sessions keep their original scope; create a new session to change it.
 4. Ask a question. Validated citations link to the PDF page or an HTTP(S) source. Unsupported questions return “Chưa đủ thông tin từ tài liệu”. There is no automatic POST retry, evidence analysis or report generation.
@@ -46,7 +34,7 @@ Deletion tombstones document metadata, removes page/chunk content and attachment
 
 ## APIs
 
-All new APIs require `X-Workspace-Key`; success envelope is `{success:true,data}`. Errors keep the existing `{success:false,error}` form. File endpoint streams PDF. Common responses: 400 validation, 401 access, 403 attachment scope, 404 hidden/missing resource, 409 state/duplicate turn, 413 upload/quota, 429 concurrency/provider rate limit, 502 invalid model citations, 503 disabled workspace/provider timeout.
+All public APIs require an authenticated session cookie; success envelope is `{success:true,data}`. Errors keep the existing `{success:false,error}` form. File endpoint streams PDF. Common responses: 400 validation, 401 access, 403 attachment scope, 404 hidden/missing resource, 409 state/duplicate turn, 413 upload/quota, 429 concurrency/provider rate limit, 502 invalid model citations, 503 provider timeout.
 
 | Group | Endpoints |
 | --- | --- |

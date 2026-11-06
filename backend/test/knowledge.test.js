@@ -1,3 +1,4 @@
+require("./helpers/session");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -52,7 +53,7 @@ async function api(
   const response = await fetch(base + "/api" + url, {
     method,
     headers: {
-      "X-Workspace-Key": key,
+      ...await require("./helpers/session").fixtureHeaders(), Cookie: key === process.env.KNOWLEDGE_WORKSPACE_KEY ? "research_session="+"a".repeat(64) : "",
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
@@ -69,7 +70,7 @@ async function upload(
   form.append("file", new Blob([buffer], { type: mime }), name);
   const response = await fetch(base + "/api/documents", {
     method: "POST",
-    headers: { "X-Workspace-Key": key },
+    headers: {...await require("./helpers/session").fixtureHeaders(), Cookie:key === process.env.KNOWLEDGE_WORKSPACE_KEY ? "research_session="+"a".repeat(64) : ""},
     body: form,
   });
   return { status: response.status, ...(await response.json()) };
@@ -108,9 +109,7 @@ test(
       async () => {
         assert.equal((await api("/documents", { key: "" })).status, 401);
         const expected = process.env.KNOWLEDGE_WORKSPACE_KEY;
-        delete process.env.KNOWLEDGE_WORKSPACE_KEY;
-        assert.equal((await api("/documents", { key: expected })).status, 503);
-        process.env.KNOWLEDGE_WORKSPACE_KEY = expected;
+        assert.equal((await api("/documents", { key: expected })).status, 200);
         assert.equal(
           (await upload(valid, "paper.pdf", "application/pdf", "bad")).status,
           401,
@@ -162,7 +161,7 @@ test(
         const malformed = await fetch(base + "/api/documents", {
           method: "POST",
           headers: {
-            "X-Workspace-Key": process.env.KNOWLEDGE_WORKSPACE_KEY,
+            ...await require("./helpers/session").fixtureHeaders(),
             "Content-Type": "multipart/form-data; boundary=oops",
           },
           body: "invalid",
@@ -190,7 +189,7 @@ test(
           /grounded citations/,
         );
         const file = await fetch(base + `/api/documents/${documentId}/file`, {
-          headers: { "X-Workspace-Key": process.env.KNOWLEDGE_WORKSPACE_KEY },
+          headers: await require("./helpers/session").fixtureHeaders(),
         });
         assert.equal(file.status, 200);
         assert.equal(file.headers.get("cache-control"), "no-store");
@@ -368,7 +367,7 @@ test(
         assert.equal(result.status, 201);
         sessionId = result.data.id;
         const context = await retrieve(
-          await chat.session(sessionId, "workspace"),
+          await chat.session(sessionId, "fixture-user"),
           "grounded citations",
         );
         assert.ok(context.length);
@@ -377,13 +376,13 @@ test(
         assert.equal(
           (
             await retrieve(
-              await chat.session(sessionId, "workspace"),
+              await chat.session(sessionId, "fixture-user"),
               "zzzzunrelatedxyz",
             )
           ).length,
           0,
         );
-        const notAttached = await chat.session(sessionId, "workspace");
+        const notAttached = await chat.session(sessionId, "fixture-user");
         notAttached.owner_id = "other";
         await assert.rejects(
           retrieve(notAttached, "citations"),
@@ -443,7 +442,7 @@ test(
     await t.test(
       "hallucinated chunk/source/page/quote rejected and provider prompt treats PDF injection as data",
       async () => {
-        const s = await chat.session(sessionId, "workspace"),
+        const s = await chat.session(sessionId, "fixture-user"),
           context = await retrieve(s, "grounded citations"),
           c = context[0];
         const citation = {
@@ -619,7 +618,7 @@ test(
         assert.ok(
           (
             await retrieve(
-              await chat.session(combined.data.id, "workspace"),
+              await chat.session(combined.data.id, "fixture-user"),
               "grounded",
             )
           ).some((c) => c.memoryId === m.id),
@@ -631,7 +630,7 @@ test(
         assert.equal(
           (
             await retrieve(
-              await chat.session(unaccepted.data.id, "workspace"),
+              await chat.session(unaccepted.data.id, "fixture-user"),
               "grounded",
             )
           ).length,
@@ -642,7 +641,7 @@ test(
           200,
         );
         assert.equal(
-          await memory.getValid(m.id, "workspace", otherResearch),
+          await memory.getValid(m.id, "fixture-user", otherResearch),
           null,
         );
         await db.run("UPDATE agent_memories SET status='verified' WHERE id=?", [
@@ -711,7 +710,7 @@ test(
             const c = payload.context[0];
             await require("../src/knowledge/documents").remove(
               did,
-              "workspace",
+              "fixture-user",
             );
             return {
               claims: [
@@ -839,7 +838,7 @@ test(
         ]);
         assert.equal((await api("/memories")).data[0].status, "stale");
         assert.equal(
-          await memory.getValid(m.id, "workspace", researchId),
+          await memory.getValid(m.id, "fixture-user", researchId),
           null,
         );
         await api(`/memories/${m.id}`, { method: "DELETE" });
@@ -849,7 +848,7 @@ test(
         ]);
         await db.run("DELETE FROM evidence WHERE id=?", [evidenceId]);
         const fallback = await retrieve(
-          await chat.session(cs.data.id, "workspace"),
+          await chat.session(cs.data.id, "fixture-user"),
           "grounded research",
         );
         assert.ok(fallback.some((c) => c.kind === "source"));

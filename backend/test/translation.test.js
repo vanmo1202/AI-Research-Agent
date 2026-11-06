@@ -1,3 +1,4 @@
+require("./helpers/session");
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -94,7 +95,7 @@ test('Translation: migration, validation, preservation, API, fallback and RAG', 
             const source = result.sources[0];
             assert.ok(source.title); assert.notEqual(source.title, source.titleVi);
             assert.deepEqual(Object.fromEntries(Object.keys(translated).map(key => [key, source[key]])), translated);
-            const response = await fetch(base + `/api/research/${request.requestId}/sources`);
+            const response = await require("./helpers/session").fixtureFetch(base + `/api/research/${request.requestId}/sources`);
             assert.equal(response.status, 200);
             assert.deepEqual((await response.json()).data.sources, result.sources);
             const count = calls;

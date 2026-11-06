@@ -1,3 +1,4 @@
+import AccountMenu from '../../auth/AccountMenu';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Bell, FileText, HelpCircle, Menu, Search, X } from 'lucide-react';
@@ -45,7 +46,7 @@ export default function Header({ onMenu }) {
         {notificationOpen && <div className="notification-popover"><strong>Thông báo</strong><p>Chưa có thông báo mới.</p></div>}
       </div>
       <Link to="/settings" className="icon-button" aria-label="Trợ giúp và cài đặt"><HelpCircle size={19}/></Link>
-      <Link to="/settings" className="ro-avatar" aria-label="Cài đặt workspace">R</Link>
+      <AccountMenu/>
     </div>
   </header>;
 }

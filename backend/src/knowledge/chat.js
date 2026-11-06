@@ -29,7 +29,7 @@ async function session(id, owner) {
   return row;
 }
 async function create(owner, requestId, body) {
-  await research(requestId);
+  await research(requestId, owner);
   const scope = body.scope || "documents";
   check(
     ["documents", "research", "combined"].includes(scope),

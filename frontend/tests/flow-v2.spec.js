@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './auth-fixture';
 
 test('Dashboard shows the unified research workspace without auto-research navigation', async ({
   page,
@@ -16,7 +16,7 @@ test('Dashboard shows the unified research workspace without auto-research navig
 
 test('Unknown research ID and deprecated run URL remain recoverable', async ({ page }) => {
   await page.goto('/research/new');
-  await expect(page.getByRole('alert')).toContainText('Research request not found');
+  await expect(page.getByRole('alert')).toContainText('Resource not found');
   await page.goto('/research/example/runs/example');
   await expect(page.getByRole('heading', { name: 'Không tìm thấy trang' })).toBeVisible();
 });

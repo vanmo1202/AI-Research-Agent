@@ -112,5 +112,6 @@ async function initializeDatabase() {
     await run("CREATE INDEX IF NOT EXISTS idx_evidence_source_id ON evidence(source_id)");
     await require("../migrations/002-flow-v2")({ transaction });
     await require("../migrations/003-knowledge")({ transaction });
+    await require("../migrations/004-user-auth")({ transaction });
 }
 module.exports = { run, get, all, transaction, initializeDatabase };

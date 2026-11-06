@@ -5,7 +5,7 @@ router.post("/", validateResearch, async (req, res, next) => {
     if (req.body.executionMode !== 'async') return controller.create(req,res,next);
     const {randomUUID}=require('node:crypto');
     const id=randomUUID();
-    await require('../models/request.model').create({id,...req.researchInput,status:'created',createdAt:new Date().toISOString()});
+    await require('../models/request.model').create({id,...req.researchInput,ownerId:req.owner,status:'created',createdAt:new Date().toISOString()});
     res.status(201).json({success:true,data:{requestId:id,status:'created'}});
 });
 router.get("/:id", controller.getById);

@@ -7,7 +7,7 @@ const memory = require("./memory");
 const router = express.Router();
 const ok = (res, data, status = 200) =>
   res.status(status).json({ success: true, data });
-// Guard only the new namespaces; legacy APIs keep their existing contracts.
+// Session authentication is enforced globally; validate Knowledge JSON bodies here.
 router.use(
   [
     "/documents",
@@ -32,7 +32,7 @@ router.post("/documents", async (req, res) => {
   ok(res, result, result.duplicate ? 200 : 202);
 });
 router.get("/documents", async (req, res) => {
-  if (req.query.researchId) await research(req.query.researchId);
+  if (req.query.researchId) await research(req.query.researchId, req.owner);
   const rows = req.query.researchId
     ? await db.all(
         "SELECT d.* FROM documents d JOIN research_documents r ON d.id=r.document_id WHERE r.request_id=? AND d.owner_id=? AND d.deleted_at IS NULL ORDER BY d.created_at DESC",
@@ -87,7 +87,7 @@ router.delete("/documents/:id", async (req, res) => {
   ok(res, { deleted: true });
 });
 router.post("/research/:requestId/documents", async (req, res) => {
-  await research(req.params.requestId);
+  await research(req.params.requestId, req.owner);
   const doc = await document(text(req.body.documentId, 100), req.owner);
   await db.run("INSERT OR IGNORE INTO research_documents VALUES(?,?,?,?)", [
     req.params.requestId,
@@ -100,7 +100,7 @@ router.post("/research/:requestId/documents", async (req, res) => {
 router.delete(
   "/research/:requestId/documents/:documentId",
   async (req, res) => {
-    await research(req.params.requestId);
+    await research(req.params.requestId, req.owner);
     await document(req.params.documentId, req.owner);
     await db.run(
       "DELETE FROM research_documents WHERE request_id=? AND document_id=? AND owner_id=?",
@@ -113,7 +113,7 @@ router.post("/research/:requestId/chats", async (req, res) =>
   ok(res, await chat.create(req.owner, req.params.requestId, req.body), 201),
 );
 router.get("/research/:requestId/chats", async (req, res) => {
-  await research(req.params.requestId);
+  await research(req.params.requestId, req.owner);
   ok(
     res,
     await db.all(
@@ -177,7 +177,7 @@ router.delete("/memories/:id", async (req, res) => {
   ok(res, { deleted: true });
 });
 router.post("/research/:requestId/memory-recall", async (req, res) => {
-  const r = await research(req.params.requestId),
+  const r = await research(req.params.requestId, req.owner),
     question = req.body.query ? text(req.body.query) : `${r.topic} ${r.goal}`;
   const rows = await memory.list(req.owner, question, "verified");
   ok(

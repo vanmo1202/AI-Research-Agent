@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, BookOpen, BrainCircuit, CheckCircle2, FileText, Files, MessageSquareText, Plus, Sparkles, Workflow } from 'lucide-react';
 import useResearchHistory from '../hooks/useResearchHistory';
 import useKnowledge from '../hooks/useKnowledge';
-import { getWorkspaceKey } from '../services/knowledgeApi';
+
 import { researchJourney } from '../utils/researchJourney';
 import { formatDate } from '../utils/format';
 import Button from '../components/ui/Button';
@@ -17,7 +17,7 @@ const quickLinks = [
 
 export default function DashboardPage() {
   const history = useResearchHistory();
-  const unlocked = Boolean(getWorkspaceKey());
+  const unlocked = true;
   const documents = useKnowledge(unlocked ? '/documents' : null);
   const memories = useKnowledge(unlocked ? '/memories?status=verified' : null);
   const completed = history.filter((item) => {
@@ -63,7 +63,7 @@ export default function DashboardPage() {
         <div className="ro-stat"><span className="ro-stat-icon teal"><BrainCircuit size={22}/></span><div><strong>{unlocked ? (memories.data?.length ?? '—') : '—'}</strong><span>Bộ nhớ đã xác minh</span></div></div>
         <div className="ro-stat"><span className="ro-stat-icon indigo"><CheckCircle2 size={22}/></span><div><strong>{completed}</strong><span>Nghiên cứu hoàn tất</span></div></div>
       </section>
-      <p className="ro-data-hint">Số nghiên cứu lấy từ lịch sử trình duyệt; PDF và Memory lấy từ workspace đã mở khóa. Dấu — nghĩa là chưa có quyền xem hoặc dữ liệu chưa tải xong.</p>
+      <p className="ro-data-hint">Số nghiên cứu lấy từ lịch sử trình duyệt; PDF và Memory lấy từ tài khoản của bạn. Dấu — nghĩa là chưa có quyền xem hoặc dữ liệu chưa tải xong.</p>
 
       <div className="ro-dashboard-columns">
         <section className="ro-panel">

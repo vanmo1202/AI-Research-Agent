@@ -1,3 +1,6 @@
+const cookies=new Map();
+const nativeFetch=global.fetch;
+async function sessionFetch(url,options={}){const base=new URL(url).origin;return nativeFetch(url,{...options,headers:{Origin:'http://localhost:5173',Cookie:cookies.get(base)||'',...options.headers}});}
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
@@ -29,6 +32,11 @@ async function boot(databasePath, mock = 'true') {
         child.once('error', error => { clearTimeout(timer); reject(error); });
         child.once('exit', code => { clearTimeout(timer); reject(new Error(`Server exited: ${code}; ${errors}`)); });
     });
+    const base=`http://127.0.0.1:${port}`;
+    const credentials={email:'workflow@example.test',password:'workflow-password-123',name:'Workflow'};
+    let response=await nativeFetch(base+'/api/auth/login',{method:'POST',headers:{Origin:'http://localhost:5173','Content-Type':'application/json'},body:JSON.stringify(credentials)});
+    if(response.status!==200) response=await nativeFetch(base+'/api/auth/register',{method:'POST',headers:{Origin:'http://localhost:5173','Content-Type':'application/json'},body:JSON.stringify(credentials)});
+    cookies.set(base,response.headers.get('set-cookie').split(';')[0]);
     return {
         base: `http://127.0.0.1:${port}`,
         async stop() {
@@ -42,7 +50,7 @@ const input = { topic: 'Ứng dụng AI trong quản lý tồn kho siêu thị',
     goal: 'Tìm hiểu ứng dụng, dữ liệu cần có, lợi ích và hạn chế',
     scope: 'Tài liệu web công khai', outputLength: 'medium' };
 async function post(base, body) {
-    return fetch(`${base}/api/research`, {
+    return sessionFetch(`${base}/api/research`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     });
 }
@@ -53,7 +61,7 @@ test('Workflow 1: HTTP API, validation, SQLite persistence and failed planner', 
     let server;
     try {
         server = await boot(databasePath);
-        const health = await fetch(`${server.base}/health`);
+        const health = await sessionFetch(`${server.base}/health`);
         assert.equal(health.status, 200);
         assert.deepEqual(await health.json(), { status: 'ok', message: 'AI Research Agent Backend is running' });
         const response = await post(server.base, input);
@@ -64,7 +72,7 @@ test('Workflow 1: HTTP API, validation, SQLite persistence and failed planner', 
         assert.equal(data.researchQuestions.length, 4);
         for (const q of data.researchQuestions) assert.ok(data.searchQueries.some(query => query.questionId === q.id));
         const readPlan = async () => {
-            const response = await fetch(`${server.base}/api/research/${data.requestId}`);
+            const response = await sessionFetch(`${server.base}/api/research/${data.requestId}`);
             assert.equal(response.status, 200);
             const saved = (await response.json()).data;
             assert.equal(saved.request.topic, input.topic);
@@ -80,10 +88,10 @@ test('Workflow 1: HTTP API, validation, SQLite persistence and failed planner', 
             assert.equal(response.status, 400);
             assert.equal((await response.json()).success, false);
         }
-        const missing = await fetch(`${server.base}/api/research/missing`);
+        const missing = await sessionFetch(`${server.base}/api/research/missing`);
         assert.equal(missing.status, 404);
-        assert.deepEqual(await missing.json(), { success: false, error: 'Research request not found' });
-        const malformed = await fetch(`${server.base}/api/research`, {
+        assert.deepEqual(await missing.json(), { success: false, error: 'Resource not found' });
+        const malformed = await sessionFetch(`${server.base}/api/research`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{'
         });
         assert.equal(malformed.status, 400);

@@ -7,8 +7,9 @@ x-backend: &backend
     PORT: 3000
     RESEARCH_DB_PATH: /app/data/research.db
     DOCUMENT_STORAGE_PATH: /app/documents
-    KNOWLEDGE_WORKSPACE_KEY: ${KNOWLEDGE_WORKSPACE_KEY:-}
-    FRONTEND_ORIGIN: http://localhost:8080
+    FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
+    COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    INTERNAL_RESEARCH_USER_ID: ${INTERNAL_RESEARCH_USER_ID:-}
     INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in root .env}
   volumes:
     - research_data:/app/data

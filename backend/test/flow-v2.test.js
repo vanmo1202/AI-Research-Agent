@@ -1,3 +1,4 @@
+require("./helpers/session");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { mkdtempSync } = require("node:fs");
@@ -439,7 +440,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
     await new Promise((r) => server.once("listening", r));
     const base = `http://127.0.0.1:${server.address().port}`;
     const call = async (path, body, headers = {}) =>
-      fetch(base + path, {
+      require("./helpers/session").fixtureFetch(base + path, {
         method: body ? "POST" : "GET",
         headers: { "Content-Type": "application/json", ...headers },
         ...(body ? { body: JSON.stringify(body) } : {}),

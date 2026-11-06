@@ -1,3 +1,9 @@
+let storageUser = 'anonymous';
+export function setStorageUser(id) {
+  storageUser = id || 'anonymous';
+  window.dispatchEvent(new Event('aiResearch:updated'));
+}
+const scoped = (key) => `${storageUser}:${key}`;
 const HISTORY_KEY = 'aiResearch:history';
 const LAST_ID_KEY = 'aiResearch:lastRequestId';
 const LAST_RESEARCH_KEY = 'aiResearch:lastResearch';
@@ -5,7 +11,7 @@ const CHANGE_EVENT = 'aiResearch:updated';
 
 export function getHistory() {
   try {
-    const value = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    const value = JSON.parse(localStorage.getItem(scoped(HISTORY_KEY)) || '[]');
     return Array.isArray(value)
       ? value.filter(
           (item) => typeof item?.requestId === 'string' && typeof item?.topic === 'string',
@@ -17,7 +23,7 @@ export function getHistory() {
 }
 export function getLastRequestId() {
   try {
-    return localStorage.getItem(LAST_ID_KEY) || '';
+    return localStorage.getItem(scoped(LAST_ID_KEY)) || '';
   } catch {
     return '';
   }
@@ -45,13 +51,13 @@ export function rememberResearch(request, plan = {}, collection) {
       ...(collection ? { sourceCount: collection.sourceCount } : {}),
     };
     localStorage.setItem(
-      HISTORY_KEY,
+      scoped(HISTORY_KEY),
       JSON.stringify(
         [entry, ...history.filter((item) => item.requestId !== entry.requestId)].slice(0, 20),
       ),
     );
-    localStorage.setItem(LAST_ID_KEY, entry.requestId);
-    localStorage.setItem(LAST_RESEARCH_KEY, JSON.stringify(entry));
+    localStorage.setItem(scoped(LAST_ID_KEY), entry.requestId);
+    localStorage.setItem(scoped(LAST_RESEARCH_KEY), JSON.stringify(entry));
     window.dispatchEvent(new Event(CHANGE_EVENT));
   } catch {
     /* Chế độ private/quota có thể chặn storage; API vẫn hoạt động. */

@@ -1,3 +1,4 @@
+require("./helpers/session");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
@@ -159,7 +160,7 @@ test("Gemini Workflow 1 HTTP contract, SQLite status and Workflow 2 compatibilit
     });
     const base = `http://127.0.0.1:${server.address().port}`;
     async function postResearch() {
-        return networkFetch(`${base}/api/research`, { method: "POST",
+        return require("./helpers/session").fixtureFetch(`${base}/api/research`, { method: "POST",
             headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
     }
     try {
@@ -175,13 +176,13 @@ test("Gemini Workflow 1 HTTP contract, SQLite status and Workflow 2 compatibilit
         assert.equal(data.status, "planned");
         assert.deepEqual(data.researchQuestions, expectedPlan.researchQuestions);
         assert.deepEqual(data.searchQueries, expectedPlan.searchQueries);
-        const saved = await networkFetch(`${base}/api/research/${data.requestId}`);
+        const saved = await require("./helpers/session").fixtureFetch(`${base}/api/research/${data.requestId}`);
         const read = (await saved.json()).data;
         assert.equal(read.request.status, "planned");
         assert.equal(read.request.goal, input.goal);
         assert.deepEqual(read.researchQuestions, expectedPlan.researchQuestions);
         assert.deepEqual(read.searchQueries, expectedPlan.searchQueries);
-        const search = await networkFetch(`${base}/api/research/${data.requestId}/search`, { method: "POST" });
+        const search = await require("./helpers/session").fixtureFetch(`${base}/api/research/${data.requestId}/search`, { method: "POST" });
         assert.equal(search.status, 200);
         const collection = (await search.json()).data;
         assert.equal(collection.status, "collected");

@@ -1,9 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './auth-fixture';
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../../backend/package.json', import.meta.url));
 const PDFDocument = require('pdfkit');
-const key = 'e2e-knowledge-workspace-private-key';
-const headers = { 'X-Workspace-Key': key };
+const headers = {};
 function pdf() {
   return new Promise((resolve) => {
     const p = new PDFDocument(),
@@ -25,9 +24,6 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
   });
   const { data: plan } = await created.json();
   await page.goto('/documents');
-  await expect(page.getByRole('heading', { name: 'Mở Knowledge Workspace' })).toBeVisible();
-  await page.getByLabel('Khóa workspace', { exact: true }).fill(key);
-  await page.getByRole('button', { name: 'Mở workspace', exact: true }).click();
   await page
     .getByLabel('Tải PDF', { exact: true })
     .setInputFiles({
@@ -72,10 +68,9 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
       .toBe(true);
   }
-  await page.getByRole('button', { name: 'Khóa workspace', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Mở Knowledge Workspace' })).toBeVisible();
-  const denied = await request.get('http://localhost:4300/api/documents');
+  await page.getByLabel('Menu tài khoản').click();
+  await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Chào mừng trở lại'})).toBeVisible();
+  const denied=await request.get('http://localhost:4300/api/documents');
   expect(denied.status()).toBe(401);
-  const docs = await request.get('http://localhost:4300/api/documents', { headers });
-  expect(docs.ok()).toBe(true);
 });

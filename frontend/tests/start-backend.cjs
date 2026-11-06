@@ -5,7 +5,6 @@ const path = require('node:path');
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-research-browser-'));
 process.env.RESEARCH_DB_PATH = path.join(directory, 'research.db');
 process.env.DOCUMENT_STORAGE_PATH = path.join(directory, 'documents');
-process.env.KNOWLEDGE_WORKSPACE_KEY = 'e2e-knowledge-workspace-private-key';
 const { start } = require('../../backend/src/server');
 start().then((server) => {
   const { runOnce } = require('../../backend/src/workers/runner');

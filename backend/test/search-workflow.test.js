@@ -1,3 +1,4 @@
+require("./helpers/session");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
@@ -29,7 +30,7 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
     const server = await new Promise(resolve => { const s = app.listen(0, "127.0.0.1", () => resolve(s)); });
     const base = `http://127.0.0.1:${server.address().port}`;
     async function api(endpoint, method = "GET", body) {
-        const response = await networkFetch(base + endpoint, { method,
+        const response = await require("./helpers/session").fixtureFetch(base + endpoint, { method,
             headers: { "Content-Type": "application/json" },
             ...(body ? { body: JSON.stringify(body) } : {}) });
         return { status: response.status, body: await response.json() };
@@ -66,7 +67,7 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
             for (const route of ["search", "sources"]) {
                 const response = await api(`/api/research/missing/${route}`, route === "search" ? "POST" : "GET");
                 assert.equal(response.status, 404);
-                assert.equal(response.body.error, "Research request not found");
+                assert.equal(response.body.error, "Resource not found");
             }
             const id = await create();
             await db.run("DELETE FROM plans WHERE request_id = ?", [id]);
