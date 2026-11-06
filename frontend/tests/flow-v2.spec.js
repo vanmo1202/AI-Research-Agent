@@ -4,10 +4,10 @@ test('Dashboard shows the unified research workspace without auto-research navig
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Không chỉ tìm kiếm. Hãy khám phá.' })).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Quy trình nghiên cứu', exact: true }),
+    page.getByRole('heading', { name: 'Không chỉ tìm kiếm. Hãy khám phá.' }),
   ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Quy trình nghiên cứu', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Tìm kiếm & Thu thập', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Bằng chứng', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Báo cáo', exact: true })).toBeVisible();

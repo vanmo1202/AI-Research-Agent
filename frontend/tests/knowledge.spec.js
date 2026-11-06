@@ -24,13 +24,11 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
   });
   const { data: plan } = await created.json();
   await page.goto('/documents');
-  await page
-    .getByLabel('Tải PDF', { exact: true })
-    .setInputFiles({
-      name: 'research-knowledge.pdf',
-      mimeType: 'application/pdf',
-      buffer: await pdf(),
-    });
+  await page.getByLabel('Tải PDF', { exact: true }).setInputFiles({
+    name: 'research-knowledge.pdf',
+    mimeType: 'application/pdf',
+    buffer: await pdf(),
+  });
   await page.getByRole('button', { name: 'Tải tài liệu', exact: true }).click();
   await expect(page.getByText('Đã tải lên. Worker sẽ trích xuất và lập chỉ mục.')).toBeVisible();
   await page.getByRole('link', { name: 'research-knowledge.pdf', exact: true }).click();
@@ -52,7 +50,10 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
     .getAttribute('href');
   await page.reload();
   await expect(page.getByRole('link', { name: 'Mở PDF · Trang 1' })).toBeVisible();
-  await page.getByRole('navigation', { name: 'Điều hướng workspace' }).getByRole('link', { name: 'Bộ nhớ AI', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Điều hướng workspace' })
+    .getByRole('link', { name: 'Bộ nhớ AI', exact: true })
+    .click();
   await expect(page.locator('.memory-card').getByText('Chờ duyệt', { exact: true })).toBeVisible();
   await page.getByRole('checkbox', { name: 'Cho phép đề xuất dùng ở nghiên cứu khác' }).check();
   await page.getByRole('button', { name: 'Phê duyệt', exact: true }).click();
@@ -69,8 +70,8 @@ test('real PDF upload/index/chat/citation/memory approval and mobile navigation'
       .toBe(true);
   }
   await page.getByLabel('Menu tài khoản').click();
-  await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Chào mừng trở lại'})).toBeVisible();
-  const denied=await request.get('http://localhost:4300/api/documents');
+  await page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Chào mừng trở lại' })).toBeVisible();
+  const denied = await request.get('http://localhost:4300/api/documents');
   expect(denied.status()).toBe(401);
 });

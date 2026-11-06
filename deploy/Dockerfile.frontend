@@ -1,0 +1,12 @@
+ARG NODE_IMAGE=node@sha256:947e5454e08bfe0b8ddda604915ad76275276c774f47da90d0137252c793a778
+ARG NGINX_IMAGE=nginx@sha256:bb8f722b4be005fcd7827816a136ab779fd40185d85b5171be915cc7fc0575c7
+FROM ${NODE_IMAGE} AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+ENV VITE_API_BASE_URL=""
+RUN npm run build
+FROM ${NGINX_IMAGE}
+COPY --from=build /app/dist /usr/share/nginx/html
+# compose.production.yml supplies unprivileged nginx config and UID.

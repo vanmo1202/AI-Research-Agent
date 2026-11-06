@@ -14,9 +14,16 @@
         "httpMethod": "POST",
         "path": "research-v2/planning-orchestrator",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
-      "webhookId": "d1ec5e3d-3671-4aff-a6b8-fd0e5e542de3"
+      "webhookId": "d1ec5e3d-3671-4aff-a6b8-fd0e5e542de3",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_WEBHOOK_HEADER_CREDENTIAL",
+          "name": "Research Webhook Access"
+        }
+      }
     },
     {
       "id": "2f7c4a2c-6f3a-4b78-a9c2-fe3495e4f4e3",

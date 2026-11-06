@@ -47,6 +47,7 @@ services:
       retries: 3
       start_period: 15s
   frontend:
+    mem_limit: 128m
     image: ai-research-agent-frontend:2.0.0
     build:
       context: ./frontend
@@ -65,7 +66,8 @@ services:
       retries: 3
     restart: unless-stopped
   n8n:
-    image: n8nio/n8n:2.0.3
+    mem_limit: 1024m
+    image: n8nio/n8n:2.46.1
     ports: ['127.0.0.1:5678:5678']
     environment:
       GENERIC_TIMEZONE: Asia/Ho_Chi_Minh

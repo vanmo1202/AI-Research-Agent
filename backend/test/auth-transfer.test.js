@@ -48,6 +48,22 @@ test("Offline transfer backs up first, preserves data, and rolls back on duplica
     .filter((p) => p.includes(".backup-"));
   assert.equal(backups.length, 1);
   assert.equal(fs.statSync(path.join(directory, backups[0])).mode & 0o077, 0);
+  const restored = spawnSync(
+    process.execPath,
+    [
+      path.join(__dirname, "helpers/sqlite-snapshot.cjs"),
+      path.join(directory, backups[0]),
+      "legacy",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(restored.status, 0, restored.stderr);
+  assert.equal(
+    JSON.parse(restored.stdout).request.owner_id,
+    "workspace",
+    "Backup must contain the pre-transfer committed data",
+  );
+
   await db.run(
     "INSERT INTO requests(id,topic,goal) VALUES('rollback','Preserved','Goal')",
   );

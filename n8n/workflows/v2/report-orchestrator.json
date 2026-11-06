@@ -14,9 +14,16 @@
         "httpMethod": "POST",
         "path": "research-v2/report-orchestrator",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
-      "webhookId": "2bbbdbb9-a0fe-4362-9771-5746eb375ba7"
+      "webhookId": "2bbbdbb9-a0fe-4362-9771-5746eb375ba7",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_WEBHOOK_HEADER_CREDENTIAL",
+          "name": "Research Webhook Access"
+        }
+      }
     },
     {
       "id": "2f7c4a2c-6f3a-4b78-a9c2-fe3495e4f4e3",

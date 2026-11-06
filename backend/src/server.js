@@ -1,4 +1,4 @@
-require("dotenv").config({ path: require("node:path").join(__dirname, "../.env"), quiet: true });
+require("./config/environment").loadEnvironment();
 
 const express = require("express");
 const cors = require("cors");

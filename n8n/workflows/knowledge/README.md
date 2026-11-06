@@ -4,7 +4,7 @@ Import the three JSON files through n8n **Import from file**. They are inactive 
 
 Create Header Auth credentials:
 
-- **Knowledge webhook**: choose a separate secret header/value for inbound webhooks; select it on both Webhook nodes. Never expose these webhooks without authentication.
+- **Research Webhook Access**: choose a separate secret header/value for inbound webhooks; select it on both Webhook nodes. Never expose these webhooks without authentication.
 - **Knowledge internal**: `X-Internal-Api-Key` = the backend's existing `INTERNAL_API_KEY`. Select on Backend state in ingestion and maintenance.
 - **Research Internal API**: `X-Internal-Api-Key` = `INTERNAL_API_KEY`. Select the placeholder credential on Backend state in chat. Configure `INTERNAL_RESEARCH_USER_ID` to the existing active account permitted to run automation. Never pass a browser session cookie into n8n.
 

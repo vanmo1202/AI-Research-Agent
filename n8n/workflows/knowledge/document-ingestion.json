@@ -17,6 +17,12 @@
         "responseMode": "responseNode",
         "authentication": "headerAuth",
         "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_WEBHOOK_HEADER_CREDENTIAL",
+          "name": "Research Webhook Access"
+        }
       }
     },
     {
