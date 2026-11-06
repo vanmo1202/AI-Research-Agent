@@ -239,7 +239,10 @@ test('Source detail collapses long Vietnamese content and uses Vietnamese pendin
 }) => {
   const state = { status: 'collected' };
   await fixtures(page, state);
-  await page.addInitScript((value) => localStorage.setItem(`${window.__testUserId}:aiResearch:lastRequestId`, value), id);
+  await page.addInitScript(
+    (value) => localStorage.setItem(`${window.__testUserId}:aiResearch:lastRequestId`, value),
+    id,
+  );
   const previous = { ...source };
   try {
     source.contentVi = 'Nội dung tiếng Việt đã được dịch. '.repeat(60);

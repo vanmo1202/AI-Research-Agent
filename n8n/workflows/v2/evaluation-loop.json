@@ -14,9 +14,16 @@
         "httpMethod": "POST",
         "path": "research-v2/evaluation-loop",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
-      "webhookId": "e491370b-1ee2-404b-bfd2-cd028c81aef0"
+      "webhookId": "e491370b-1ee2-404b-bfd2-cd028c81aef0",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_WEBHOOK_HEADER_CREDENTIAL",
+          "name": "Research Webhook Access"
+        }
+      }
     },
     {
       "id": "2f7c4a2c-6f3a-4b78-a9c2-fe3495e4f4e3",

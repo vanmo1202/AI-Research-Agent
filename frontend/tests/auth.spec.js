@@ -1,4 +1,13 @@
 import { test, expect } from '@playwright/test';
+const javaScriptErrors = new WeakMap();
+test.beforeEach(async ({ page }) => {
+  const errors = [];
+  javaScriptErrors.set(page, errors);
+  page.on('pageerror', (error) => errors.push(error.message));
+});
+test.afterEach(async ({ page }) => {
+  expect(javaScriptErrors.get(page), 'Unexpected uncaught auth JavaScript errors').toEqual([]);
+});
 for (const width of [375, 768, 1024, 1440])
   test(`Register login refresh logout and private routing at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });

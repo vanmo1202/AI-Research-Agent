@@ -1,0 +1,96 @@
+name: Production readiness
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: readiness-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm test
+        working-directory: backend
+      - run: npm audit --omit=dev
+        working-directory: backend
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run format:check
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - run: npx playwright install --with-deps chrome
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: frontend-test-results
+          path: frontend/test-results
+          retention-days: 7
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate config with isolated placeholder environment
+        env:
+          INTERNAL_API_KEY: ci-placeholder-not-for-production
+        run: |
+          cp backend/.env.example backend/.env
+          docker compose config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.validation.yml config --quiet
+  operations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: gpg --version
+      - run: python3 -m unittest discover -s scripts/ops -p 'test_*.py' -v
+      - name: Validate hardened staging topology (placeholder digests, no image execution)
+        env:
+          COMPOSE_PROJECT_NAME: ci-hardening
+          FRONTEND_ORIGIN: https://ci.example.invalid
+          INTERNAL_RESEARCH_USER_ID: ci-service-user
+          BACKEND_IMAGE: backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          FRONTEND_IMAGE: frontend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          EDGE_IMAGE: nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          N8N_IMAGE: n8n@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          TLS_DIRECTORY: /tmp/ci-hardening/tls
+          SECRETS_DIRECTORY: /tmp/ci-hardening/secrets
+        run: |
+          mkdir -p /tmp/ci-hardening/tls /tmp/ci-hardening/secrets
+          for name in internal_api_key gemini_api_key tavily_api_key n8n_encryption_key; do
+            printf '%s' 'ci-fake-secret-not-for-production' > "/tmp/ci-hardening/secrets/$name"
+          done
+          docker compose -f compose.production.yml -f compose.staging.yml config --quiet
+          docker compose -f compose.production.yml -f compose.staging.yml config --format json | python3 scripts/ops/preflight.py

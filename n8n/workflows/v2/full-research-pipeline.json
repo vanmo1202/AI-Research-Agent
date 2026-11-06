@@ -14,9 +14,16 @@
         "httpMethod": "POST",
         "path": "research-v2/full-research-pipeline",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
-      "webhookId": "0064d6e5-f8c5-4c02-a7e0-cac6fb30914c"
+      "webhookId": "0064d6e5-f8c5-4c02-a7e0-cac6fb30914c",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_WEBHOOK_HEADER_CREDENTIAL",
+          "name": "Research Webhook Access"
+        }
+      }
     },
     {
       "id": "2f7c4a2c-6f3a-4b78-a9c2-fe3495e4f4e3",

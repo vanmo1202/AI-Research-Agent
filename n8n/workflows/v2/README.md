@@ -1,6 +1,6 @@
 # Flow v2 orchestration
 
-Import JSON into n8n 2.0.3, save it in the editor, then publish it. CLI import on this version does not create publication history; save through the editor/API before publishing. Assign an **HTTP Header Auth** credential to every internal HTTP node: name `X-Internal-Api-Key`, value equal to backend `INTERNAL_API_KEY`. Secrets are never embedded in workflow JSON. Protect production webhooks with n8n webhook authentication before activation.
+Import JSON into the patched n8n version pinned by Compose, save it in the editor, then publish it. Verify publication/import behavior in an isolated instance before upgrading an existing n8n volume. Assign an **HTTP Header Auth** credential to every internal HTTP node: name `X-Internal-Api-Key`, value equal to backend `INTERNAL_API_KEY`. Secrets are never embedded in workflow JSON. Every shipped webhook now requires a separate inbound **Research Webhook Access** HTTP Header Auth credential. Replace its placeholder credential ID before publication. Use a different secret from the outbound internal API credential; never expose INTERNAL_API_KEY to webhook callers.
 
 Create a basic request with `POST /api/research` and `executionMode: "async"` first. Then call the full pipeline webhook with:
 

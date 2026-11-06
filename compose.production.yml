@@ -1,0 +1,165 @@
+# Standalone file. Never layer onto docker-compose.yml (it publishes development ports).
+name: ${COMPOSE_PROJECT_NAME:?Set explicit isolated project name}
+x-app-env: &app-env
+  NODE_ENV: production
+  RESEARCH_LOAD_ENV: 'false'
+  PORT: '3000'
+  RESEARCH_DB_PATH: /app/data/research.db
+  DOCUMENT_STORAGE_PATH: /app/documents
+  FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set exact HTTPS origin}
+  COOKIE_SECURE: 'true'
+  TRUSTED_PROXY_CIDRS: 172.29.243.2/32
+  INTERNAL_RESEARCH_USER_ID: ${INTERNAL_RESEARCH_USER_ID:?Set existing service user UUID}
+  INTERNAL_API_KEY_FILE: /run/secrets/internal_api_key
+  GEMINI_API_KEY_FILE: /run/secrets/gemini_api_key
+  TAVILY_API_KEY_FILE: /run/secrets/tavily_api_key
+  MOCK_LLM: ${MOCK_PROVIDERS:-false}
+  MOCK_SEARCH: ${MOCK_PROVIDERS:-false}
+  MOCK_RAG: ${MOCK_PROVIDERS:-false}
+  MOCK_REPORT: ${MOCK_PROVIDERS:-false}
+  LLM_PROVIDER: gemini
+  SEARCH_PROVIDER: tavily
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+  GEMINI_MAX_CONCURRENT_REQUESTS: '2'
+  GEMINI_MIN_INTERVAL_MS: '1000'
+  CONTENT_FETCH_CONCURRENCY: '2'
+x-app: &app
+  image: ${BACKEND_IMAGE:?Set reviewed backend image}
+  user: '1000:1000'
+  environment: *app-env
+  secrets: [internal_api_key, gemini_api_key, tavily_api_key]
+  volumes: [research_data:/app/data, document_data:/app/documents]
+  networks: [research]
+  read_only: true
+  tmpfs: ['/tmp:rw,noexec,nosuid,size=128m,mode=1777']
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  restart: unless-stopped
+  logging: &logging
+    driver: json-file
+    options: {max-size: '10m', max-file: '3'}
+services:
+  backend:
+    <<: *app
+    networks:
+      research: {}
+      app_proxy: {ipv4_address: 172.29.243.3}
+    mem_limit: 512m
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+  worker:
+    <<: *app
+    command: [node, src/workers/index.js]
+    mem_limit: 768m
+    stop_grace_period: 60s
+    depends_on: {backend: {condition: service_healthy}}
+    healthcheck:
+      test: [CMD, node, src/workers/health.js]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 15s
+  frontend:
+    image: ${FRONTEND_IMAGE:?Set reviewed frontend image}
+    user: '101:101'
+    entrypoint: [nginx]
+    command: [-c, /etc/nginx/hardened.conf, -g, 'daemon off;']
+    volumes: [./deploy/nginx/frontend.conf:/etc/nginx/hardened.conf:ro]
+    networks:
+      edge_proxy: {ipv4_address: 172.29.242.3}
+      app_proxy: {ipv4_address: 172.29.243.2}
+    mem_limit: 128m
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=32m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    depends_on: {backend: {condition: service_healthy}}
+    healthcheck:
+      test: [CMD, wget, --spider, -q, 'http://127.0.0.1:8080/healthz']
+      interval: 15s
+      timeout: 5s
+      retries: 4
+    restart: unless-stopped
+    logging: *logging
+  edge:
+    image: ${EDGE_IMAGE:?Set reviewed nginx image}
+    user: '101:101'
+    entrypoint: [nginx]
+    command: [-c, /etc/nginx/hardened.conf, -g, 'daemon off;']
+    ports: ['${HTTPS_BIND_IP:-127.0.0.1}:${HTTPS_PORT:-443}:8443']
+    volumes:
+      - ./deploy/nginx/edge.conf:/etc/nginx/hardened.conf:ro
+      - ${TLS_DIRECTORY:?Set absolute TLS directory}:/run/tls:ro
+    networks:
+      edge_proxy: {ipv4_address: 172.29.242.2}
+      ingress: {}
+    mem_limit: 128m
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=32m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    depends_on: {frontend: {condition: service_healthy}}
+    healthcheck:
+      test: [CMD, nginx, -t, -c, /etc/nginx/hardened.conf]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    logging: *logging
+  n8n:
+    image: ${N8N_IMAGE:?Set reviewed n8n image digest}
+    user: '1000:1000'
+    environment:
+      N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
+      N8N_SECURE_COOKIE: 'true'
+      N8N_DIAGNOSTICS_ENABLED: 'false'
+      N8N_PERSONALIZATION_ENABLED: 'false'
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: 'true'
+      N8N_RESTRICT_FILE_ACCESS_TO: /home/node/.n8n-files
+      EXECUTIONS_DATA_PRUNE: 'true'
+      EXECUTIONS_DATA_MAX_AGE: '168'
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: '1000'
+      GENERIC_TIMEZONE: Asia/Ho_Chi_Minh
+    secrets: [n8n_encryption_key]
+    volumes: [n8n_data:/home/node/.n8n]
+    networks: [research]
+    mem_limit: 1024m
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=128m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 192
+    healthcheck:
+      test: [CMD, wget, --spider, -q, 'http://127.0.0.1:5678/healthz']
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    depends_on: {backend: {condition: service_healthy}}
+    restart: unless-stopped
+    logging: *logging
+networks:
+  ingress: {}
+  edge_proxy:
+    internal: true
+    ipam: {config: [{subnet: 172.29.242.0/29}]}
+  app_proxy:
+    internal: true
+    ipam: {config: [{subnet: 172.29.243.0/29}]}
+  # No published ports. Egress is needed for providers and n8n, not host ingress.
+  research: {}
+volumes:
+  research_data: {}
+  document_data: {}
+  n8n_data: {}
+secrets:
+  internal_api_key: {file: '${SECRETS_DIRECTORY:?Set secrets directory}/internal_api_key'}
+  gemini_api_key: {file: '${SECRETS_DIRECTORY:?Set secrets directory}/gemini_api_key'}
+  tavily_api_key: {file: '${SECRETS_DIRECTORY:?Set secrets directory}/tavily_api_key'}
+  n8n_encryption_key: {file: '${SECRETS_DIRECTORY:?Set secrets directory}/n8n_encryption_key'}

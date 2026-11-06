@@ -51,9 +51,11 @@ test('Workflow 1 → Workflow 2 → refresh uses actual SQLite API, filters and 
   for (const query of plan.searchQueries)
     await expect(page.getByText(query.query, { exact: true })).toBeVisible();
   await expect(page.getByText(input.goal, { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem(`${window.__testUserId}:aiResearch:lastRequestId`))).toBe(
-    plan.requestId,
-  );
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem(`${window.__testUserId}:aiResearch:lastRequestId`),
+    ),
+  ).toBe(plan.requestId);
   const collected = await collectionResponse;
   expect(collected.status()).toBe(200);
   const { data: collection } = await collected.json();
@@ -155,7 +157,10 @@ test('Validation, backend 404, network error and empty source state', async ({ p
       },
     }),
   );
-  await page.evaluate((id) => localStorage.setItem(`${window.__testUserId}:aiResearch:lastRequestId`, id), data.requestId);
+  await page.evaluate(
+    (id) => localStorage.setItem(`${window.__testUserId}:aiResearch:lastRequestId`, id),
+    data.requestId,
+  );
   await page.goto(`/research/${data.requestId}/sources`);
   await expect(page.getByRole('heading', { name: source.titleVi, exact: true })).toBeVisible();
   await expect(page.getByText(source.snippetVi, { exact: true })).toBeVisible();
@@ -284,7 +289,5 @@ test('Dashboard, source picker, settings, unknown route and tablet navigation', 
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
   }
-  await expect(
-    page.getByRole('link', { name: 'Quy trình nghiên cứu', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Quy trình nghiên cứu', exact: true })).toBeVisible();
 });

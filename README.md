@@ -307,7 +307,7 @@ Webhook production sau khi publish: `POST /webhook/research-v2/full-research-pip
 
 Các orchestrator theo stage nhận thêm `runId` để tiếp tục một run hiện có; chúng có thể theo dõi và giải phóng các stage tiếp theo, không chỉ stage trong tên file. Replay full với cùng request/options/key giữ nguyên run và report. Workflow có giới hạn polling và thời gian thực thi.
 
-Trong n8n 2.0.3, CLI import chưa tạo publication history cần cho CLI publish; lưu qua editor/API trước khi publish. Hướng dẫn đầy đủ: [n8n Flow v2](n8n/workflows/v2/README.md).
+Compose hiện pin n8n 2.46.1. Sau import, cấu hình credential inbound `Research Webhook Access` và outbound `Research Internal API`, rồi lưu/publish qua editor hoặc API. Không nâng cấp volume n8n đang dùng trước khi backup và thử migration trên bản sao. Hướng dẫn đầy đủ: [n8n Flow v2](n8n/workflows/v2/README.md).
 
 ## Database, migration và độ bền
 
@@ -372,3 +372,7 @@ PDF upload, grounded research chat and reviewed agent memory: [setup, APIs, limi
 ## User accounts
 
 Public APIs now require session authentication. See [configuration, internal automation and safe legacy ownership transfer](docs/authentication.md). Existing workspace data remains locked until an administrator transfers ownership.
+
+Đợt audit production ngày 06/11/2026: xem [báo cáo production readiness](docs/PRODUCTION_READINESS_REPORT.md) để biết kết quả kiểm thử, các bản sửa chưa commit và những điều kiện còn chặn mở public.
+
+Chuẩn bị hardening: [báo cáo](docs/PRODUCTION_HARDENING_REPORT.md), [runbook vận hành/backup/rollback](docs/PRODUCTION_OPERATIONS.md), [thiết kế quota](docs/PRODUCTION_QUOTA_DESIGN.md). Cấu hình mới chưa được áp dụng cho dịch vụ đang chạy.

@@ -20,6 +20,20 @@ const { detectSourceLanguage } = require('../src/utils/language');
 const { createGeminiLimiter } = require('../src/utils/geminiLimiter');
 const { retryAfterMilliseconds } = require('../src/utils/geminiError');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Assert overlap with a rendezvous, not a 3 ms scheduling window under CI load.
+function firstPairBarrier() {
+    let arrivals = 0; let release; let timer; let gate;
+    return async () => {
+        if (!gate) gate = new Promise((resolve, reject) => {
+            release = resolve;
+            timer = setTimeout(() => reject(new Error('Expected two concurrent operations')), 5000);
+        });
+        arrivals++;
+        if (arrivals === 2) { clearTimeout(timer); release(); }
+        await gate;
+    };
+}
+
 const response = value => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(value) } }] }), { headers: { 'content-type': 'application/json' } });
 const vi = { title: 'Nguồn nghiên cứu tiếng Việt', snippet: 'Các bằng chứng về ứng dụng trí tuệ nhân tạo', content: 'Nội dung nghiên cứu bằng tiếng Việt về lợi ích và hạn chế của hệ thống hỏi đáp tài liệu.' };
 const en = { title: 'The original English source', snippet: 'This is the source article in English', content: 'The content is an original English article and it has the source information for the research.' };
@@ -64,17 +78,18 @@ test('Workflow 2/3: language, performance, display policy, rate limits, cache an
             process.env.MOCK_LLM = 'true';
             const request = await research.createResearchRequest({ topic: 'Kiểm tra nguồn tài liệu', goal: 'Hiệu năng' });
             process.env.MOCK_LLM = 'false';
+            const fetchOverlap = firstPairBarrier(); const translationOverlap = firstPairBarrier();
             let fetched = 0; let fetching = 0; let peakFetch = 0; let translating = 0; let peakTranslate = 0; let calls = 0;
             search.searchWeb = async () => [
                 { ...vi, content: '', url: 'https://example.com/vi', provider: 'tavily' },
                 ...[1, 2, 3].map(i => ({ ...en, content: '', url: `https://example.com/en${i}`, provider: 'tavily' }))
             ];
             content.fetchPageContent = async url => {
-                fetched++; fetching++; peakFetch = Math.max(peakFetch, fetching); await wait(3); fetching--;
+                fetched++; fetching++; peakFetch = Math.max(peakFetch, fetching); await fetchOverlap(); fetching--;
                 return url.endsWith('/vi') ? vi.content : en.content;
             };
             llm.generateJson = async (prompt, input) => {
-                calls++; translating++; peakTranslate = Math.max(peakTranslate, translating); await wait(3); translating--;
+                calls++; translating++; peakTranslate = Math.max(peakTranslate, translating); await translationOverlap(); translating--;
                 return input.text ? { translatedText: vi.content } : { titleVi: vi.title, snippetVi: vi.snippet };
             };
             const result = await research.searchAndCollect(request.requestId);

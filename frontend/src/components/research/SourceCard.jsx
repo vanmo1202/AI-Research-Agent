@@ -53,7 +53,11 @@ export default function SourceCard({ source, index }) {
             {expanded ? 'Thu gọn' : 'Xem chi tiết'}
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
-          {source.id && <Link className="text-button" to={`/sources/${encodeURIComponent(source.id)}`}>Mở trang chi tiết</Link>}
+          {source.id && (
+            <Link className="text-button" to={`/sources/${encodeURIComponent(source.id)}`}>
+              Mở trang chi tiết
+            </Link>
+          )}
         </div>
         <div className="source-actions">
           {href && (
@@ -86,9 +90,7 @@ export default function SourceCard({ source, index }) {
           </div>
           <div>
             <strong>Nội dung đã thu thập</strong>
-            <p className="full-content">
-              {display.content}
-            </p>
+            <p className="full-content">{display.content}</p>
           </div>
         </div>
       )}

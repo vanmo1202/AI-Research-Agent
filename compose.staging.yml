@@ -1,0 +1,16 @@
+# Only with compose.production.yml and an entirely separate project and secrets.
+services:
+  backend:
+    environment:
+      MOCK_LLM: 'true'
+      MOCK_SEARCH: 'true'
+      MOCK_RAG: 'true'
+      MOCK_REPORT: 'true'
+  worker:
+    environment:
+      MOCK_LLM: 'true'
+      MOCK_SEARCH: 'true'
+      MOCK_RAG: 'true'
+      MOCK_REPORT: 'true'
+  edge:
+    ports: !override ['127.0.0.1:${HTTPS_PORT:-8443}:8443']

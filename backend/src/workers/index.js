@@ -1,7 +1,4 @@
-require("dotenv").config({
-  path: require("node:path").join(__dirname, "../../.env"),
-  quiet: true,
-});
+require("../config/environment").loadEnvironment();
 const { initializeDatabase } = require("../config/database");
 const { runOnce } = require("./runner");
 const { randomUUID } = require("node:crypto");

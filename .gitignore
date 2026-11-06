@@ -38,3 +38,11 @@ coverage/
 
 # Uploaded knowledge documents (runtime data)
 backend/data/documents/
+
+# Operations artifacts and local secret material
+__pycache__/
+*.pyc
+deploy/secrets/
+deploy/tls/
+backups/
+*.gpg

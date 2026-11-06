@@ -36,3 +36,32 @@ test("v2 n8n workflows are wired, bounded, credential-based and webhook-driven",
     }
   }
 });
+
+test("Every shipped webhook requires a separate inbound credential before calling privileged internal APIs", () => {
+  const folders = [
+    path.join(__dirname, "../../n8n/workflows/v2"),
+    path.join(__dirname, "../../n8n/workflows/knowledge"),
+  ];
+  let hooks = 0;
+  for (const folder of folders)
+    for (const file of fs
+      .readdirSync(folder)
+      .filter((f) => f.endsWith(".json"))) {
+      const workflow = JSON.parse(
+        fs.readFileSync(path.join(folder, file), "utf8"),
+      );
+      for (const node of workflow.nodes.filter((n) =>
+        n.type.endsWith(".webhook"),
+      )) {
+        hooks++;
+        assert.equal(node.parameters.authentication, "headerAuth", file);
+        assert.equal(
+          node.credentials.httpHeaderAuth.name,
+          "Research Webhook Access",
+          file,
+        );
+        assert.equal(workflow.active, false, file);
+      }
+    }
+  assert.equal(hooks, 9);
+});
