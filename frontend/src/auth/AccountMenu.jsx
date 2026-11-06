@@ -1,9 +1,17 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth, authApi } from './AuthProvider';
 export default function AccountMenu() {
   const { user, logout } = useAuth(),
     [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false);
+  const menu = useRef(null);
+  useEffect(() => {
+    const outside = (event) => {
+      if (!menu.current?.contains(event.target) && menu.current) menu.current.open = false;
+    };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, []);
   async function change(e) {
     e.preventDefault();
     setBusy(true);
@@ -20,7 +28,16 @@ export default function AccountMenu() {
     }
   }
   return (
-    <details className="account-menu">
+    <details
+      ref={menu}
+      className="account-menu"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector('summary')?.focus();
+        }
+      }}
+    >
       <summary aria-label="Menu tài khoản">{user.name}</summary>
       <div className="account-popover">
         <strong>{user.name}</strong>

@@ -221,9 +221,9 @@ test('Validation, backend 404, network error and empty source state', async ({ p
 test('Mobile drawer, responsive form and sources do not overflow', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/workflow-1');
-  await expect(page.getByRole('navigation')).not.toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Điều hướng workspace' })).not.toBeVisible();
   await page.getByRole('button', { name: 'Mở menu điều hướng' }).click();
-  await expect(page.getByRole('navigation')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Điều hướng workspace' })).toBeVisible();
   await page.getByRole('button', { name: 'Đóng menu', exact: true }).click();
   await fillResearch(page);
   await expect(page.locator('#topic')).toHaveAttribute('maxlength', '200');
@@ -272,7 +272,7 @@ test('Dashboard, source picker, settings, unknown route and tablet navigation', 
 }) => {
   await page.setViewportSize({ width: 1024, height: 900 });
   for (const [route, heading] of [
-    ['/', 'Chào bạn!'],
+    ['/', 'Không chỉ tìm kiếm. Hãy khám phá.'],
     ['/sources', 'Nguồn tài liệu nghiên cứu'],
     ['/workflow-2', 'Lập kế hoạch & Thu thập'],
     ['/settings', 'Cài đặt không gian nghiên cứu'],

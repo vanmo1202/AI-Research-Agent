@@ -2,17 +2,17 @@
   min-height: 100dvh;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: #f7f9fe;
+  background: var(--paper);
   font-family: Inter, sans-serif;
-  color: #19243b;
+  color: var(--ink);
 }
 .auth-story {
   padding: 56px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: linear-gradient(145deg, #eef2ff, #dce5ff);
-  color: #23387f;
+  background: var(--sage);
+  color: var(--forest-800);
 }
 .auth-brand {
   display: flex;
@@ -52,8 +52,8 @@
   background: white;
   padding: 36px;
   border-radius: 16px;
-  box-shadow: 0 16px 64px #23387f0b;
-  border: 1px solid #e5eafa;
+  box-shadow: 0 16px 64px rgb(16 48 39 / 8%);
+  border: 1px solid var(--sage);
 }
 .auth-card h1 {
   font-size: 27px;
@@ -62,7 +62,7 @@
 }
 .auth-card p,
 .auth-card small {
-  color: #66738b;
+  color: var(--muted-ink);
   line-height: 1.6;
 }
 .auth-card form {
@@ -80,13 +80,13 @@
   width: 100%;
   box-sizing: border-box;
   padding: 13px;
-  border: 1px solid #d9dfed;
+  border: 1px solid var(--sage);
   border-radius: 9px;
   font: inherit;
-  background: #fff;
+  background: var(--paper);
 }
 .auth-card input:focus {
-  outline: 2px solid #3656ed;
+  outline: 2px solid var(--forest-800);
   outline-offset: 2px;
 }
 .auth-password {
@@ -105,7 +105,7 @@
   padding: 3px;
 }
 .auth-submit {
-  background: #3656ed;
+  background: var(--forest-800);
   color: white;
   border: 0;
   border-radius: 9px;
@@ -118,12 +118,12 @@
   opacity: 0.6;
 }
 .auth-card a {
-  color: #3656ed;
+  color: var(--forest-800);
   font-weight: 600;
 }
 .auth-card .auth-error {
-  color: #b42318;
-  background: #fff0ee;
+  color: var(--danger);
+  background: var(--sage);
   padding: 10px;
   border-radius: 8px;
 }
@@ -133,7 +133,7 @@
 .account-menu summary {
   cursor: pointer;
   list-style: none;
-  color: #23387f;
+  color: var(--forest-800);
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -144,11 +144,11 @@
   right: 0;
   top: 35px;
   background: white;
-  border: 1px solid #e1e6f0;
+  border: 1px solid var(--sage);
   border-radius: 12px;
   padding: 18px;
   width: min(310px, 85vw);
-  box-shadow: 0 12px 40px #172b4d20;
+  box-shadow: 0 12px 40px rgb(16 48 39 / 8%);
   z-index: 50;
 }
 .account-popover form {

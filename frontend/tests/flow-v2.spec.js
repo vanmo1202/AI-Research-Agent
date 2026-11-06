@@ -4,7 +4,7 @@ test('Dashboard shows the unified research workspace without auto-research navig
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Chào bạn!' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Không chỉ tìm kiếm. Hãy khám phá.' })).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Quy trình nghiên cứu', exact: true }),
   ).toBeVisible();

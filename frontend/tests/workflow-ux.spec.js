@@ -150,7 +150,7 @@ test('Report renders semantic Markdown, 4/4 journey and export menu; malicious H
   await expect(article.getByRole('heading', { level: 3, name: 'Phân tích' })).toBeVisible();
   await expect(article.locator('strong')).toHaveText('quan trọng');
   await expect(article.locator('ul li')).toHaveText('Mục tiếng Việt');
-  await expect(article.locator('ol li')).toHaveText('Bước kiểm tra');
+  await expect(article.locator('.report-markdown-content ol li')).toHaveText('Bước kiểm tra');
   await expect(article.locator('blockquote')).toContainText('Kết luận thận trọng.');
   await expect(
     page.getByRole('region', { name: 'Hành trình nghiên cứu' }).getByLabel('Số bước đã hoàn thành'),

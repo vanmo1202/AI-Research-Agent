@@ -1,0 +1,326 @@
+/* Research forms and authentication: paper, ink and a deliberate reading rhythm. */
+.page-intro,
+.ro-page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 30px;
+  min-width: 0;
+}
+.page-intro > div,
+.ro-page-heading > div {
+  min-width: 0;
+}
+.page-intro h1,
+.ro-page-heading h1 {
+  font-family: var(--font-editorial);
+  font-size: clamp(36px, 3.7vw, 52px);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -1.4px;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+.page-intro p:not(.eyebrow),
+.ro-page-heading p:not(.ro-kicker) {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted-ink);
+  max-width: 720px;
+  margin-top: 14px;
+}
+.eyebrow,
+.ro-kicker {
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  color: var(--terracotta-ink);
+  line-height: 1.6;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.breadcrumb {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted-ink);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.content-with-panel {
+  gap: 24px;
+  align-items: start;
+}
+.main-column,
+.right-panel {
+  min-width: 0;
+}
+.planning-card {
+  overflow: hidden;
+}
+.planning-card .planning-hero {
+  background: var(--sage);
+  padding: 30px 32px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+.planning-hero .hero-text {
+  min-width: 0;
+}
+.planning-hero h2 {
+  font-size: 30px;
+  line-height: 1.2;
+}
+.planning-hero p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted-ink);
+}
+.studio-workflow-number {
+  font-family: var(--font-editorial);
+  font-size: 76px;
+  line-height: 1;
+  color: var(--teal);
+  width: auto;
+  min-width: 90px;
+  position: static;
+  background: none;
+  box-shadow: none;
+}
+.research-form {
+  padding: 28px 32px;
+}
+.field-group label,
+.form-label,
+.label-row label,
+.knowledge-form label,
+.form-grid label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--forest-800);
+}
+.field-hint,
+.character-count,
+.form-tip,
+.trust-strip,
+.input-hint {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted-ink);
+}
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+select,
+textarea {
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--border);
+  border-radius: 9px;
+  min-height: 44px;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-ink);
+  opacity: 1;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--teal);
+}
+.length-option {
+  border-color: var(--border);
+  background: var(--paper);
+  border-radius: 11px;
+}
+.length-option:has(input:checked) {
+  border-color: var(--forest-800);
+  background: var(--sage);
+}
+.research-stepper,
+.ro-workflow-stepper {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.step-item.active,
+.ro-step.active {
+  color: var(--terracotta-ink);
+}
+.progress-card h2,
+.tips-card h2,
+.completion-card h2,
+.search-ready-card h2 {
+  font-family: var(--font-editorial);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+.tips-card p,
+.tips-card li,
+.next-step-card p,
+.progress-card p,
+.progress-card small {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--muted-ink);
+}
+.next-step-card {
+  background: var(--sage);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.next-step-card h3 {
+  font-size: 15px;
+}
+.auth-page {
+  background: var(--canvas);
+  font-family: var(--font-body);
+}
+.auth-story {
+  background: var(--forest-900);
+  color: var(--sage);
+  padding: 48px 56px;
+}
+.auth-brand {
+  font-size: 24px;
+  color: var(--paper);
+  font-weight: 600;
+}
+.auth-story h2 {
+  font-family: var(--font-editorial);
+  font-size: clamp(38px, 4.2vw, 60px);
+  line-height: 1.12;
+  font-weight: 400;
+  letter-spacing: -1.6px;
+  color: var(--paper);
+  margin: 28px 0;
+}
+.auth-story p,
+.auth-story small {
+  color: var(--sage);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.auth-story span {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.auth-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-paper);
+  background: var(--paper);
+  padding: 36px;
+}
+.auth-card h1 {
+  font-family: var(--font-editorial);
+  font-size: 36px;
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: -1px;
+  margin: 20px 0 16px;
+}
+.auth-card p {
+  font-size: 14px;
+}
+.auth-card small {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.auth-card input {
+  padding: 13px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+}
+.auth-card input:focus {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+.auth-card label {
+  font-size: 14px;
+  color: var(--forest-800);
+}
+.auth-card a {
+  color: var(--terracotta-ink);
+}
+.auth-submit {
+  background: var(--forest-800);
+  color: var(--paper);
+  border: 1px solid var(--forest-800);
+  min-height: 48px;
+  border-radius: 9px;
+}
+.auth-submit:hover {
+  background: var(--forest-900);
+}
+.auth-password button {
+  width: 44px;
+  height: 44px;
+  right: 4px;
+  top: 3px;
+  display: grid;
+  place-items: center;
+}
+.auth-card .auth-error {
+  background: var(--canvas);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+@media (max-width: 900px) {
+  .content-with-panel {
+    grid-template-columns: 1fr;
+  }
+  .right-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .right-panel > * {
+    margin: 0;
+  }
+  .auth-story {
+    padding: 36px;
+  }
+  .research-form {
+    padding: 24px;
+  }
+}
+@media (max-width: 640px) {
+  .page-intro,
+  .ro-page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .page-intro h1,
+  .ro-page-heading h1 {
+    font-size: 36px;
+    letter-spacing: -1px;
+  }
+  .planning-card .planning-hero {
+    padding: 24px;
+  }
+  .studio-workflow-number {
+    display: none;
+  }
+  .research-form {
+    padding: 24px 20px;
+  }
+  .auth-story {
+    padding: 24px;
+  }
+  .auth-panel {
+    padding: 24px 16px;
+  }
+  .auth-card {
+    padding: 28px 24px;
+  }
+  .auth-card h1 {
+    font-size: 34px;
+  }
+  .right-panel {
+    grid-template-columns: 1fr;
+  }
+}
+.ro-step-group .ro-step strong{font-size:14px;line-height:1.5}.ro-step-group .ro-step small{font-size:12px;line-height:1.6}
+@media(max-width:640px){.ro-workflow-stepper{display:grid;grid-template-columns:1fr;gap:16px;padding:20px}.ro-step-group,.ro-step-group:not(:first-child){width:100%;gap:0}.ro-step-group .ro-step{width:100%;gap:12px}.ro-stepper-line{display:none}.ro-step-group .ro-step strong{font-size:14px}.ro-step-group .ro-step small{font-size:12px}}

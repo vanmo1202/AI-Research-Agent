@@ -10,6 +10,12 @@ export function StatusBadge({ status }) {
     analyzed_partial: 'Hoàn thành một phần',
     completed: 'Đã hoàn thành',
     failed: 'Thất bại',
+    created: 'Đã tạo nghiên cứu',
+    queued: 'Đang chờ xử lý',
+    running: 'Đang xử lý',
+    partial: 'Hoàn thành một phần',
+    cancelled: 'Đã hủy',
+    generating_report: 'Đang tạo báo cáo',
   };
   const tone =
     { planned: 'blue', collected: 'green', failed: 'red', searching: 'violet', planning: 'violet' }[

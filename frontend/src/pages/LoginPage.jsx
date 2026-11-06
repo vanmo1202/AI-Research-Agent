@@ -45,21 +45,21 @@ export default function LoginPage({ register = false }) {
         </Link>
         <div>
           <span>KHÔNG GIAN NGHIÊN CỨU CỦA BẠN</span>
-          <h1>
+          <h2>
             Từ câu hỏi hay
             <br />
             đến tri thức có căn cứ.
-          </h1>
+          </h2>
           <p>Nghiên cứu, tài liệu và những cuộc hội thoại — cùng một không gian riêng tư.</p>
           <p>
             <ShieldCheck size={20} /> Dữ liệu được phân quyền theo tài khoản
           </p>
         </div>
-        <small>ResearchOS · AI Research Companion</small>
+        <small>ResearchOS · Không gian cho tri thức</small>
       </section>
       <section className="auth-panel">
         <div className="auth-card">
-          <BookOpen color="#3656ED" size={32} />
+          <BookOpen className="auth-logo" size={32} />
           <h1>{register ? 'Tạo tài khoản ResearchOS' : 'Chào mừng trở lại'}</h1>
           <p>
             {register
@@ -93,7 +93,7 @@ export default function LoginPage({ register = false }) {
                   type={visible ? 'text' : 'password'}
                   autoComplete={register ? 'new-password' : 'current-password'}
                   required
-                  minLength={register ? 12 : 1}
+                  minLength={register ? 6 : 1}
                   maxLength={128}
                 />
                 <button
@@ -107,7 +107,7 @@ export default function LoginPage({ register = false }) {
             </label>
             {register && (
               <>
-                <small>Mật khẩu từ 12 đến 128 ký tự. Nên dùng một cụm từ dài, khó đoán.</small>
+                <small>Mật khẩu từ 6 đến 128 ký tự. Nên dùng một cụm từ dài, khó đoán.</small>
                 <label>
                   Xác nhận mật khẩu
                   <input
@@ -115,7 +115,7 @@ export default function LoginPage({ register = false }) {
                     type={visible ? 'text' : 'password'}
                     autoComplete="new-password"
                     required
-                    minLength={12}
+                    minLength={6}
                     maxLength={128}
                   />
                 </label>

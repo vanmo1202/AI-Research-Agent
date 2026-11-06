@@ -83,3 +83,52 @@ test('Accounts on the same browser never share research history', async ({ page,
     (await context.request.get(`http://localhost:4300/api/research/${data.requestId}`)).status(),
   ).toBe(404);
 });
+
+test('Six character registration and password change show real Settings; expired session never replays a POST', async ({
+  page,
+}) => {
+  let registrations = 0,
+    posts = 0;
+  page.on('request', (req) => {
+    if (req.method() === 'POST') {
+      posts++;
+      if (req.url().endsWith('/api/auth/register')) registrations++;
+    }
+  });
+  await page.goto('/register');
+  const email = `six-${crypto.randomUUID()}@example.test`;
+  await page.getByLabel('Họ và tên', { exact: true }).fill('Six Character User');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Mật khẩu', { exact: true }).fill('abc12');
+  await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill('abc12');
+  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  expect(
+    await page.getByLabel('Mật khẩu', { exact: true }).evaluate((input) => input.validity.tooShort),
+  ).toBe(true);
+  expect(registrations).toBe(0);
+  await page.getByLabel('Mật khẩu', { exact: true }).fill('abc123');
+  await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill('abc123');
+  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto('/settings');
+  await expect(
+    page.getByRole('heading', { name: 'Six Character User', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('main').getByText(email, { exact: true })).toBeVisible();
+  await expect(page.getByText('Hồ sơ demo', { exact: true })).toHaveCount(0);
+  await page.getByLabel('Menu tài khoản').click();
+  await page.getByLabel('Mật khẩu hiện tại', { exact: true }).fill('abc123');
+  await page.getByLabel('Mật khẩu mới', { exact: true }).fill('xyz789');
+  await page.getByRole('button', { name: 'Thay đổi mật khẩu', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Đã thay đổi mật khẩu');
+  const before = posts;
+  await page.route('**/api/dashboard', (route) =>
+    route.fulfill({ status: 401, json: { success: false, error: 'Phiên đăng nhập đã hết hạn.' } }),
+  );
+  await page.getByRole('link', { name: 'Tổng quan', exact: true }).click();
+  await expect(page).toHaveURL(/login/);
+  await expect(
+    page.getByText('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', { exact: true }),
+  ).toBeVisible();
+  expect(posts).toBe(before);
+});

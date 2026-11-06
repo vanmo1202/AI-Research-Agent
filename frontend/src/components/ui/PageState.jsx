@@ -5,7 +5,7 @@ import Button from './Button';
 export default function PageState({ loading, error, onRetry }) {
   if (loading)
     return (
-      <Card className="page-loading">
+      <Card className="page-loading" aria-busy="true">
         <Spinner />
         <h2>Đang tải dữ liệu nghiên cứu...</h2>
         <p>Đọc kết quả đã lưu từ backend.</p>

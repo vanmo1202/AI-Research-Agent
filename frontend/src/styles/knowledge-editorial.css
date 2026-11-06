@@ -1,0 +1,501 @@
+/* Library, PDF reading room and citation-grounded conversations. */
+.ro-upload-panel {
+  background: var(--canvas);
+  border: 1px dashed var(--teal);
+  padding: 28px;
+  border-radius: 15px;
+  gap: 24px;
+}
+.ro-upload-symbol {
+  background: var(--sage);
+  color: var(--forest-800);
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+}
+.ro-upload-panel h2 {
+  font-family: var(--font-editorial);
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.ro-upload-panel p {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--muted-ink);
+}
+.ro-pdf-form input[type='file'] {
+  font-size: 13px;
+  max-width: 240px;
+}
+input[type='file']::file-selector-button {
+  padding: 10px 12px;
+  min-height: 44px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--forest-800);
+  font: inherit;
+  margin-right: 10px;
+  cursor: pointer;
+}
+.ro-upload-panel .ro-upload-note {
+  font-size: 12px;
+  color: var(--muted-ink);
+}
+.ro-document-count {
+  background: var(--sage);
+  color: var(--forest-800);
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+.ro-library-panel {
+  padding: 24px;
+}
+.ro-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.ro-panel-head h2 {
+  font-family: var(--font-editorial);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+.ro-panel-head p {
+  font-size: 13px;
+  color: var(--muted-ink);
+  line-height: 1.75;
+  margin-top: 8px;
+}
+.ro-list-controls {
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.ro-search-field {
+  height: 46px;
+  background: var(--paper);
+  border-color: var(--border);
+}
+.ro-search-field input {
+  font-size: 14px;
+  outline-offset: 2px !important;
+}
+.ro-search-field:focus-within {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+.ro-list-controls select {
+  min-height: 46px;
+  font-size: 14px;
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--border);
+}
+.ro-view-toggle {
+  border-color: var(--border);
+}
+.ro-view-toggle button,
+.ro-icon-btn {
+  height: 44px;
+  min-width: 44px;
+  background: var(--paper);
+  color: var(--forest-800);
+}
+.ro-view-toggle button[aria-pressed='true'] {
+  background: var(--sage);
+  color: var(--forest-900);
+}
+.ro-icon-btn {
+  width: 44px;
+  border-color: var(--border);
+}
+.ro-document-header {
+  font-size: 12px;
+  color: var(--muted-ink);
+  background: var(--canvas);
+  border-color: var(--border);
+  line-height: 1.6;
+}
+.ro-document-row {
+  font-size: 14px;
+  min-height: 80px;
+  padding: 18px 12px;
+  border-color: var(--border);
+  color: var(--ink);
+}
+.ro-document-row:hover {
+  background: var(--sage);
+}
+.ro-pdf-icon {
+  background: var(--sage);
+  color: var(--forest-800);
+  width: 38px;
+  height: 44px;
+  border-radius: 10px;
+}
+.ro-doc-meta {
+  font-size: 13px;
+  color: var(--muted-ink);
+}
+.as-grid .ro-document-row {
+  background: var(--paper);
+  border-color: var(--border);
+  padding: 24px;
+  min-height: 210px;
+  gap: 16px;
+}
+.as-grid .ro-file-cell {
+  align-items: start;
+}
+.as-grid .ro-file-cell > span:last-child {
+  font-size: 16px;
+  line-height: 1.6;
+}
+.as-grid .ro-doc-action {
+  margin-top: auto;
+}
+.ro-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 14px;
+  padding: 48px 24px;
+  color: var(--muted-ink);
+}
+.ro-empty > svg {
+  color: var(--forest-800);
+}
+.ro-empty h3 {
+  font-family: var(--font-editorial);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.25;
+}
+.ro-empty p {
+  font-size: 14px;
+  line-height: 1.8;
+  max-width: 440px;
+}
+.ro-state {
+  font-size: 14px;
+  color: var(--muted-ink);
+  padding: 24px 0;
+}
+.knowledge-card {
+  background: var(--paper);
+  border-color: var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: var(--shadow-paper);
+}
+.knowledge-card h2 {
+  font-family: var(--font-editorial);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+.knowledge-card p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted-ink);
+}
+.knowledge-form {
+  gap: 20px;
+}
+.knowledge-form label {
+  line-height: 1.65;
+}
+.knowledge-form fieldset {
+  border-color: var(--border);
+  border-radius: 10px;
+}
+.knowledge-form legend {
+  font-size: 13px;
+  color: var(--muted-ink);
+}
+.knowledge-checkbox {
+  font-size: 13px;
+  line-height: 1.7;
+  min-height: 32px;
+}
+.knowledge-checkbox input {
+  accent-color: var(--forest-800);
+}
+.knowledge-page-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+  font-size: 14px;
+  color: var(--forest-800);
+}
+.pdf-viewer iframe {
+  height: 72vh;
+  min-height: 400px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.pdf-viewer > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  color: var(--terracotta-ink);
+}
+.knowledge-chat-layout {
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: 20px;
+}
+.ro-chat-workspace {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+.ro-chat-content {
+  padding: 24px !important;
+  background: var(--paper);
+}
+.ro-chat-sidebar .knowledge-card {
+  padding: 20px;
+  gap: 16px;
+}
+.ro-chat-sidebar h2 {
+  font-family: var(--font-editorial);
+  font-size: 25px;
+  font-weight: 400;
+}
+.chat-session-list a {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--forest-800);
+  min-height: 44px;
+}
+.chat-session-list li:has(a[aria-current='page']) {
+  background: var(--sage);
+}
+.ro-chat-delete {
+  width: 44px;
+  height: 44px;
+  color: var(--muted-ink);
+}
+.chat-panel {
+  min-height: 600px;
+}
+.ro-chat-panel-bar {
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.ro-chat-panel-bar h2 {
+  font-family: var(--font-editorial);
+  font-size: 26px;
+  color: var(--forest-800);
+  font-weight: 400;
+}
+.chat-panel .chat-messages {
+  max-height: 65vh;
+  gap: 20px;
+  min-height: 300px;
+  padding: 12px 0 24px;
+}
+.chat-message {
+  max-width: 94%;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  padding: 22px 24px;
+  font-size: 14px;
+  line-height: 1.9;
+  border-radius: 14px;
+  box-shadow: none;
+}
+.chat-message.user {
+  background: var(--sage);
+  color: var(--forest-900);
+  max-width: 85%;
+}
+.chat-message strong {
+  font-size: 13px;
+  color: var(--forest-800);
+  margin-bottom: 10px;
+}
+.chat-message p {
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--ink);
+}
+.chat-content {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.ro-chat-sources {
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+.ro-chat-sources h2 {
+  font-family: var(--font-editorial);
+  font-size: 24px;
+  font-weight: 400;
+}
+.ro-chat-sources p,
+.ro-chat-sources a,
+.ro-citation-summary strong {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted-ink);
+}
+.ro-chat-sources a {
+  color: var(--terracotta-ink);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.chat-panel .ro-chat-composer {
+  background: var(--paper);
+  border-color: var(--teal);
+  padding: 10px 12px;
+  border-radius: 12px;
+  gap: 12px;
+}
+.ro-chat-composer textarea {
+  font-size: 14px;
+  line-height: 1.8;
+  min-height: 60px;
+}
+.ro-chat-composer .button {
+  min-height: 44px;
+}
+.ro-chat-composer:focus-within {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+.citation-card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--teal);
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  margin-top: 16px;
+}
+.citation-card a {
+  color: var(--terracotta-ink);
+}
+.ro-chat-picker {
+  max-width: 700px;
+  padding: 36px;
+  margin-top: 0;
+}
+.ro-chat-picker h2 {
+  font-size: 30px;
+}
+.ro-chat-hint {
+  font-size: 13px;
+  color: var(--muted-ink);
+}
+@media (max-width: 1200px) {
+  .knowledge-chat-layout {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+}
+@media (max-width: 900px) {
+  .knowledge-chat-layout {
+    grid-template-columns: 1fr;
+  }
+  .ro-chat-sidebar .knowledge-card {
+    margin: 0;
+  }
+  .ro-chat-content {
+    padding: 20px !important;
+  }
+  .chat-session-list {
+    max-height: 220px;
+    overflow: auto;
+  }
+  .ro-upload-panel {
+    padding: 24px;
+  }
+}
+@media (max-width: 640px) {
+  .ro-upload-panel {
+    padding: 24px 20px;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .ro-upload-panel > div {
+    min-width: 0;
+    flex-basis: calc(100% - 80px);
+  }
+  .ro-upload-panel .ro-pdf-form {
+    width: 100%;
+  }
+  .ro-pdf-form input[type='file'] {
+    width: 100%;
+    max-width: 100%;
+  }
+  .ro-library-panel {
+    padding: 20px 16px;
+  }
+  .ro-document-row {
+    font-size: 14px;
+    gap: 12px;
+    min-width: 0;
+  }
+  .ro-file-cell {
+    min-width: 0;
+  }
+  .ro-document-header {
+    display: none;
+  }
+  .ro-document-list.as-grid {
+    grid-template-columns: 1fr;
+  }
+  .ro-list-controls select {
+    width: 100%;
+    flex-basis: 100%;
+  }
+  .chat-message {
+    padding: 18px;
+    max-width: 100%;
+  }
+  .chat-message.user {
+    max-width: 94%;
+  }
+  .ro-chat-panel-bar h2 {
+    font-size: 24px;
+  }
+  .ro-chat-content {
+    padding: 16px !important;
+  }
+  .chat-panel .ro-chat-composer {
+    flex-wrap: wrap;
+  }
+  .ro-chat-composer textarea {
+    flex-basis: 100%;
+  }
+  .ro-chat-composer .button {
+    margin-left: auto;
+  }
+  .knowledge-card {
+    padding: 20px;
+  }
+  .ro-chat-picker {
+    padding: 24px;
+  }
+  .pdf-viewer iframe {
+    height: 60vh;
+    min-height: 320px;
+  }
+}
+.ro-document-list.as-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.ro-doc-created{display:block;font-size:12px;font-weight:400;color:var(--muted-ink);margin-top:8px;line-height:1.6}
+@media(max-width:1200px){.ro-document-list.as-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.ro-document-list.as-grid{grid-template-columns:1fr}}
