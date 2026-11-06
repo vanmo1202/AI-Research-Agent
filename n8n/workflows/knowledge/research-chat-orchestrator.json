@@ -29,7 +29,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "const b=$json.body||{};if(!/^[a-f0-9-]{36}$/.test(b.chatId||'')||typeof b.content!=='string'||!b.content.trim()||b.content.length>2000||typeof b.clientToken!=='string'||b.clientToken.length>100)throw new Error('chatId/content/clientToken required');return [{json:{chatId:b.chatId,content:b.content,clientToken:b.clientToken}}];"
+        "jsCode": "const b=$json.body||{};if(!/^[a-f0-9-]{36}$/.test(b.chatId||'')||!/^[a-f0-9-]{36}$/.test(b.requestId||'')||typeof b.content!=='string'||!b.content.trim()||b.content.length>2000||typeof b.clientToken!=='string'||!b.clientToken.trim()||b.clientToken.length>100)throw new Error('requestId/chatId/content/clientToken required');return [{json:{requestId:b.requestId,chatId:b.chatId,content:b.content,clientToken:b.clientToken}}];"
       },
       "onError": "continueErrorOutput"
     },
@@ -44,7 +44,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "=http://backend:3000/api/chats/{{ $json.chatId }}/messages",
+        "url": "=http://backend:3000/internal/knowledge/chats/{{ $json.chatId }}/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {
@@ -52,12 +52,18 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({content: $json.content, clientToken: $json.clientToken}) }}"
+        "jsonBody": "={{ JSON.stringify({requestId: $json.requestId, content: $json.content, clientToken: $json.clientToken}) }}"
       },
       "retryOnFail": false,
       "maxTries": 2,
       "waitBetweenTries": 2000,
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_INTERNAL_HEADER_CREDENTIAL",
+          "name": "Research Internal API"
+        }
+      }
     },
     {
       "id": "2916d4e3-a393-427a-bc5e-c549935fe87e",
