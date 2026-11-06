@@ -13,12 +13,13 @@ import {
 import WorkspaceAccess from '../components/knowledge/WorkspaceAccess';
 import PdfUpload from '../components/knowledge/PdfUpload';
 import DocumentStatus from '../components/knowledge/DocumentStatus';
-import useKnowledge from '../hooks/useKnowledge';
+import useKnowledge, { pollDocuments } from '../hooks/useKnowledge';
 import Button from '../components/ui/Button';
 import ErrorMessage from '../components/ui/ErrorMessage';
 
 function Library() {
-  const result = useKnowledge('/documents', true);
+  const result = useKnowledge('/documents', pollDocuments);
+  const limits = useKnowledge('/knowledge/config');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const [view, setView] = useState('grid');
@@ -49,11 +50,20 @@ function Library() {
         </span>
         <div>
           <h2>Tải tài liệu nghiên cứu lên</h2>
-          <p>PDF tối đa 20 MB / 100 trang. Hệ thống tự trích xuất văn bản và lập chỉ mục.</p>
+          <p>
+            {limits.data
+              ? `PDF tối đa ${limits.data.maxUploadBytes / 1048576} MB / ${limits.data.maxPages} trang.`
+              : 'Đang tải giới hạn PDF...'}{' '}
+            Hệ thống trích xuất lớp văn bản; chưa hỗ trợ OCR cho PDF scan.
+          </p>
         </div>
-        <PdfUpload onUploaded={result.reload} />
+        <PdfUpload
+          onUploaded={result.reload}
+          limits={limits.data}
+          disabled={limits.loading || !!limits.error}
+        />
       </section>
-      <ErrorMessage error={result.error} />
+      <ErrorMessage error={result.error || limits.error} />
       <section className="ro-panel ro-library-panel">
         <div className="ro-panel-head">
           <div>

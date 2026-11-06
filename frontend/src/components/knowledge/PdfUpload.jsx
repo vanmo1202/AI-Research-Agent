@@ -1,21 +1,29 @@
+import { Link } from 'react-router-dom';
 import { useRef, useState } from 'react';
 import { FileUp, UploadCloud } from 'lucide-react';
 import { knowledgeApi } from '../../services/knowledgeApi';
 import Button from '../ui/Button';
 import ErrorMessage from '../ui/ErrorMessage';
 
-export default function PdfUpload({ onUploaded }) {
+export default function PdfUpload({ onUploaded, limits, disabled = false }) {
   const lock = useRef(false),
     input = useRef();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(null),
-    [note, setNote] = useState('');
+    [note, setNote] = useState(''),
+    [uploaded, setUploaded] = useState(null);
   async function upload(e) {
     e.preventDefault();
-    if (lock.current) return;
+    if (lock.current || disabled) return;
     const file = input.current?.files?.[0];
-    if (!file || !/\.pdf$/i.test(file.name) || file.size > 20 * 1024 * 1024) {
-      setError(new Error('Chọn PDF tối đa 20 MB.'));
+    if (
+      !file ||
+      !/\.pdf$/i.test(file.name) ||
+      file.size > (limits?.maxUploadBytes || 20 * 1024 * 1024)
+    ) {
+      setError(
+        new Error(`Chọn PDF tối đa ${(limits?.maxUploadBytes || 20 * 1024 * 1024) / 1048576} MB.`),
+      );
       return;
     }
     lock.current = true;
@@ -31,6 +39,7 @@ export default function PdfUpload({ onUploaded }) {
           ? 'Tài liệu đã tồn tại; sử dụng bản đã lưu.'
           : 'Đã tải lên. Worker sẽ trích xuất và lập chỉ mục.',
       );
+      setUploaded(result.document);
       if (input.current) input.current.value = '';
       onUploaded?.(result.document);
     } catch (e) {
@@ -51,16 +60,19 @@ export default function PdfUpload({ onUploaded }) {
           aria-label="Tải PDF"
           accept="application/pdf,.pdf"
           required
-          disabled={busy}
+          disabled={busy || disabled}
         />
       </label>
-      <Button type="submit" aria-label="Tải tài liệu" loading={busy}>
+      <Button type="submit" aria-label="Tải tài liệu" loading={busy} disabled={disabled}>
         <UploadCloud size={16} /> Tải lên PDF
       </Button>
       {error && (
         <div className="ro-upload-note">
           <ErrorMessage error={error} />
         </div>
+      )}
+      {uploaded && (
+        <Link to={`/documents/${encodeURIComponent(uploaded.id)}`}>Xem tài liệu vừa tải</Link>
       )}
       {note && (
         <p className="ro-upload-note" role="status">

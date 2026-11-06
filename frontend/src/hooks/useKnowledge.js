@@ -21,7 +21,7 @@ export default function useKnowledge(path, poll = false) {
         const data = await knowledgeApi(path, { signal: controller.signal });
         if (controller.signal.aborted) return;
         setState({ path, loading: false, data, error: null });
-        if (poll) timer = setTimeout(load, 2200);
+        if (typeof poll === 'function' ? poll(data) : poll) timer = setTimeout(load, 2200);
       } catch (error) {
         if (!controller.signal.aborted) setState((s) => ({ ...s, loading: false, error }));
       }
@@ -36,3 +36,7 @@ export default function useKnowledge(path, poll = false) {
     ? { ...state, reload }
     : { loading: true, data: null, error: null, reload };
 }
+
+export const pollDocuments = (data) =>
+  (Array.isArray(data) ? data : [data]).some((d) => ['pending', 'processing'].includes(d?.status));
+export const pollMessages = (data) => data?.some((message) => message.status === 'pending');

@@ -17,6 +17,7 @@ const ReportPage = lazy(() => import('./pages/ReportPage'));
 import RequestPicker from './components/research/RequestPicker';
 import DocumentLibraryPage from './pages/DocumentLibraryPage';
 const DocumentDetailPage = lazy(() => import('./pages/DocumentDetailPage'));
+const DocumentChatPage = lazy(() => import('./pages/DocumentChatPage'));
 const ResearchChatPage = lazy(() => import('./pages/ResearchChatPage'));
 const AgentMemoryPage = lazy(() => import('./pages/AgentMemoryPage'));
 import './knowledge.css';
@@ -47,7 +48,8 @@ export default function App() {
               <Route path="research/:requestId/sources" element={<Workflow2Page />} />
               <Route path="documents" element={<DocumentLibraryPage />} />
               <Route path="documents/:documentId" element={<DocumentDetailPage />} />
-              <Route path="chat" element={<ResearchChatPage />} />
+              <Route path="chat" element={<DocumentChatPage />} />
+              <Route path="chat/:chatId" element={<DocumentChatPage />} />
               <Route path="research/:requestId/chat" element={<ResearchChatPage />} />
               <Route path="research/:requestId/chat/:chatId" element={<ResearchChatPage />} />
               <Route path="memories" element={<AgentMemoryPage />} />

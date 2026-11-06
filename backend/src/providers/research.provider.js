@@ -1,3 +1,4 @@
+const relevance = require("../services/source-relevance.service");
 const { transientStatus } = require("../utils/httpRetry");
 const { invalid } = require("../validators/run.validator");
 const db = require("../config/database");
@@ -95,16 +96,18 @@ async function plan(ctx) {
     return llm.generateResearchPlan(ctx.input);
   const result = await json(ctx, llm.RESEARCH_PLANNER_SYSTEM_PROMPT, ctx.input);
   try {
-    return llm.parseGeminiPlan(JSON.stringify(result));
+    return relevance.anchorPlan(ctx.input, llm.parseGeminiPlan(JSON.stringify(result)));
   } catch {
     throw fail("INVALID_PROVIDER_OUTPUT");
   }
 }
 async function collect(ctx, queries, existing) {
+  existing = relevance.eligibleSources(ctx.input, existing);
+  const fetched = new Map();
   const sources = [],
     warnings = [];
   const seen = new Set(existing.map((s) => s.normalized_url));
-  for (const query of queries.slice(0, 4)) {
+  for (const query of [...new Set(queries.map(q => relevance.anchorQuery(ctx.input, q)))].slice(0, 4)) {
     if (existing.length + sources.length >= ctx.input.numberOfSources) break;
     ctx.check();
     let results;
@@ -119,13 +122,14 @@ async function collect(ctx, queries, existing) {
           ctx,
           "search",
           "https://api.tavily.com/search",
-          { query, max_results: 5, include_raw_content: "text" },
+          { query, max_results: 5, search_depth: "basic", include_answer: false, include_raw_content: "text" },
           process.env.TAVILY_API_KEY,
         );
         if (!Array.isArray(result.results))
           throw fail("INVALID_PROVIDER_OUTPUT");
         results = result.results.map((s) => ({
           ...s,
+          snippet: s.content,
           content: s.raw_content,
           provider: "tavily",
         }));
@@ -142,16 +146,23 @@ async function collect(ctx, queries, existing) {
       if (existing.length + sources.length >= ctx.input.numberOfSources) break;
       const url = normalizeUrl(source.url);
       if (!url || seen.has(url)) continue;
+      if (!relevance.evaluateSource(ctx.input, source, { phase: "metadata" }).accepted) {
+        warnings.push({ code: "SOURCE_OFF_TOPIC", reason: "METADATA_OR_CONTENT" });
+        continue;
+      }
       try {
         if (source.provider !== "mock") await checkPublicUrl(url);
       } catch {
         warnings.push({ code: "UNSAFE_SOURCE_URL" });
         continue;
       }
+      if (!source.content && !fetched.has(url)) fetched.set(url, await fetchPageContent(url));
+      const content = cleanContent(source.content || fetched.get(url)).slice(0, 12000);
+      if (!relevance.evaluateSource(ctx.input, { ...source, content }).accepted) {
+        warnings.push({ code: "SOURCE_OFF_TOPIC", reason: "CONTENT" });
+        continue;
+      }
       seen.add(url);
-      const content = cleanContent(
-        source.content || (await fetchPageContent(url)),
-      ).slice(0, 12000);
       const language = detectSourceLanguage({ content });
       let display = language === "vi" ? content : null,
         translationStatus = language === "vi" ? "not_required" : "pending";
@@ -195,9 +206,13 @@ async function collect(ctx, queries, existing) {
       "SEARCH_UNAVAILABLE",
       warnings.some((w) => w.retryable),
     );
+  if (!sources.length && !existing.length && warnings.some(w => w.code === "SOURCE_OFF_TOPIC"))
+    warnings.push({ code: "NO_RELEVANT_SOURCES", retryable: true });
   return { sources, warnings };
 }
 async function extract(ctx, questions, chunks) {
+  const allowed = new Set(relevance.eligibleSources(ctx.input, ctx.sources).map(s => s.id));
+  chunks = chunks.filter(c => allowed.has(c.source_version_id));
   const evidence = [],
     warnings = [];
   if (process.env.MOCK_LLM !== "false")
@@ -235,6 +250,7 @@ async function extract(ctx, questions, chunks) {
           !item.originalQuote.trim() ||
           item.originalQuote.length > 400 ||
           !chunk.content.includes(item.originalQuote) ||
+          !relevance.evaluateSource(ctx.input, { content: item.originalQuote }).accepted ||
           typeof item.evidenceText !== "string" ||
           !item.evidenceText.trim() ||
           item.evidenceText.length > 1500 ||

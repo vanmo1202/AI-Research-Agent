@@ -18,6 +18,9 @@ export default function CitationCard({ citation }) {
       ) : (
         <span>Nguồn không có liên kết web</span>
       )}
+      {citation.retrievedAt && (
+        <small>Đọc nguồn lúc {new Date(citation.retrievedAt).toLocaleString('vi-VN')}</small>
+      )}
       {citation.memoryId && <small>Đã tái xác minh từ bộ nhớ được chấp nhận</small>}
     </div>
   );

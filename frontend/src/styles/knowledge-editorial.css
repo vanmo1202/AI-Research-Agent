@@ -518,3 +518,28 @@ input[type='file']::file-selector-button {
     grid-template-columns: 1fr;
   }
 }
+
+.ro-new-chat-form fieldset,
+.ro-chat-sidebar fieldset {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.ro-chat-sidebar .knowledge-checkbox {
+  align-items: start;
+  overflow-wrap: anywhere;
+}
+.ro-chat-sidebar input[type='checkbox'] {
+  flex-shrink: 0;
+  min-width: 18px;
+  min-height: 18px;
+}
+.ro-chat-sidebar .chat-session-list small {
+  color: var(--muted-ink);
+}
+.memory-provenance blockquote {
+  margin: 8px 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--sage);
+}

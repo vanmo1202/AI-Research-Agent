@@ -12,6 +12,7 @@ module.exports = async (ctx) => {
   const missingCitations = [...ctx.report.content.matchAll(/\[\d+\]/g)]
     .map((m) => m[0])
     .filter((label) => !labels.has(label));
+  const rejectedEvidence = evidence.some(e => !ctx.sources.some(s => s.id === e.sourceVersionId));
   const stale = ctx.report.analysis_version_id !== ctx.analysis.id;
   const body = ctx.report.content.split(
     /## (?:Tài liệu tham khảo|References)/,
@@ -30,6 +31,7 @@ module.exports = async (ctx) => {
       /(?:Tài liệu tham khảo|References)/,
     ].some((pattern) => !pattern.test(ctx.report.content));
   const valid =
+    !rejectedEvidence &&
     !invalidReferences.length &&
     !missingCitations.length &&
     !stale &&
@@ -38,6 +40,7 @@ module.exports = async (ctx) => {
     !missingSections;
   return {
     valid,
+    rejectedEvidence,
     invalidReferences: invalidReferences.map((r) => r.sourceVersionId),
     missingCitations,
     stale,

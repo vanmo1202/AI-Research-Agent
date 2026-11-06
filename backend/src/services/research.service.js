@@ -10,6 +10,7 @@ const { normalizeSource } = require("../utils/sourceNormalizer");
 const { deduplicateSources } = require("../utils/url");
 const { mapWithConcurrency } = require("../utils/concurrency");
 const { positiveInteger } = require("../utils/settings");
+const relevance = require("./source-relevance.service");
 
 async function createResearchRequest(input) {
     const requestId = randomUUID();
@@ -71,12 +72,16 @@ async function searchAndCollect(requestId) {
         logger.info("Search", `Starting search for request ${requestId}`);
         const concurrency = positiveInteger("SEARCH_CONCURRENCY", 4, 10);
         const searchStarted = Date.now();
-        const batches = await mapWithConcurrency(plan.searchQueries, concurrency, async (item, index) => {
+        const seenQueries = new Set();
+        const queries = plan.searchQueries.map(item => ({ ...item, query: relevance.anchorQuery(request, item.query) }))
+            .filter(item => { const key = relevance.fold(item.query); if (seenQueries.has(key)) return false; seenQueries.add(key); return true; });
+        const batches = await mapWithConcurrency(queries, concurrency, async (item, index) => {
             logger.info("Search", `Query ${index + 1}/${plan.searchQueries.length}`);
             try {
-                const results = await searchService.searchWeb(item.query, { maxResults: 5 });
+                const query = relevance.anchorQuery(request, item.query);
+                const results = await searchService.searchWeb(query, { maxResults: 5 });
                 logger.info("Search", `Found ${results.length} results`);
-                return results.map(result => normalizeSource(result, item.query)).filter(Boolean);
+                return results.map(result => normalizeSource(result, query)).filter(Boolean);
             } catch {
                 logger.warn("Search", `Query ${index + 1} failed; continuing other queries`);
                 return null;
@@ -86,19 +91,23 @@ async function searchAndCollect(requestId) {
         if (batches.every(batch => batch === null)) throw new Error("All search queries failed");
         const normalized = batches.filter(Boolean).flat();
         logger.info("Collect", `Normalized ${normalized.length} results`);
-        const sources = deduplicateSources(normalized);
+        const candidateCount = deduplicateSources(normalized).length;
+        // Reject obvious drift before dedup so a long bad variant cannot hide a valid one.
+        let sources = deduplicateSources(normalized.filter(source => relevance.evaluateSource(request, source, { phase: "metadata" }).accepted));
         logger.info("Collect", `Deduplicated to ${sources.length} sources`);
         logger.info('Workflow2', `dedupe ${normalized.length} -> ${sources.length}`);
-        if (!sources.length) throw new Error("No valid sources collected");
+        if (!sources.length) throw new Error(candidateCount ? "Không tìm thấy nguồn phù hợp với chủ đề và phạm vi nghiên cứu. Hãy điều chỉnh truy vấn và thử tìm lại." : "No valid sources collected");
         const fetchStarted = Date.now();
         await mapWithConcurrency(sources, positiveInteger('CONTENT_FETCH_CONCURRENCY', 5, 10), async source => {
             source.content = source.content ? contentService.cleanContent(source.content)
                 : await contentService.fetchPageContent(source.url);
         });
+        sources = relevance.eligibleSources(request, sources);
+        if (!sources.length) throw new Error("Không tìm thấy nguồn phù hợp với chủ đề và phạm vi nghiên cứu. Hãy điều chỉnh truy vấn và thử tìm lại.");
         logger.info('Workflow2', `content fetch completed in ${Date.now() - fetchStarted}ms`);
         const previous = await sourceModel.getSourcesByRequestId(requestId);
         const { detectSourceLanguage } = require('../utils/language');
-        const stats = { viSources: 0, enSources: 0, unknownSources: 0, translationCalls: 0, cacheHits: 0, rateLimitRetries: 0 };
+        const stats = { executedQueries: queries.length, candidates: candidateCount, rejectedSources: candidateCount - sources.length, viSources: 0, enSources: 0, unknownSources: 0, translationCalls: 0, cacheHits: 0, rateLimitRetries: 0 };
         for (const source of sources) {
             source.sourceLanguage = detectSourceLanguage(source);
             stats[source.sourceLanguage === 'vi' ? 'viSources' : source.sourceLanguage === 'en' ? 'enSources' : 'unknownSources']++;
@@ -142,7 +151,7 @@ async function searchAndCollect(requestId) {
         try { await requestModel.updateStatus(requestId, "failed"); }
         catch { logger.error("Database", "Could not update failed status"); }
         logger.error("Research", "Status changed to failed");
-        const publicMessage = ["All search queries failed", "No valid sources collected"].includes(error.message)
+        const publicMessage = (["All search queries failed", "No valid sources collected"].includes(error.message) || error.message.startsWith("Không tìm thấy nguồn phù hợp"))
             ? error.message : "Search and collect failed. Check backend configuration or database.";
         throw httpError(publicMessage, 502, requestId);
     } finally { activeSearches.delete(requestId); }

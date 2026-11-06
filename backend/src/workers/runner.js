@@ -98,7 +98,7 @@ async function context(job, signal, customProvider) {
     "SELECT output_json FROM stage_jobs WHERE run_id=? AND stage='evaluating' AND status='succeeded' ORDER BY rowid DESC LIMIT 1",
     [run.id],
   );
-  return {
+  const ctx = {
     job,
     run,
     input,
@@ -123,6 +123,11 @@ async function context(job, signal, customProvider) {
       if (signal.aborted) throw provider.fail("JOB_ABORTED", true);
     },
   };
+  // Historical rows remain immutable; only eligible sources enter new stages.
+  ctx.sources = require('../services/source-relevance.service').eligibleSources(input, ctx.sources);
+  const eligible = new Set(ctx.sources.map(s => s.id));
+  ctx.chunks = ctx.chunks.filter(c => eligible.has(c.source_version_id));
+  return ctx;
 }
 async function commit(job, owner, ctx, output) {
   return db.transaction(async (tx) => {

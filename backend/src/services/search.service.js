@@ -18,6 +18,6 @@ async function searchWeb(query, options = {}) {
     }
     if (mode !== "false") throw new Error("MOCK_SEARCH must be true or false");
     if ((process.env.SEARCH_PROVIDER || "tavily") !== "tavily") throw new Error("Unsupported SEARCH_PROVIDER");
-    return tavily.search(query, { maxResults });
+    return tavily.search(query, { ...options, maxResults });
 }
 module.exports = { searchWeb };

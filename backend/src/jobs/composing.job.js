@@ -1,5 +1,6 @@
 module.exports = async (ctx) => {
-  const evidence = ctx.analysis ? JSON.parse(ctx.analysis.evidence_json) : [];
+  const previousEvidence = ctx.analysis ? JSON.parse(ctx.analysis.evidence_json) : [];
+  const evidence = previousEvidence.filter(e => ctx.sources.some(s => s.id === e.sourceVersionId));
   const evaluation = ctx.previousEvaluation || {
     coverage: "unavailable",
     gaps: [],
@@ -60,7 +61,7 @@ module.exports = async (ctx) => {
         : text.missing)
     );
   });
-  const partial = evaluation.coverage !== "sufficient";
+  const partial = evaluation.coverage !== "sufficient" || evidence.length !== previousEvidence.length;
   const summary = en
     ? `${selected.length} evidence items from ${references.length} sources.`
     : `Phân tích ${selected.length} bằng chứng từ ${references.length} nguồn.`;
