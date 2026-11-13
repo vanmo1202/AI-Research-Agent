@@ -107,7 +107,7 @@ jobs:
           BACKEND_IMAGE: backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           FRONTEND_IMAGE: frontend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           EDGE_IMAGE: nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          POSTGRES_IMAGE: postgres:18-alpine
+          POSTGRES_IMAGE: postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           N8N_IMAGE: n8n@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           TLS_DIRECTORY: /tmp/ci-hardening/tls
           SECRETS_DIRECTORY: /tmp/ci-hardening/secrets
