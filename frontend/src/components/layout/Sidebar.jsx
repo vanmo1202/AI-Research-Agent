@@ -145,7 +145,7 @@ export default function Sidebar({ open, onClose, onToggle }) {
         <button
           type="button"
           className="ro-topnav-backdrop"
-          aria-label="Đóng menu điều hướng"
+          aria-label="Đóng lớp phủ điều hướng"
           tabIndex={-1}
           onClick={onClose}
         />
