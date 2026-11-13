@@ -4,6 +4,7 @@ import { RefreshCw, MessageSquareText } from 'lucide-react';
 import useKnowledge from '../hooks/useKnowledge';
 import { exportRunReport, mutateRun, terminal } from '../services/runApi';
 import { describeResearchValue } from '../utils/researchDisplay';
+import { coverageLabel, stageLabel, statusLabel } from '../utils/displayLabels';
 import Button from '../components/ui/Button';
 import ErrorMessage from '../components/ui/ErrorMessage';
 import { StatusBadge } from '../components/ui/Badge';
@@ -84,7 +85,7 @@ function RunWorkspace({ requestId, runId }) {
       </Link>
       <div className="os-page-head">
         <div>
-          <p className="os-overline">RESEARCH WORKSPACE</p>
+          <p className="os-overline">KHÔNG GIAN NGHIÊN CỨU</p>
           <h1>Tiến trình nghiên cứu</h1>
           <p>{research.data?.request?.topic || 'Theo dõi kết quả từ máy chủ'}</p>
         </div>
@@ -101,7 +102,7 @@ function RunWorkspace({ requestId, runId }) {
       </div>
       <div className="os-run-meta">
         <span>
-          Request <code>{requestId}</code> · Run ID <code>{runId}</code>
+          Mã yêu cầu <code>{requestId}</code> · Mã lượt chạy <code>{runId}</code>
         </span>
         {run && <StatusBadge status={run.status} />}
       </div>
@@ -113,7 +114,7 @@ function RunWorkspace({ requestId, runId }) {
       )}
       {progress.paused && (
         <p className="os-notice">
-          Đã tạm dừng theo dõi tự động. Nhấn Làm mới để tiếp tục; run vẫn được xử lý trên máy chủ.
+          Đã tạm dừng theo dõi tự động. Nhấn Làm mới để tiếp tục; lượt nghiên cứu vẫn được xử lý trên máy chủ.
         </p>
       )}
       {run && (
@@ -141,13 +142,13 @@ function RunWorkspace({ requestId, runId }) {
           )}
         </section>
         <aside className="os-panel os-events">
-          <h2>Hoạt động của run</h2>
+          <h2>Hoạt động của lượt nghiên cứu</h2>
           <p className="os-muted">Các sự kiện gần nhất từ máy chủ</p>
           {run?.recentEvents?.length ? (
             <ol>
               {run.recentEvents.map((e) => (
                 <li key={e.id}>
-                  <strong>{e.stage || e.type}</strong>
+                  <strong>{stageLabel(e.stage) || statusLabel(e.type)}</strong>
                   <p>{e.message || e.event_type}</p>
                   <small>
                     {e.created_at ? new Date(e.created_at).toLocaleString('vi-VN') : ''}
@@ -166,7 +167,7 @@ function RunWorkspace({ requestId, runId }) {
               <ErrorMessage error={evidence.error} />
             ) : (
               <>
-                <p>{evidence.data?.coverage_status || 'Chưa đánh giá'}</p>
+                <p>{coverageLabel(evidence.data?.coverage_status) || 'Chưa đánh giá'}</p>
                 {evidence.data?.gaps?.map((gap, i) => (
                   <p key={i}>{describeResearchValue(gap)}</p>
                 ))}

@@ -1,12 +1,12 @@
 import { apiRequest, downloadFile } from './apiClient';
 const root = '/api/research';
 export const stages = [
-  ['planning', 'Planning', 'Lập kế hoạch'],
-  ['collecting', 'Collecting', 'Thu thập nguồn'],
-  ['analyzing', 'Analyzing', 'Phân tích bằng chứng'],
-  ['evaluating', 'Evaluating', 'Đánh giá độ phủ'],
-  ['composing', 'Composing', 'Biên soạn báo cáo'],
-  ['verifying', 'Verifying', 'Xác minh trích dẫn'],
+  ['planning', 'Lập kế hoạch', 'Lập kế hoạch'],
+  ['collecting', 'Thu thập nguồn', 'Thu thập nguồn'],
+  ['analyzing', 'Phân tích bằng chứng', 'Phân tích bằng chứng'],
+  ['evaluating', 'Đánh giá độ phủ', 'Đánh giá độ phủ'],
+  ['composing', 'Biên soạn báo cáo', 'Biên soạn báo cáo'],
+  ['verifying', 'Xác minh trích dẫn', 'Xác minh trích dẫn'],
 ];
 export const terminal = (status) =>
   ['completed', 'partial', 'failed', 'cancelled'].includes(status);
@@ -27,5 +27,5 @@ export const mutateRun = (id, action, key) =>
 export const exportRunReport = (id, format) =>
   downloadFile(
     `${root}/reports/${encodeURIComponent(id)}/export/${format}`,
-    `Report_${id}.${format}`,
+    `Bao_cao_${id}.${format}`,
   );

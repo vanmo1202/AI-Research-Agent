@@ -1,5 +1,6 @@
 import { AlertTriangle, Check, Square } from 'lucide-react';
 import { stages } from '../../services/runApi';
+import { qualityLabel } from '../../utils/displayLabels';
 import Button from '../ui/Button';
 
 const incompleteQuality = ['insufficient', 'unavailable', 'conflicting', 'unverified'];
@@ -13,7 +14,7 @@ export default function RunProgress({ progress, disabled, onAction }) {
       </div>
       <progress aria-label="Tiến độ nghiên cứu" max={100} value={progress.percent} />
       <p className="os-muted">
-        Tiến độ thực thi các giai đoạn, không phải tỷ lệ trích dẫn đã xác minh. Partial là trạng
+        Tiến độ thực thi các giai đoạn, không phải tỷ lệ trích dẫn đã xác minh. Hoàn thành một phần là trạng
         thái đã dừng và còn thiếu điều kiện chất lượng.
       </p>
       <ol className="os-stage-list" aria-label="Sáu giai đoạn nghiên cứu">
@@ -34,7 +35,7 @@ export default function RunProgress({ progress, disabled, onAction }) {
               <strong>{name}</strong>
               <small>{label}</small>
               {progress.stageQuality?.[key] && (
-                <small>Chất lượng: {progress.stageQuality[key]}</small>
+                <small>Chất lượng: {qualityLabel(progress.stageQuality[key])}</small>
               )}
               {current && (
                 <small>
@@ -79,7 +80,7 @@ export default function RunProgress({ progress, disabled, onAction }) {
       )}
       {progress.orchestration === 'n8n' && (
         <p className="os-notice">
-          Run này do n8n điều phối. Tiến trình phụ thuộc kết nối automation của hệ thống.
+          Lượt nghiên cứu này do n8n điều phối. Tiến trình phụ thuộc kết nối tự động hóa của hệ thống.
         </p>
       )}
     </section>
