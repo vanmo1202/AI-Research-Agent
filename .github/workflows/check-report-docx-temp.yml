@@ -1,0 +1,24 @@
+name: Check standard DOCX (temporary)
+on:
+  push:
+    branches: [feature/standard-report-docx-20261113]
+    paths: ['.github/workflows/check-report-docx-temp.yml']
+permissions:
+  contents: read
+jobs:
+  docx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: backend
+      - name: Check renderer and exported DOCX XML
+        run: node --test test/report-docx-format.test.js
+        working-directory: backend
