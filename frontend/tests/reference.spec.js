@@ -308,7 +308,6 @@ test('activity retrieval errors are not presented as an empty account history', 
   await expect(page.getByText('Chưa có hoạt động được ghi nhận.', { exact: true })).toHaveCount(0);
 });
 
-
 test('horizontal navigation sits above the main page and preserves the research dropdown', async ({
   page,
 }) => {

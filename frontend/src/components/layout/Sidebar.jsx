@@ -60,12 +60,7 @@ function NavigationGroup({ label, icon: Icon, links, active, onNavigate }) {
       </summary>
       <div className="ro-topnav-dropdown">
         {links.map((link) => (
-          <NavigationLink
-            key={link.to}
-            {...link}
-            submenu
-            onNavigate={onNavigate}
-          />
+          <NavigationLink key={link.to} {...link} submenu onNavigate={onNavigate} />
         ))}
       </div>
     </details>
@@ -105,7 +100,9 @@ export default function Sidebar({ open, onClose, onToggle }) {
     };
     const trap = (event) => {
       if (event.key !== 'Tab') return;
-      const candidates = navigation.current?.querySelectorAll('a[href], button:not([disabled]), summary');
+      const candidates = navigation.current?.querySelectorAll(
+        'a[href], button:not([disabled]), summary',
+      );
       const items = [...(candidates || [])].filter((el) => el.getClientRects().length);
       const first = items[0];
       const last = items.at(-1);

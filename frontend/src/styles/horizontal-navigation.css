@@ -83,7 +83,9 @@
   white-space: nowrap;
   cursor: pointer;
   list-style: none;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .ref-horizontal-app .ro-topnav-group > summary::-webkit-details-marker {
