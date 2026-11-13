@@ -35,6 +35,7 @@ import './styles/knowledge-editorial.css';
 import './styles/review-editorial.css';
 import './styles/workspace.css';
 import './styles/reference.css';
+import './styles/horizontal-navigation.css';
 export default function App() {
   return (
     <AuthProvider>

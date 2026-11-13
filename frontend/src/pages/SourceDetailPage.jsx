@@ -53,7 +53,7 @@ export default function SourceDetailPage() {
         <div>
           <p className="eyebrow">CHI TIẾT NGUỒN</p>
           <h1>{display.title || 'Nguồn tài liệu'}</h1>
-          <p>Chi tiết được tải trực tiếp từ SQLite qua backend.</p>
+          <p>Chi tiết được tải từ cơ sở dữ liệu PostgreSQL qua máy chủ.</p>
         </div>
         <Badge tone={source.provider === 'mock' ? 'violet' : 'blue'}>
           {providerLabel(source.provider)}

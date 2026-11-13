@@ -5,6 +5,7 @@ import PageHeader from '../components/ui/PageHeader';
 import Button from '../components/ui/Button';
 import ErrorMessage from '../components/ui/ErrorMessage';
 import ResearchRows from '../components/research/ResearchRows';
+import { statusLabel } from '../utils/displayLabels';
 
 export default function ResearchHistoryPage() {
   const result = useKnowledge('/research'),
@@ -18,9 +19,9 @@ export default function ResearchHistoryPage() {
   return (
     <div className="page-enter os-page">
       <PageHeader
-        eyebrow="RESEARCH / HISTORY"
+        eyebrow="NGHIÊN CỨU / LỊCH SỬ"
         title="Nghiên cứu của bạn"
-        description="Tiếp tục theo dõi run gần nhất hoặc mở dữ liệu nghiên cứu đã lưu."
+        description="Tiếp tục theo dõi lượt chạy gần nhất hoặc mở dữ liệu nghiên cứu đã lưu."
       >
         <Button to="/workflow-1">
           <Plus size={17} />
@@ -40,13 +41,15 @@ export default function ResearchHistoryPage() {
             />
           </label>
           <select
-            aria-label="Trạng thái run"
+            aria-label="Trạng thái lượt nghiên cứu"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
             <option value="">Tất cả trạng thái</option>
             {['queued', 'running', 'completed', 'partial', 'failed', 'cancelled'].map((s) => (
-              <option key={s}>{s}</option>
+              <option key={s} value={s}>
+                {statusLabel(s)}
+              </option>
             ))}
           </select>
           <Button variant="secondary" onClick={result.reload}>
@@ -66,7 +69,7 @@ export default function ResearchHistoryPage() {
         )}
         <p className="os-footnote">
           API trả tối đa 200 nghiên cứu mới nhất; mỗi dòng hiển thị run gần nhất. Lịch sử toàn bộ
-          run chưa có API public.
+          lượt chạy chưa có API công khai.
         </p>
       </section>
     </div>

@@ -51,14 +51,14 @@ export default function SettingsPage() {
               <span className="heading-icon blue">
                 <Globe2 size={20} />
               </span>
-              Kết nối backend
+              Kết nối máy chủ
             </h2>
           </div>
-          <p>Frontend sử dụng API thật của Node.js + Express.</p>
-          <label htmlFor="api-url">API Base URL</label>
+          <p>Giao diện kết nối trực tiếp với API Node.js + Express.</p>
+          <label htmlFor="api-url">Địa chỉ API</label>
           <input id="api-url" readOnly value={API_BASE_URL} />
           <p className="field-hint">
-            Thay đổi qua VITE_API_BASE_URL trong frontend/.env, sau đó restart Vite.
+            Thay đổi qua VITE_API_BASE_URL trong frontend/.env, sau đó khởi động lại Vite.
           </p>
           <Button onClick={checkConnection} loading={busy} variant="secondary">
             {!busy && <RefreshCw size={16} />}
@@ -67,7 +67,7 @@ export default function SettingsPage() {
           {health && (
             <div className="connection-success" role="status">
               <Check size={18} />
-              Backend đang hoạt động
+              Máy chủ đang hoạt động
             </div>
           )}
           <ErrorMessage error={error} />
@@ -95,7 +95,7 @@ export default function SettingsPage() {
           </p>
           <div className="settings-info">
             <ShieldCheck size={18} />
-            <span>API keys chỉ được cấu hình tại backend.</span>
+            <span>Khóa API chỉ được cấu hình tại máy chủ.</span>
           </div>
         </Card>
         <Card className="settings-card settings-full">
@@ -110,15 +110,15 @@ export default function SettingsPage() {
           <div className="engine-grid">
             <div>
               <strong>Lập kế hoạch nghiên cứu</strong>
-              <p>LLM hoặc Mock LLM theo cấu hình backend.</p>
+              <p>Mô hình ngôn ngữ hoặc chế độ mô phỏng theo cấu hình máy chủ.</p>
             </div>
             <div>
               <strong>Tìm kiếm & Thu thập</strong>
-              <p>Tavily hoặc Mock Search; provider hiển thị theo response.</p>
+              <p>Tavily hoặc chế độ tìm kiếm mô phỏng; nhà cung cấp hiển thị theo phản hồi.</p>
             </div>
             <div>
-              <strong>PostgreSQL persistence</strong>
-              <p>Kế hoạch và nguồn tài liệu được lưu trên backend.</p>
+              <strong>Lưu trữ bằng PostgreSQL</strong>
+              <p>Kế hoạch và nguồn tài liệu được lưu trên máy chủ.</p>
             </div>
           </div>
         </Card>

@@ -61,7 +61,7 @@ export default function NewResearchPage({ embedded = false }) {
     <div className={`page-enter os-page ${embedded ? 'ref-embedded-form' : ''}`}>
       {!embedded && (
         <PageHeader
-          eyebrow="RESEARCH / NEW"
+          eyebrow="NGHIÊN CỨU / TẠO MỚI"
           title="Bắt đầu một nghiên cứu"
           description="Từ câu hỏi cụ thể đến báo cáo có bằng chứng, qua sáu giai đoạn."
         />
@@ -114,7 +114,7 @@ export default function NewResearchPage({ embedded = false }) {
                   Ngôn ngữ
                   <select name="language">
                     <option value="vi">Tiếng Việt</option>
-                    <option value="en">English</option>
+                    <option value="en">Tiếng Anh</option>
                   </select>
                 </label>
                 <label>
@@ -146,7 +146,7 @@ export default function NewResearchPage({ embedded = false }) {
             {requestId && (
               <p role="status">
                 Đã lưu yêu cầu <code>{requestId}</code>. Nếu chưa nhận được phản hồi, thử lại sẽ
-                dùng cùng mã tạo run. <Link to="/researches">Kiểm tra lịch sử</Link>
+                dùng cùng mã tạo lượt chạy. <Link to="/researches">Kiểm tra lịch sử</Link>
               </p>
             )}
             {error && !requestId && (
@@ -158,7 +158,7 @@ export default function NewResearchPage({ embedded = false }) {
             <div className="os-form-footer">
               <span>Báo cáo và trích dẫn sẽ được lưu tự động.</span>
               <Button type="submit" loading={busy}>
-                {requestId ? 'Thử lại tạo run' : 'Bắt đầu nghiên cứu'}
+                {requestId ? 'Thử lại tạo lượt chạy' : 'Bắt đầu nghiên cứu'}
                 <ArrowRight size={17} />
               </Button>
             </div>
@@ -184,7 +184,7 @@ export default function NewResearchPage({ embedded = false }) {
           </ol>
           <p className="os-note">
             <CheckCircle2 size={18} />
-            Bạn có thể rời trang và quay lại theo dõi bất cứ lúc nào sau khi có Run ID.
+            Bạn có thể rời trang và quay lại theo dõi bất cứ lúc nào sau khi có mã lượt chạy.
           </p>
         </aside>
       </div>

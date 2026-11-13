@@ -67,11 +67,13 @@ function Entry({ requestId }) {
         Hỏi AI về nghiên cứu
       </Button>
       <section className="os-panel">
-        <h2>Yêu cầu đã lưu, chưa có run được xác nhận</h2>
+        <h2>Yêu cầu đã lưu, chưa có lượt chạy được xác nhận</h2>
         <p>{research.data?.request?.goal}</p>
-        <p>Tạo run để bắt đầu sáu giai đoạn. Kiểm tra lại trước nếu bạn vừa gặp lỗi kết nối.</p>
+        <p>
+          Tạo lượt chạy để bắt đầu sáu giai đoạn. Kiểm tra lại trước nếu bạn vừa gặp lỗi kết nối.
+        </p>
         <Button variant="secondary" onClick={list.reload}>
-          Kiểm tra run gần nhất
+          Kiểm tra lượt chạy gần nhất
         </Button>
         <form className="os-form" onSubmit={submit}>
           <fieldset className="os-fieldset" disabled={busy || !!options.current}>
@@ -79,7 +81,7 @@ function Entry({ requestId }) {
               Ngôn ngữ
               <select name="language">
                 <option value="vi">Tiếng Việt</option>
-                <option value="en">English</option>
+                <option value="en">Tiếng Anh</option>
               </select>
             </label>
             <label>
@@ -100,7 +102,7 @@ function Entry({ requestId }) {
           </fieldset>
           <ErrorMessage error={error} />
           <Button type="submit" loading={busy}>
-            Tạo run nghiên cứu
+            Tạo lượt nghiên cứu
           </Button>
         </form>
       </section>
