@@ -212,10 +212,10 @@ export default function ActivityPage() {
             ))}
           </div>
           <p className="ref-small-note">
-            Hoàn thành: số nghiên cứu có lượt chạy hoàn tất trong kỳ, theo ngày hoàn tất. Các biểu đồ
-            nghiên cứu còn lại theo ngày tạo yêu cầu; trạng thái là lượt chạy mới nhất. Nguồn hợp lệ chỉ
-            gồm nguồn Tavily có trích dẫn đã xác minh và bằng chứng được lưu. Thiếu kết quả kiểm định hiển
-            thị dấu gạch ngang.
+            Hoàn thành: số nghiên cứu có lượt chạy hoàn tất trong kỳ, theo ngày hoàn tất. Các biểu
+            đồ nghiên cứu còn lại theo ngày tạo yêu cầu; trạng thái là lượt chạy mới nhất. Nguồn hợp
+            lệ chỉ gồm nguồn Tavily có trích dẫn đã xác minh và bằng chứng được lưu. Thiếu kết quả
+            kiểm định hiển thị dấu gạch ngang.
           </p>
           <div className="analytics-grid">
             <Chart

@@ -345,7 +345,6 @@ test('narrow screens open navigation below the top bar and close after a route c
   await expect(links).not.toBeVisible();
 });
 
-
 test('research progress displays Vietnamese stage names and quality labels', async ({ page }) => {
   await fixture(page);
   await page.route('**/api/research/*/runs/*/progress', (route) =>
@@ -392,7 +391,9 @@ test('research progress displays Vietnamese stage names and quality labels', asy
   await expect(page.locator('.os-progress')).not.toContainText('insufficient');
 });
 
-test('research status filter translates labels but keeps API values unchanged', async ({ page }) => {
+test('research status filter translates labels but keeps API values unchanged', async ({
+  page,
+}) => {
   await fixture(page);
   await page.goto('/researches');
   const options = page.getByRole('combobox', { name: 'Trạng thái lượt nghiên cứu' });

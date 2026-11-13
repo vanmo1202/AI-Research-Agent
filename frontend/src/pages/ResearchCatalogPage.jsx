@@ -90,7 +90,8 @@ export default function ResearchCatalogPage({ kind = 'evidence' }) {
       )}
       <p className="ref-small-note">
         Danh sách tối đa 200 nghiên cứu mới nhất. Kết quả chỉ xuất hiện sau khi máy chủ lưu thành
-        công; trạng thái trên thẻ là trạng thái lượt chạy/nghiên cứu, không phải xác nhận đã có báo cáo.
+        công; trạng thái trên thẻ là trạng thái lượt chạy/nghiên cứu, không phải xác nhận đã có báo
+        cáo.
       </p>
     </section>
   );

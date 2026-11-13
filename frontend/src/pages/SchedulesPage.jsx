@@ -149,8 +149,8 @@ export default function SchedulesPage({ automation = false }) {
       )}
       <p className="os-notice">
         Chưa hỗ trợ thay đổi chu kỳ, múi giờ, chỉnh sửa cấu hình hoặc xem lịch sử chạy. Cửa sổ lịch
-        hiện tại là hằng ngày theo Asia/Ho_Chi_Minh; lịch chỉ chạy khi tự động hóa đã được triển khai
-        và liên kết bởi người vận hành.
+        hiện tại là hằng ngày theo Asia/Ho_Chi_Minh; lịch chỉ chạy khi tự động hóa đã được triển
+        khai và liên kết bởi người vận hành.
       </p>
       <div className={automation ? 'ref-automation-list' : 'os-split'}>
         <section className="os-panel">

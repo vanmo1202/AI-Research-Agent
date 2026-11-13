@@ -114,7 +114,8 @@ function RunWorkspace({ requestId, runId }) {
       )}
       {progress.paused && (
         <p className="os-notice">
-          Đã tạm dừng theo dõi tự động. Nhấn Làm mới để tiếp tục; lượt nghiên cứu vẫn được xử lý trên máy chủ.
+          Đã tạm dừng theo dõi tự động. Nhấn Làm mới để tiếp tục; lượt nghiên cứu vẫn được xử lý
+          trên máy chủ.
         </p>
       )}
       {run && (

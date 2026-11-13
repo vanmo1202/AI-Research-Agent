@@ -47,7 +47,9 @@ export default function ResearchHistoryPage() {
           >
             <option value="">Tất cả trạng thái</option>
             {['queued', 'running', 'completed', 'partial', 'failed', 'cancelled'].map((s) => (
-              <option key={s} value={s}>{statusLabel(s)}</option>
+              <option key={s} value={s}>
+                {statusLabel(s)}
+              </option>
             ))}
           </select>
           <Button variant="secondary" onClick={result.reload}>

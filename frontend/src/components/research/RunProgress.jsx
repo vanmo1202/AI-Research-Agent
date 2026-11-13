@@ -14,8 +14,8 @@ export default function RunProgress({ progress, disabled, onAction }) {
       </div>
       <progress aria-label="Tiến độ nghiên cứu" max={100} value={progress.percent} />
       <p className="os-muted">
-        Tiến độ thực thi các giai đoạn, không phải tỷ lệ trích dẫn đã xác minh. Hoàn thành một phần là trạng
-        thái đã dừng và còn thiếu điều kiện chất lượng.
+        Tiến độ thực thi các giai đoạn, không phải tỷ lệ trích dẫn đã xác minh. Hoàn thành một phần
+        là trạng thái đã dừng và còn thiếu điều kiện chất lượng.
       </p>
       <ol className="os-stage-list" aria-label="Sáu giai đoạn nghiên cứu">
         {stages.map(([key, name, label], i) => {
@@ -80,7 +80,8 @@ export default function RunProgress({ progress, disabled, onAction }) {
       )}
       {progress.orchestration === 'n8n' && (
         <p className="os-notice">
-          Lượt nghiên cứu này do n8n điều phối. Tiến trình phụ thuộc kết nối tự động hóa của hệ thống.
+          Lượt nghiên cứu này do n8n điều phối. Tiến trình phụ thuộc kết nối tự động hóa của hệ
+          thống.
         </p>
       )}
     </section>

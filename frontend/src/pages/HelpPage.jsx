@@ -35,8 +35,8 @@ export default function HelpPage() {
         <h2 className="ref-section-title">Phím tắt và lưu ý</h2>
         <p>Ctrl/Cmd + K để tìm kiếm · Ctrl/Cmd + N tạo nghiên cứu · Esc đóng hộp thoại.</p>
         <p>
-          Lượt nghiên cứu có sáu giai đoạn. Hoàn thành một phần là kết quả cần kiểm tra thêm bằng chứng. Làm mới
-          trang không tạo lượt nghiên cứu mới.
+          Lượt nghiên cứu có sáu giai đoạn. Hoàn thành một phần là kết quả cần kiểm tra thêm bằng
+          chứng. Làm mới trang không tạo lượt nghiên cứu mới.
         </p>
         <p>
           Chỉ PDF đã sẵn sàng mới dùng để hỏi đáp. Chat hiện đọc PDF và nguồn từ quy trình nghiên

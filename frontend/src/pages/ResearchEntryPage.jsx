@@ -69,7 +69,9 @@ function Entry({ requestId }) {
       <section className="os-panel">
         <h2>Yêu cầu đã lưu, chưa có lượt chạy được xác nhận</h2>
         <p>{research.data?.request?.goal}</p>
-        <p>Tạo lượt chạy để bắt đầu sáu giai đoạn. Kiểm tra lại trước nếu bạn vừa gặp lỗi kết nối.</p>
+        <p>
+          Tạo lượt chạy để bắt đầu sáu giai đoạn. Kiểm tra lại trước nếu bạn vừa gặp lỗi kết nối.
+        </p>
         <Button variant="secondary" onClick={list.reload}>
           Kiểm tra lượt chạy gần nhất
         </Button>

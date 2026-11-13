@@ -39,7 +39,8 @@ export function RunSources({ result }) {
               <p>{(source.display_content_vi || source.original_content || '').slice(0, 600)}</p>
               <small>
                 {source.provider} · {source.language || '—'} ·{' '}
-                {translationLabel(source.translation_status) || 'Chưa dịch'} · {formatDate(source.collected_at)}
+                {translationLabel(source.translation_status) || 'Chưa dịch'} ·{' '}
+                {formatDate(source.collected_at)}
               </small>
               {href && (
                 <a href={href} target="_blank" rel="noopener noreferrer">
@@ -63,7 +64,9 @@ export function RunEvidence({ result, sources }) {
       ) : (
         result.data && (
           <>
-            <p className="os-notice">Độ phủ: {coverageLabel(result.data.coverage_status) || 'Chưa đánh giá'}</p>
+            <p className="os-notice">
+              Độ phủ: {coverageLabel(result.data.coverage_status) || 'Chưa đánh giá'}
+            </p>
             {result.data.gaps?.length > 0 && (
               <section className="os-gaps">
                 <h3>Khoảng trống bằng chứng</h3>
@@ -98,8 +101,8 @@ export function RunEvidence({ result, sources }) {
                       <p className="os-notice">Bằng chứng có mâu thuẫn; cần đối chiếu.</p>
                     )}
                     <small>
-                      Phiên bản nguồn: {e.sourceVersionId || e.sourceId || 'Chưa có'} · Đoạn văn bản:{' '}
-                      {e.chunkId || 'Chưa có'}
+                      Phiên bản nguồn: {e.sourceVersionId || e.sourceId || 'Chưa có'} · Đoạn văn
+                      bản: {e.chunkId || 'Chưa có'}
                     </small>
                     {href && (
                       <a href={href} target="_blank" rel="noopener noreferrer">
@@ -163,7 +166,8 @@ export function RunReport({ result, evidence, sources, busy, onExport }) {
           )}
           {report.citationValidation?.citations?.map((c) => (
             <p key={c.citationLabel}>
-              {c.citationLabel} · {statusLabel(c.status)} · {c.evidenceIds?.length || 0} bằng chứng liên kết
+              {c.citationLabel} · {statusLabel(c.status)} · {c.evidenceIds?.length || 0} bằng chứng
+              liên kết
             </p>
           ))}
           {evidence?.gaps?.length > 0 && (
@@ -200,8 +204,8 @@ export function RunReport({ result, evidence, sources, busy, onExport }) {
           <div className="os-empty">
             <h3>Chưa có báo cáo</h3>
             <p>
-              Báo cáo xuất hiện sau giai đoạn Biên soạn báo cáo. Xác minh hoàn tất được phản ánh ở trạng
-              thái lượt nghiên cứu.
+              Báo cáo xuất hiện sau giai đoạn Biên soạn báo cáo. Xác minh hoàn tất được phản ánh ở
+              trạng thái lượt nghiên cứu.
             </p>
           </div>
         )
