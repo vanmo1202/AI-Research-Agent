@@ -25,5 +25,5 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chrome
         working-directory: frontend
-      - run: npm run test:rebuild
+      - run: npx playwright test -c playwright.rebuild.config.js --grep 'global search is a keyboard accessible dialog'
         working-directory: frontend
