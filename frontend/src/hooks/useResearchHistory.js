@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
-import { getHistory, subscribeHistory } from '../utils/researchStorage';
-
+import useKnowledge from './useKnowledge';
+// Navigation metadata is loaded from the authenticated server, never a local business store.
 export default function useResearchHistory() {
-  const [history, setHistory] = useState(getHistory);
-  useEffect(() => subscribeHistory(() => setHistory(getHistory())), []);
-  return history;
+  const result = useKnowledge('/research');
+  return (result.data || []).map((r) => ({
+    requestId: r.id,
+    topic: r.topic,
+    status: r.runStatus || r.status,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    latestRunId: r.latestRunId,
+  }));
 }

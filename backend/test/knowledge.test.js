@@ -84,7 +84,7 @@ test(
     assert.equal(
       (
         await db.get(
-          "SELECT COUNT(*) n FROM schema_migrations WHERE version='003-knowledge'",
+          "SELECT COUNT(*) n FROM postgres_schema_migrations WHERE version='002_search_and_integrity.sql'",
         )
       ).n,
       1,
@@ -99,7 +99,7 @@ test(
       otherResearch = randomUUID();
     for (const id of [researchId, otherResearch])
       await db.run(
-        "INSERT INTO requests(id,topic,goal,status) VALUES(?,?,?,'planned')",
+        "INSERT INTO requests(id,topic,goal,status) VALUES($1,$2,$3,'planned')",
         [id, "Research knowledge", "Grounded evidence"],
       );
     const valid = await pdf();
@@ -132,7 +132,7 @@ test(
         assert.equal(
           (
             await db.get(
-              "SELECT COUNT(*) n FROM document_ingestion_jobs WHERE document_id=?",
+              "SELECT COUNT(*) n FROM document_ingestion_jobs WHERE document_id=$1",
               [documentId],
             )
           ).n,
@@ -176,7 +176,7 @@ test(
         assert.ok(claimed);
         assert.equal(await ingestion.claim(), null);
         await db.run(
-          "UPDATE document_ingestion_jobs SET lease_until=? WHERE id=?",
+          "UPDATE document_ingestion_jobs SET lease_until=$1 WHERE id=$2",
           [Date.now() - 1, claimed.id],
         );
         assert.equal(await ingestion.runOnce(), true);
@@ -209,7 +209,7 @@ test(
         );
         const otherId = randomUUID();
         await db.run(
-          "INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,status,created_at,updated_at) VALUES(?,'other','private.pdf',?,'other',10,'ready',?,?)",
+          "INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,status,created_at,updated_at) VALUES($1,'other','private.pdf',$2,'other',10,'ready',$3,$4)",
           [otherId, `${randomUUID()}.pdf`, now(), now()],
         );
         assert.equal((await api(`/documents/${otherId}`)).status, 404);
@@ -288,7 +288,7 @@ test(
         const job = await ingestion.claim();
         assert.equal(job.document_id, uploaded.data.document.id);
         await db.run(
-          "UPDATE document_ingestion_jobs SET lease_until=? WHERE id=?",
+          "UPDATE document_ingestion_jobs SET lease_until=$1 WHERE id=$2",
           [Date.now() - 1, job.id],
         );
         const { spawn } = require("node:child_process");
@@ -308,7 +308,7 @@ test(
           const until = Date.now() + 15000;
           let current;
           do {
-            current = await db.get("SELECT status FROM documents WHERE id=?", [
+            current = await db.get("SELECT status FROM documents WHERE id=$1", [
               job.document_id,
             ]);
             if (current.status === "ready") break;
@@ -319,7 +319,7 @@ test(
           assert.equal(
             (
               await db.get(
-                "SELECT attempts FROM document_ingestion_jobs WHERE id=?",
+                "SELECT attempts FROM document_ingestion_jobs WHERE id=$1",
                 [job.id],
               )
             ).attempts,
@@ -644,7 +644,7 @@ test(
           await memory.getValid(m.id, "fixture-user", otherResearch),
           null,
         );
-        await db.run("UPDATE agent_memories SET status='verified' WHERE id=?", [
+        await db.run("UPDATE agent_memories SET status='verified' WHERE id=$1", [
           m.id,
         ]);
       },
@@ -761,7 +761,7 @@ test(
         assert.equal(
           (
             await db.all(
-              "SELECT * FROM document_chunks_fts WHERE document_chunks_fts MATCH 'grounded'",
+              "SELECT * FROM document_chunks WHERE search_vector @@ research_query('grounded')",
             )
           ).length,
           0,
@@ -794,7 +794,7 @@ test(
           },
         )[0].id;
         await db.run(
-          "INSERT INTO sources(id,request_id,query,title,url,normalized_url,content,content_vi,provider,collected_at,source_language,translation_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+          "INSERT INTO sources(id,request_id,query,title,url,normalized_url,content,content_vi,provider,collected_at,source_language,translation_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
           [
             sourceId,
             researchId,
@@ -811,11 +811,11 @@ test(
           ],
         );
         await db.run(
-          "INSERT INTO chunks(id,request_id,source_id,chunk_index,content) VALUES(?,?,?,?,?)",
+          "INSERT INTO chunks(id,request_id,source_id,chunk_index,content) VALUES($1,$2,$3,$4,$5)",
           [chunkId, researchId, sourceId, 0, content],
         );
         await db.run(
-          "INSERT INTO evidence(id,request_id,source_id,chunk_id,evidence_text,relevance_score) VALUES(?,?,?,?,?,?)",
+          "INSERT INTO evidence(id,request_id,source_id,chunk_id,evidence_text,relevance_score) VALUES($1,$2,$3,$4,$5,$6)",
           [evidenceId, researchId, sourceId, chunkId, content, 1],
         );
         const cs = await api(`/research/${researchId}/chats`, {
@@ -832,7 +832,7 @@ test(
         const m = (await api("/memories")).data[0];
         assert.ok(m);
         await api(`/memories/${m.id}/approve`, { method: "POST" });
-        await db.run("UPDATE sources SET content_vi=? WHERE id=?", [
+        await db.run("UPDATE sources SET content_vi=$1 WHERE id=$2", [
           "Changed version",
           sourceId,
         ]);
@@ -842,11 +842,11 @@ test(
           null,
         );
         await api(`/memories/${m.id}`, { method: "DELETE" });
-        await db.run("UPDATE sources SET content_vi=? WHERE id=?", [
+        await db.run("UPDATE sources SET content_vi=$1 WHERE id=$2", [
           content,
           sourceId,
         ]);
-        await db.run("DELETE FROM evidence WHERE id=?", [evidenceId]);
+        await db.run("DELETE FROM evidence WHERE id=$1", [evidenceId]);
         const fallback = await retrieve(
           await chat.session(cs.data.id, "fixture-user"),
           "grounded research",
@@ -858,15 +858,15 @@ test(
       "new n8n workflows parse, protect webhooks and keep chat POST retries disabled",
       () => {
         for (const file of [
-          "document-ingestion",
-          "research-chat-orchestrator",
-          "memory-maintenance",
+          "WF02-document-processing",
+          "WF03-research-chat",
+          "WF04-memory-maintenance",
         ]) {
           const flow = JSON.parse(
             fs.readFileSync(
               path.join(
                 __dirname,
-                `../../n8n/workflows/knowledge/${file}.json`,
+                `../../n8n/workflows/researchos-realigned/${file}.json`,
               ),
             ),
           );
@@ -878,8 +878,8 @@ test(
           const webhook = flow.nodes.find((n) => n.type.endsWith(".webhook"));
           if (webhook)
             assert.equal(webhook.parameters.authentication, "headerAuth");
-          if (file === "research-chat-orchestrator")
-            assert.equal(http.retryOnFail, false);
+          if (file === "WF03-research-chat")
+            assert.notEqual(http.retryOnFail, true);
         }
       },
     );

@@ -24,33 +24,14 @@ const messages = {
   'Workspace storage quota reached': 'Kho lưu trữ đã đạt giới hạn.',
   'Invalid PDF signature': 'Tệp không có định dạng PDF hợp lệ.',
 };
-import { API_BASE_URL } from '../config/api';
-export async function knowledgeApi(path, { method = 'GET', body, signal, file = false } = {}) {
-  let response;
+import { apiRequest } from './apiClient';
+export async function knowledgeApi(path, options = {}) {
   try {
-    response = await fetch(`${API_BASE_URL}/api${path}`, {
-      credentials: 'include',
-      method,
-      signal,
-      headers: {
-        ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
-      },
-      ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}),
-    });
-  } catch (e) {
-    if (e.name === 'AbortError') throw e;
-    throw new Error('Mất kết nối workspace. Kiểm tra trạng thái trước khi thử lại.');
+    const result = await apiRequest(`/api${path}`, options);
+    return options.file ? result.blob : result;
+  } catch (error) {
+    if (messages[error.message]) error.message = messages[error.message];
+    throw error;
   }
-  if (response.status === 401) window.dispatchEvent(new Event('auth:expired'));
-  if (file && response.ok) return response.blob();
-  const result = await response.json().catch(() => null);
-  if (!response.ok || !result?.success)
-    throw Object.assign(
-      new Error(
-        messages[result?.error] || result?.error || `Yêu cầu thất bại (${response.status}).`,
-      ),
-      { status: response.status, code: result?.code, stage: result?.stage },
-    );
-  return result.data;
 }
 export const resourcePath = (type, id) => `/${type}/${encodeURIComponent(id)}`;

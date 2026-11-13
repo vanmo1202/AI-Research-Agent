@@ -28,13 +28,11 @@ test('Translation: migration, validation, preservation, API, fallback and RAG', 
     searchService.searchWeb = async (...args) => (await savedSearch(...args)).map((source, index) => ({ ...source,
         title: `Original English title ${index}`, snippet: 'This is the original English snippet',
         content: 'The source content is an original English article for the research and it has the information.' }));
-    // Simulate an existing database before translated columns were introduced.
-    await db.run(`CREATE TABLE sources (id TEXT PRIMARY KEY, request_id TEXT NOT NULL, query TEXT NOT NULL,
-      title TEXT, url TEXT NOT NULL, normalized_url TEXT NOT NULL, snippet TEXT, content TEXT,
-      provider TEXT, collected_at TEXT NOT NULL, UNIQUE(request_id, normalized_url))`);
-    await db.run("INSERT INTO sources VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        ['legacy', 'legacy-request', 'query', 'Legacy title', 'https://example.com/legacy', 'https://example.com/legacy', 'Legacy snippet', 'Legacy content', 'tavily', new Date().toISOString()]);
+    // Imported legacy rows retain originals with optional translation fields unset.
     await db.initializeDatabase();
+    await db.run("INSERT INTO requests(id,topic,goal) VALUES('legacy-request','Preserve','Preserve')");
+    await db.run("INSERT INTO sources(id,request_id,query,title,url,normalized_url,snippet,content,provider,collected_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+        ['legacy','legacy-request','query','Legacy title','https://example.com/legacy','https://example.com/legacy','Legacy snippet','Legacy content','tavily',new Date().toISOString()]);
     await db.initializeDatabase();
     const legacy = (await model.getSourcesByRequestId('legacy-request'))[0];
     assert.equal(legacy.title, 'Legacy title');
@@ -110,7 +108,7 @@ test('Translation: migration, validation, preservation, API, fallback and RAG', 
             const evidence = await evidenceService.getEvidence(request.requestId);
             assert.ok(evidence.length);
             for (const item of evidence) {
-                const chunk = await db.get('SELECT * FROM chunks WHERE id = ?', [item.chunkId]);
+                const chunk = await db.get('SELECT * FROM chunks WHERE id = $1', [item.chunkId]);
                 assert.equal(chunk.source_id, item.sourceId);
                 assert.equal(item.evidenceText, translated.contentVi);
             }

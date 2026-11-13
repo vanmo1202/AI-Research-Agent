@@ -166,7 +166,7 @@ function webContexts(row) {
 }
 async function resolve(link, owner, connection = db) {
   const row = await connection.get(
-    "SELECT * FROM chat_web_sources WHERE id=? AND owner_id=?",
+    "SELECT * FROM chat_web_sources WHERE id=$1 AND owner_id=$2",
     [link.source_id, owner],
   );
   return row
@@ -231,7 +231,7 @@ function combine(question, local, web) {
 async function cached(session, plan) {
   if (plan.fresh) return [];
   const rows = await db.all(
-    `SELECT w.* FROM chat_web_sources w WHERE w.owner_id=? AND w.chat_id=? AND w.question=? AND w.retrieved_at>=?
+    `SELECT w.* FROM chat_web_sources w WHERE w.owner_id=$1 AND w.chat_id=$2 AND w.question=$3 AND w.retrieved_at>=$4
     AND EXISTS(SELECT 1 FROM chat_messages m WHERE m.chat_id=w.chat_id AND m.turn_id=w.turn_id AND m.role='assistant' AND m.status='complete') ORDER BY w.retrieved_at DESC LIMIT 4`,
     [
       session.owner_id,
@@ -297,6 +297,7 @@ async function collect(session, turn, plan, budget, stage) {
   for (const candidate of candidates) {
     const url = normalizeUrl(candidate?.url);
     if (!url || urls.has(url)) continue;
+    if (!process.env.NODE_TEST_CONTEXT && (candidate.provider === 'mock' || /(^|\.)(example\.(com|org|net)|localhost|invalid|test)$/.test(new URL(url).hostname) || /\/(mock|placeholder)(\/|$)/i.test(new URL(url).pathname))) continue;
     if (!evaluate(plan.anchor, candidate, { phase: "metadata" }).accepted) {
       counts.metadataRejected++;
       continue;
@@ -336,7 +337,7 @@ async function collect(session, turn, plan, budget, stage) {
         if (!mock) await content.checkPublicUrl(source.url);
         budget.check();
         let body = content.cleanContent(source.content).slice(0, 12000);
-        if (!body && !mock) {
+        if (!mock) {
           await budget.reserve("page_fetches");
           body = (
             await content.fetchPageContent(source.url, {
@@ -372,7 +373,7 @@ async function collect(session, turn, plan, budget, stage) {
   const rows = await db.transaction(async (tx) => {
     budget.check();
     const lease = await tx.get(
-      "SELECT id FROM chat_sessions WHERE id=? AND owner_id=? AND active_token=? AND busy_until>?",
+      "SELECT id FROM chat_sessions WHERE id=$1 AND owner_id=$2 AND active_token=$3 AND busy_until>$4",
       [session.id, session.owner_id, turn, Date.now()],
     );
     if (!lease) throw fail("Lượt chat đã hết hạn. Hãy kiểm tra lịch sử.", 409);
@@ -392,7 +393,7 @@ async function collect(session, turn, plan, budget, stage) {
         provider: source.provider || "tavily",
       };
       await tx.run(
-        "INSERT INTO chat_web_sources(id,owner_id,chat_id,turn_id,question,title,url,content,content_hash,retrieved_at,provider) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO chat_web_sources(id,owner_id,chat_id,turn_id,question,title,url,content,content_hash,retrieved_at,provider) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
         Object.values(row),
       );
       saved.push(row);
@@ -433,8 +434,8 @@ async function localContext(session, question) {
   ) {
     const docs = await db.all(
       session.request_id
-        ? "SELECT d.id FROM documents d JOIN research_documents r ON r.document_id=d.id WHERE r.request_id=? AND d.owner_id=? AND d.status='ready' AND d.deleted_at IS NULL ORDER BY d.updated_at DESC LIMIT 12"
-        : "SELECT id FROM documents WHERE owner_id=? AND status='ready' AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 12",
+        ? "SELECT d.id FROM documents d JOIN research_documents r ON r.document_id=d.id WHERE r.request_id=$1 AND d.owner_id=$2 AND d.status='ready' AND d.deleted_at IS NULL ORDER BY d.updated_at DESC LIMIT 12"
+        : "SELECT id FROM documents WHERE owner_id=$1 AND status='ready' AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 12",
       session.request_id
         ? [session.request_id, session.owner_id]
         : [session.owner_id],

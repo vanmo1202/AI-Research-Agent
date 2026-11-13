@@ -2,10 +2,10 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 process.env.RESEARCH_DB_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(),'document-chat-migration-')), 'legacy.db');
-const db = require('../src/config/database');
-const migrate = require('../src/migrations/006-document-chats');
+const db = require('./legacy/sqlite-database.cjs');
+const migrate = require('../scripts/migration/sqlite-history/006-document-chats');
 test('006 migration preserves populated legacy FK graph/FTS and rolls back even after dropping a parent table', async () => {
-  const cache = require.cache[require.resolve('../src/migrations/006-document-chats')];
+  const cache = require.cache[require.resolve('../scripts/migration/sqlite-history/006-document-chats')];
   cache.exports = async () => {};
   try { await db.initializeDatabase(); } finally { cache.exports = migrate; }
   await db.run("INSERT INTO requests(id,topic,goal) VALUES('research','Preserved','Evidence')");

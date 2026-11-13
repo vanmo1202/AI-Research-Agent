@@ -1,299 +1,255 @@
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight,
-  ArrowUpRight,
+  Activity,
   BookOpen,
-  BrainCircuit,
+  CalendarDays,
   CheckCircle2,
+  Database,
   FileText,
-  Files,
+  FolderOpen,
+  Layers,
   MessageSquareText,
   Plus,
-  Workflow,
+  Upload,
+  Zap,
+  ChevronRight,
 } from 'lucide-react';
+import { useAuth } from '../auth/AuthProvider';
+import { useWorkspaceUI } from '../components/workspace/WorkspaceUI';
 import useKnowledge from '../hooks/useKnowledge';
-import { formatDate } from '../utils/format';
-import { researchJourney } from '../utils/researchJourney';
-import Button from '../components/ui/Button';
+import FeatureCards from '../components/workspace/FeatureCards';
+import PanelHeading from '../components/workspace/PanelHeading';
+import ActivityList from '../components/workspace/ActivityList';
+import { accountActivity } from '../components/workspace/activity';
 import { StatusBadge } from '../components/ui/Badge';
 import ErrorMessage from '../components/ui/ErrorMessage';
-import PageHeader from '../components/ui/PageHeader';
-import SectionHeading from '../components/ui/SectionHeading';
-import MetricCard from '../components/ui/MetricCard';
-import Skeleton from '../components/ui/Skeleton';
-import ResearchOrbit from '../components/dashboard/ResearchOrbit';
-const tools = [
-  {
-    to: '/documents',
-    icon: Files,
-    label: 'Thư viện tài liệu',
-    description: 'Lưu trữ PDF và truy xuất nguồn gốc.',
-  },
-  {
-    to: '/chat',
-    icon: MessageSquareText,
-    label: 'Đối thoại với tri thức',
-    description: 'Đặt câu hỏi, tìm câu trả lời có dẫn chứng.',
-  },
-  {
-    to: '/memories',
-    icon: BrainCircuit,
-    label: 'Bộ nhớ AI',
-    description: 'Kiểm chứng và kết nối những điều đã học.',
-  },
-];
-const steps = [
-  { label: 'Đặt câu hỏi', description: 'Xác định chủ đề và lập kế hoạch.', path: 'research' },
-  { label: 'Thu thập nguồn', description: 'Tìm kiếm, chọn lọc tài liệu.', path: 'workflow-2' },
-  {
-    label: 'Phân tích bằng chứng',
-    description: 'Đối chiếu và làm rõ luận điểm.',
-    path: 'workflow-3',
-  },
-  { label: 'Viết báo cáo', description: 'Tổng hợp, trích dẫn và xuất bản.', path: 'workflow-4' },
-];
+import { runUrl } from '../services/runApi';
+import { formatDate } from '../utils/format';
+import thumb1 from '../assets/reference/thumb1.webp';
+import thumb2 from '../assets/reference/thumb2.webp';
+import thumb3 from '../assets/reference/thumb3.webp';
+const thumbs = [thumb1, thumb2, thumb3];
 export default function DashboardPage() {
-  const summary = useKnowledge('/dashboard');
-  const history = summary.data?.recentResearch || [];
-  const latest = history[0];
-  const latestId = latest?.requestId;
-  const journey = researchJourney({
-    status: latest?.status,
-    planned: (latest?.questionCount || 0) > 0,
-  });
+  const { user } = useAuth(),
+    { openDialog } = useWorkspaceUI();
+  const summary = useKnowledge('/dashboard'),
+    research = useKnowledge('/research'),
+    docs = useKnowledge('/documents'),
+    chats = useKnowledge('/chats'),
+    memories = useKnowledge('/memories');
   const metrics = [
-    {
-      icon: FileText,
-      key: 'researchCount',
-      label: 'Nghiên cứu gần đây',
-      note: 'Những câu hỏi đang được khám phá',
-      tone: 'forest',
-    },
-    {
-      icon: Files,
-      key: 'documentCount',
-      label: 'Tài liệu PDF',
-      note: 'Nguồn tư liệu trong thư viện',
-      tone: 'terracotta',
-    },
-    {
-      icon: BrainCircuit,
-      key: 'verifiedMemoryCount',
-      label: 'Bộ nhớ đã xác minh',
-      note: 'Tri thức đã được bạn kiểm chứng',
-      tone: 'teal',
-    },
-    {
-      icon: CheckCircle2,
-      key: 'completedCount',
-      label: 'Nghiên cứu hoàn tất',
-      note: 'Từ ý tưởng đến một bản báo cáo',
-      tone: 'forest',
-    },
+    [FolderOpen, 'researchCount', 'Tổng nghiên cứu'],
+    [FileText, 'documentCount', 'Tài liệu'],
+    [CheckCircle2, 'completedCount', 'Đã hoàn thành'],
+    [Database, 'verifiedMemoryCount', 'Bộ nhớ đã duyệt'],
   ];
+  const data = summary.data;
+  const activities = accountActivity({
+    researches: research.data || [],
+    documents: docs.data || [],
+    chats: chats.data || [],
+    memories: memories.data || [],
+  });
   return (
-    <div className="page-enter studio-dashboard">
-      <PageHeader
-        eyebrow="Không gian nghiên cứu của bạn"
-        title={
-          <>
-            Không chỉ tìm kiếm.
-            <br />
-            <em>Hãy khám phá.</em>
-          </>
-        }
-        description="Dành một khoảng lặng cho những câu hỏi lớn."
-      >
-        <Button to="/workflow-1">
-          <Plus size={18} />
-          Nghiên cứu mới
-        </Button>
-      </PageHeader>
-      <section className="studio-hero" aria-labelledby="studio-hero-title">
-        <div className="studio-hero-copy">
-          <p className="studio-eyebrow">
-            <span className="studio-small-rule" />
-            Trạm nghiên cứu của bạn
+    <div className="ref-dashboard">
+      <section className="ref-hero">
+        <div className="ref-hero-art" aria-hidden="true" />
+        <div className="ref-hero-inside">
+          <h1 className="ref-hero-title">👋 Chào mừng trở lại, {user.name}!</h1>
+          <p className="ref-hero-desc">
+            Tiếp tục nghiên cứu, khai thác tri thức và tạo báo cáo chuyên sâu.
           </p>
-          <h2 id="studio-hero-title">
-            Một câu hỏi hay,
-            <br />
-            mở ra <em>vạn khả năng.</em>
-          </h2>
-          <p>
-            Một nơi để tìm tòi, kết nối bằng chứng và biến những ý tưởng rời rạc thành tri thức có
-            căn cứ.
-          </p>
-          <Button to="/workflow-1">
-            Bắt đầu nghiên cứu
-            <ArrowRight size={18} />
-          </Button>
-          <span className="studio-hero-note">Có dẫn chứng. Có chiều sâu. Theo nhịp của bạn.</span>
+          <section
+            className="ref-stats"
+            aria-label="Thống kê tài khoản"
+            aria-busy={summary.loading}
+          >
+            {metrics.map(([Icon, key, label]) => (
+              <div className="ref-stat studio-metric" key={key}>
+                <span className="ref-stat-icon">
+                  <Icon size={22} />
+                </span>
+                <div className="ref-stat-copy">
+                  <div className="ref-stat-label">{label}</div>
+                  <div className="ref-stat-line">
+                    <strong className="ref-stat-number">
+                      {summary.loading ? '…' : summary.error ? '—' : (data?.[key] ?? '—')}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </section>
         </div>
-        <ResearchOrbit />
-        <span className="studio-hero-caption" aria-hidden="true">
-          Từ ý tưởng đến báo cáo
-        </span>
       </section>
-      <section
-        className="studio-metrics"
-        aria-label="Thống kê tài khoản"
-        aria-busy={summary.loading}
-      >
-        {metrics.map(({ key, ...metric }) => (
-          <MetricCard
-            key={key}
-            {...metric}
-            value={summary.data?.[key]}
-            loading={summary.loading}
-            error={summary.error}
-          />
-        ))}
-      </section>
-      <div className="studio-data-note">
-        <span className="studio-quiet-dot" />
-        <p>Thống kê từ dữ liệu tài khoản của bạn.</p>
-      </div>
-      {summary.loading && (
-        <p role="status" className="sr-only">
-          Đang tải tổng quan…
-        </p>
-      )}
       <ErrorMessage error={summary.error} />
       {summary.error && (
-        <Button variant="secondary" onClick={summary.reload}>
+        <button className="ref-secondary" onClick={summary.reload}>
           Tải lại tổng quan
-        </Button>
+        </button>
       )}
-      <div className="studio-dashboard-columns">
-        <section className="studio-recent" aria-labelledby="recent-title">
-          <SectionHeading
-            id="recent-title"
-            eyebrow="Trên bàn làm việc"
-            title="Nghiên cứu gần đây"
-            description="Tiếp tục từ nơi bạn đang dừng lại."
-          >
-            <Link className="studio-text-link" to="/sources">
-              Xem nguồn
-              <ArrowUpRight size={16} />
-            </Link>
-          </SectionHeading>
-          {summary.loading ? (
-            <div className="studio-recent-skeleton" aria-hidden="true">
-              {[0, 1, 2].map((n) => (
-                <Skeleton key={n} />
-              ))}
-            </div>
-          ) : summary.error ? (
-            <p className="studio-unavailable">
-              Chưa thể tải danh sách nghiên cứu. Hãy thử tải lại tổng quan.
-            </p>
-          ) : history.length ? (
-            <div className="studio-recent-list">
-              {history.slice(0, 6).map((item, index) => (
-                <Link
-                  className="studio-research-row"
-                  key={item.requestId}
-                  to={`/research/${encodeURIComponent(item.requestId)}`}
-                  aria-label={item.topic}
-                >
-                  <span className="studio-row-number" aria-hidden="true">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <span className="studio-research-copy">
-                    <strong>{item.topic}</strong>
-                    <small>
-                      {formatDate(item.createdAt)}
-                      <span aria-hidden="true"> · </span>
-                      {item.questionCount || 0} câu hỏi<span aria-hidden="true"> · </span>
-                      {item.sourceCount || 0} nguồn
-                    </small>
-                  </span>
-                  <StatusBadge status={item.status} />
-                  <ArrowUpRight size={20} className="studio-row-arrow" />
+      <div className="ref-dashboard-grid">
+        <div className="ref-left-stack">
+          <section className="ref-card ref-workflows-panel">
+            <PanelHeading
+              title="5 Luồng làm việc (Workflows)"
+              icon={Layers}
+              action={
+                <Link className="ref-text-link" to="/workflows">
+                  Xem chi tiết workflows →
                 </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="studio-empty">
-              <BookOpen size={34} strokeWidth={1.3} />
-              <div>
-                <h3>Chưa có nghiên cứu gần đây</h3>
-                <p>
-                  Mỗi hành trình tri thức bắt đầu bằng một câu hỏi. Hãy bắt đầu với điều bạn đang tò
-                  mò.
-                </p>
-              </div>
-              <Button variant="secondary" to="/workflow-1">
-                <Plus size={17} />
-                Tạo nghiên cứu
-              </Button>
-            </div>
-          )}
-        </section>
-        <section className="studio-journey" aria-labelledby="journey-title">
-          <SectionHeading
-            id="journey-title"
-            eyebrow="Phương pháp"
-            title="Một hành trình, bốn bước"
-            description={
-              latest
-                ? `Tiến trình nghiên cứu: ${latest.topic}`
-                : 'Từ sự tò mò đến những kết luận có cơ sở.'
-            }
-          />
-          <ol className="studio-journey-steps">
-            {steps.map((step, index) => {
-              const state = latest ? journey.steps[index] : null;
-              const to = latestId
-                ? index === 0
-                  ? `/research/${encodeURIComponent(latestId)}`
-                  : `/${step.path}/${encodeURIComponent(latestId)}`
-                : '/workflow-1';
-              return (
-                <li key={step.label} data-state={state?.state || 'pending'}>
-                  <Link to={to}>
-                    <span className="studio-step-index">
-                      {String(index + 1).padStart(2, '0')}
-                      {state?.state === 'complete' && (
-                        <CheckCircle2 size={14} aria-label="Hoàn tất" />
-                      )}
-                    </span>
-                    <h3>{step.label}</h3>
-                    <p>{step.description}</p>
-                    {state && <small>{state.label}</small>}
-                    <ArrowRight size={16} aria-hidden="true" />
+              }
+              description="Quy trình nghiên cứu từ ý tưởng đến báo cáo, kết hợp tri thức và trợ lý AI."
+            />
+            <FeatureCards />
+          </section>
+          <div className="ref-lower-grid">
+            <section className="ref-card ref-compact-card">
+              <PanelHeading
+                title="Nghiên cứu gần đây"
+                icon={CalendarDays}
+                action={
+                  <Link className="ref-text-link" to="/researches">
+                    Xem tất cả →
                   </Link>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-      </div>
-      <section className="studio-tool-section" aria-labelledby="tools-title">
-        <SectionHeading
-          id="tools-title"
-          title="Những công cụ cho sự tò mò"
-          description="Mọi nguồn tư liệu. Cùng một không gian."
-        />
-        <div className="studio-tools">
-          {tools.map(({ to, icon: Icon, label, description }) => (
-            <Link to={to} key={to} className="studio-tool">
-              <Icon size={24} strokeWidth={1.5} />
-              <div>
-                <h3>{label}</h3>
-                <p>{description}</p>
+                }
+              />
+              <ErrorMessage error={research.error} />
+              <div className="ref-recent-list">
+                {research.loading ? (
+                  <p className="ref-empty" role="status">
+                    Đang tải nghiên cứu…
+                  </p>
+                ) : research.error ? (
+                  <button className="ref-text-link" onClick={research.reload}>
+                    Thử tải lại
+                  </button>
+                ) : !research.data?.length ? (
+                  <p className="ref-empty">
+                    Chưa có nghiên cứu.{' '}
+                    <button className="ref-text-link" onClick={() => openDialog('research')}>
+                      Tạo nghiên cứu đầu tiên
+                    </button>
+                  </p>
+                ) : (
+                  research.data.slice(0, 3).map((r, i) => (
+                    <Link
+                      className="ref-recent-row"
+                      key={r.id}
+                      to={
+                        r.latestRunId
+                          ? runUrl(r.id, r.latestRunId)
+                          : `/research/${encodeURIComponent(r.id)}`
+                      }
+                    >
+                      <img className="ref-thumb" src={thumbs[i]} width={54} height={38} alt="" />
+                      <span className="ref-recent-info">
+                        <strong className="ref-recent-title">{r.topic}</strong>
+                        <span className="ref-recent-meta">
+                          {formatDate(r.created_at)} ·{' '}
+                          {r.latestRunId ? 'Run gần nhất' : 'Yêu cầu đã lưu'}
+                        </span>
+                      </span>
+                      <StatusBadge status={r.runStatus || r.status} />
+                    </Link>
+                  ))
+                )}
               </div>
-              <ArrowUpRight size={19} />
-            </Link>
-          ))}
+            </section>
+            <section className="ref-card ref-compact-card">
+              <PanelHeading
+                title="Không gian tri thức"
+                icon={BookOpen}
+                action={
+                  <Link aria-label="Mở thư viện tài liệu" className="ref-text-link" to="/documents">
+                    →
+                  </Link>
+                }
+              />
+              <div className="ref-knowledge-list">
+                {[
+                  [
+                    FileText,
+                    '/documents',
+                    `${summary.loading || summary.error ? '—' : (data?.documentCount ?? '—')} tài liệu`,
+                    'PDF, tài liệu nghiên cứu, báo cáo…',
+                    '#e2f5ff',
+                    '#168dce',
+                  ],
+                  [
+                    MessageSquareText,
+                    '/chat',
+                    'Chat với tài liệu',
+                    'Hỏi đáp, trích dẫn, tóm tắt nhanh',
+                    '#f0eaff',
+                    '#7451c6',
+                  ],
+                  [
+                    Database,
+                    '/memories',
+                    'Bộ nhớ (Memory)',
+                    `${summary.loading || summary.error ? '—' : (data?.verifiedMemoryCount ?? '—')} mục tri thức đã được duyệt`,
+                    '#fff2e3',
+                    '#dd810d',
+                  ],
+                ].map(([Icon, to, title, description, bg, color]) => (
+                  <Link className="ref-knowledge-item" to={to} key={to}>
+                    <span className="ref-knowledge-symbol" style={{ background: bg, color }}>
+                      <Icon size={19} />
+                    </span>
+                    <span className="ref-knowledge-text">
+                      <strong>{title}</strong>
+                      <span>{description}</span>
+                    </span>
+                    <ChevronRight size={16} className="ref-knowledge-arr" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </div>
         </div>
-      </section>
-      <footer className="studio-dashboard-footer">
-        <span>ResearchOS</span>
-        <p>Không gian cho tư duy độc lập.</p>
-        <Workflow size={17} aria-hidden="true" />
-      </footer>
+        <div className="ref-right-stack">
+          <section className="ref-card">
+            <PanelHeading title="Hoạt động gần đây" icon={Activity} />
+            <ErrorMessage error={docs.error || chats.error || memories.error} />
+            {research.loading || docs.loading || chats.loading || memories.loading ? (
+              <p className="ref-empty" role="status">
+                Đang tải hoạt động…
+              </p>
+            ) : (
+              <ActivityList
+                items={activities.slice(0, 4)}
+                unavailable={!!(research.error || docs.error || chats.error || memories.error)}
+              />
+            )}
+          </section>
+          <section className="ref-card">
+            <PanelHeading title="Truy cập nhanh" icon={Zap} />
+            <div className="ref-quick-grid">
+              <button className="ref-quick" onClick={() => openDialog('research')}>
+                <Plus size={22} />
+                Nghiên cứu mới
+              </button>
+              <button className="ref-quick ref-qgreen" onClick={() => openDialog('upload')}>
+                <Upload size={22} />
+                Tải lên PDF
+              </button>
+              <Link className="ref-quick ref-qpurple" to="/chat">
+                <MessageSquareText size={22} />
+                Chat với tài liệu
+              </Link>
+              <Link className="ref-quick ref-qorange" to="/reports">
+                <FileText size={22} />
+                Xem báo cáo
+              </Link>
+            </div>
+          </section>
+        </div>
+      </div>
+      <p className="ref-dashboard-note">
+        Dữ liệu tài khoản từ máy chủ. Hoạt động lấy từ thời điểm tạo/cập nhật tài nguyên; chưa có
+        nhật ký kiểm toán hoặc tăng trưởng theo tuần.
+      </p>
     </div>
   );
 }

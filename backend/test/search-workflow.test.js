@@ -70,7 +70,7 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
                 assert.equal(response.body.error, "Resource not found");
             }
             const id = await create();
-            await db.run("DELETE FROM plans WHERE request_id = ?", [id]);
+            await db.run("DELETE FROM plans WHERE request_id = $1", [id]);
             const response = await api(`/api/research/${id}/search`, "POST");
             assert.equal(response.status, 400);
             assert.equal(response.body.error, "Research plan does not contain search queries");
@@ -167,7 +167,7 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
             assert.equal((await model.getSourcesByRequestId(id)).length, 0);
             assert.equal((await api(`/api/research/${id}`)).body.data.request.status, "planned");
         });
-        await t.test("SQLite persistence from independent process", async persistence => {
+        await t.test("PostgreSQL persistence from independent process", async persistence => {
             // Own the setup: an earlier failed subtest must not look like lost SQLite data.
             const mockEnvironment = { MOCK_SEARCH: process.env.MOCK_SEARCH, MOCK_LLM: process.env.MOCK_LLM };
             process.env.MOCK_SEARCH = "true";
@@ -185,22 +185,20 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
             assert.equal(collected.status, 200, JSON.stringify(collected.body));
             assert.equal(collected.body.data.sourceCount, 8);
 
-            const { snapshot } = require("./helpers/sqlite-snapshot.cjs");
+            const { snapshot } = require("./helpers/postgres-snapshot.cjs");
             const parent = await snapshot(db, persistenceId);
-            const actualPath = await fs.realpath(databasePath);
-            assert.equal(await fs.realpath(process.env.RESEARCH_DB_PATH), actualPath);
-            assert.equal(await fs.realpath(parent.databasePath), actualPath);
-            assert.equal(parent.journalMode, "wal");
+            assert.equal(parent.database, process.env.PGDATABASE);
+            assert.equal(parent.schema, process.env.PGSCHEMA);
             assert.equal(parent.count, 8, "Parent did not commit the eight collected sources");
             assert.equal(parent.request.status, "collected");
             assert.equal(parent.request.owner_id, "fixture-user");
 
             const backendRoot = path.resolve(__dirname, "..");
-            const reader = path.join(__dirname, "helpers/sqlite-snapshot.cjs");
+            const reader = path.join(__dirname, "helpers/postgres-snapshot.cjs");
             function readChild(file = databasePath) {
                 return spawnSync(process.execPath, [reader, file, persistenceId], {
                     cwd: backendRoot,
-                    env: { ...process.env, RESEARCH_DB_PATH: file },
+                    env: { ...process.env, PGDATABASE: file===process.env.RESEARCH_DB_PATH?process.env.PGDATABASE:"researchos_missing_database" },
                     encoding: "utf8",
                     timeout: 10000,
                 });
@@ -229,9 +227,9 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
                 status: observed.result.status, signal: observed.result.signal, stderr: observed.result.stderr,
             }));
 
-            await persistence.test("WAL readers see the last COMMIT while a writer is active", async () => {
+            await persistence.test("PostgreSQL readers see the last COMMIT while a writer is active", async () => {
                 await db.transaction(async tx => {
-                    await tx.run("UPDATE sources SET content=? WHERE id=?", ["Committed persistence probe", parent.sources[0].id]);
+                    await tx.run("UPDATE sources SET content=$1 WHERE id=$2", ["Committed persistence probe", parent.sources[0].id]);
                     committedSnapshot(parent); // No checkpoint or writer close: read committed WAL data.
                 });
                 const afterCommit = await snapshot(db, persistenceId);
@@ -241,19 +239,19 @@ test("Workflow 2: API, provider, collection, failures and persistence", async t 
             await persistence.test("ROLLBACK is invisible to an independent reader", async () => {
                 const beforeRollback = await snapshot(db, persistenceId);
                 await assert.rejects(db.transaction(async tx => {
-                    await tx.run("UPDATE sources SET content=? WHERE id=?", ["Must roll back", parent.sources[0].id]);
+                    await tx.run("UPDATE sources SET content=$1 WHERE id=$2", ["Must roll back", parent.sources[0].id]);
                     committedSnapshot(beforeRollback);
                     throw new Error("Injected rollback");
                 }), /Injected rollback/);
                 assert.deepEqual(await snapshot(db, persistenceId), beforeRollback);
                 committedSnapshot(beforeRollback);
             });
-            await persistence.test("A wrong path fails instead of creating an empty database", async () => {
+            await persistence.test("A wrong database fails instead of creating an empty database", async () => {
                 const missing = path.join(directory, "missing-reader.db");
                 const result = readChild(missing);
                 assert.ifError(result.error);
                 assert.equal(result.status, 1, JSON.stringify(result));
-                assert.match(result.stderr, /SQLITE_CANTOPEN/);
+                assert.match(result.stderr, /3D000/);
                 await assert.rejects(fs.access(missing), { code: "ENOENT" });
             });
         });

@@ -1,0 +1,1261 @@
+{
+  "name": "ResearchOS | WF01 Full Research | v2 API compatible",
+  "active": false,
+  "nodes": [
+    {
+      "id": "1e668643-e945-54ac-b8ec-7a950fb4017b",
+      "name": "01 - Research Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "researchos/wf01/full-research",
+        "responseMode": "responseNode",
+        "authentication": "headerAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "024bea64-c923-5996-8610-f4e4eb8fa234",
+      "name": "02 - Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$input.first().json.body ?? {};\nconst uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst key=/^[\\w.:/-]{1,160}$/;\nconst o=(b.options && typeof b.options==='object' && !Array.isArray(b.options))?b.options:{};\nconst options={language:o.language??'vi',numberOfSources:o.numberOfSources??12,searchMore:o.searchMore??true,orchestration:o.orchestration??'backend'};\nconst runId=b.runId??null;\nconst valid=(b.options===undefined || (b.options!==null && typeof b.options==='object' && !Array.isArray(b.options))) && typeof b.requestId==='string' && typeof b.idempotencyKey==='string' && uuid.test(b.requestId??'') && key.test(b.idempotencyKey??'') && (runId===null || (typeof runId==='string' && uuid.test(runId))) &&\n ['vi','en'].includes(options.language) && Number.isInteger(options.numberOfSources) && options.numberOfSources>=1 && options.numberOfSources<=30 &&\n typeof options.searchMore==='boolean' && ['backend','n8n'].includes(options.orchestration);\nreturn [{json:{valid,requestId:valid?b.requestId:null,runId:valid?runId:null,idempotencyKey:valid?b.idempotencyKey:null,options:valid?options:null,error:valid?null:'Invalid requestId / runId / idempotencyKey / options'}}];"
+      }
+    },
+    {
+      "id": "440bc33a-ecf8-5ffe-8069-b6dd27cc9f71",
+      "name": "03 - Valid Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        510,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2e0c3829-4c00-568e-bb96-10cd7e90b393",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "e5936cde-79f5-5206-9970-1259f24e3c20",
+      "name": "04 - Invalid Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        770,
+        220
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{success:false,error:$input.first().json.error}}];"
+      }
+    },
+    {
+      "id": "695c55e0-b08b-5b38-a839-3ade2fb25d70",
+      "name": "05 - Return 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1010,
+        220
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "1409b500-baf4-57b2-8b8e-753ad40ca0b8",
+      "name": "06 - Existing Run?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        760,
+        -80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d63cdcfa-1fca-5301-ab2b-e0b1e42f641a",
+              "leftValue": "={{ !!$json.runId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "fbc6f1ce-59c8-5e16-ac27-f3cc0a80d681",
+      "name": "07 - Reuse Existing Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1010,
+        -250
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const v=$input.first().json;return [{json:{runId:v.runId,requestId:v.requestId,orchestration:v.options.orchestration}}];"
+      }
+    },
+    {
+      "id": "2247c2ea-152c-5676-af51-fe1c0f8dd810",
+      "name": "08a - Verify Existing Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1130,
+        -320
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://backend:3000/internal/research/' + $json.requestId + '/runs/' + $json.runId + '/progress' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "122b20c0-5433-5166-b107-8860e6863ec7",
+      "name": "08 - Create Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1010,
+        20
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://backend:3000/internal/research/' + $json.requestId + '/runs' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.options }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $('02 - Validate Request').first().json.idempotencyKey }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "b3a3650c-dbda-5ca1-a8a2-5ac6b111ae3b",
+      "name": "09 - Normalize Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        -90
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ctx=$('02 - Validate Request').first().json;\nconst payload=$input.first().json, data=payload.data;\nif(payload.success!==true || !data?.runId || !['backend','n8n'].includes(data.orchestration)) throw new Error('Invalid backend run contract');\nreturn [{json:{success:true,accepted:true,requestId:ctx.requestId,runId:data.runId,status:data.status,orchestration:data.orchestration,stages:['planning','collecting','analyzing','evaluating','composing','verifying']}}];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "8a1a381d-f83c-5207-9fe8-8edea8bf63f7",
+      "name": "10 - Create Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        210
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const v=$input.first().json; const n=Number(v.error?.httpCode??v.error?.statusCode??v.statusCode); const httpStatus=[400,401,403,404,409,429].includes(n)?n:502; return [{json:{success:false,httpStatus,error:\"Run request rejected or unavailable; inspect backend run state\"}}];"
+      }
+    },
+    {
+      "id": "02810932-8ec6-500c-8529-fd006f1ea3c1",
+      "name": "11 - Return 502",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1490,
+        210
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": "={{ $json.httpStatus }}"
+        }
+      }
+    },
+    {
+      "id": "a1c14ce2-823f-53cb-98e8-a7ae7a30fdab",
+      "name": "12 - Return 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1510,
+        -90
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "cf8ede6e-6b65-50af-bdc0-a0752aede445",
+      "name": "13 - n8n Dispatch Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        -90
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "01974791-6a46-5173-b6e3-e1868d6e9c97",
+              "leftValue": "={{ $json.orchestration === 'n8n' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "66213f5a-110f-57fa-9b14-d91cf2e90576",
+      "name": "14 - Read Progress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2020,
+        -190
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://backend:3000/internal/research/' + $('02 - Validate Request').first().json.requestId + '/runs/' + $('09 - Normalize Run').first().json.runId + '/progress' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "bc97ee0b-edc4-5946-8e05-7ac628109cd6",
+      "name": "15 - Backend-Managed Handoff",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2020,
+        170
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const p=$input.first().json;return [{json:{success:true,requestId:p.requestId,runId:p.runId,status:p.status,accepted:true,orchestration:'backend',message:'Backend Worker owns all stages; completion is available from progress API'}}];"
+      }
+    },
+    {
+      "id": "75ddd262-29b2-5f6c-acd2-701b7f4c84e3",
+      "name": "16 - Is Terminal?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2270,
+        -280
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d94dfabd-9d1d-591b-8033-79e52df314f6",
+              "leftValue": "={{ ['completed','partial','failed','cancelled'].includes($json.data?.status) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "52319ee5-67a4-5a19-b741-4ba4f6c56ca9",
+      "name": "17 - Terminal Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        -500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const p=$input.first().json.data??{};return [{json:{runId:p.runId,status:p.status,currentStage:p.currentStage,percent:p.percent}}];"
+      }
+    },
+    {
+      "id": "ec6b396f-6b5d-5d5e-9025-6cbd4d6b51e0",
+      "name": "18 - Poll Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        -220
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const p=$input.first().json.data;\nconst count=$runIndex;\nif(!p || !p.runId) return [{json:{stop:true,reason:'Progress invalid'}}];\nif(count>=240) return [{json:{stop:true,reason:'Polling observation budget exhausted; backend run remains authoritative',runId:p.runId,status:p.status}}];\nreturn [{json:{...p,stop:false,pollCount:count}}];"
+      }
+    },
+    {
+      "id": "66358b7e-1e3f-5cbb-9bed-b095096b9124",
+      "name": "19 - Stop Observing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2760,
+        -220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1d177aa-1369-51b3-a24a-e15ac9fcda4c",
+              "leftValue": "={{ $json.stop }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "76e2821a-aba4-5415-a09f-736efc4f018a",
+      "name": "20 - Observation Ended",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        -580
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all();"
+      }
+    },
+    {
+      "id": "36e30679-d185-58e5-9059-e4b92a4ca18e",
+      "name": "21 - Has Current Job?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3000,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4ebfa49c-d213-553d-baba-504b7a8802ad",
+              "leftValue": "={{ !!$json.currentJob?.id }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "e2791dce-a3ad-5a97-aab0-4170562c818d",
+      "name": "22 - Wait For Job",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3260,
+        160
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "a6947fa1-6084-5b56-b584-6ad7fc459d9c",
+      "name": "23 - Current Stage",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3260,
+        -200
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6ec32f49-e020-5f14-bcc7-06903ae529fa",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "planning",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "planning"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "caf14418-c0b0-5102-9197-80da0c1d2798",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "collecting",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "collecting"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a297fef0-e9bf-5253-bbd3-8bf35609e6c3",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "analyzing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "analyzing"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d5fcf9d9-a1b2-5eec-a59f-6266f4198d5f",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "evaluating",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "evaluating"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3298ab41-4ef4-590f-b360-f0c9a518f12f",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "composing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "composing"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b3697bf7-78cc-5e20-8376-2dbcf3999d73",
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "verifying",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "verifying"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "5b0acef4-e5cf-58c5-8ac2-d037f515ac15",
+      "name": "24 - Stage Unsupported",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3490,
+        190
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{success:false,error:'Unsupported stage from Backend',stage:$input.first().json.currentStage}}];"
+      }
+    },
+    {
+      "id": "e2f9d382-957f-5c56-919e-9fadb878cd59",
+      "name": "25 - Dispatch Scheduled Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3520,
+        -220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://backend:3000/internal/runs/' + $json.runId + '/jobs' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {stage: $json.currentStage} }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.currentJob.idempotency_key }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "a68e7e63-a773-5f7e-b1e1-42a8a2406907",
+      "name": "26 - Wait Before Poll",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3750,
+        -290
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "09a60144-5230-5c50-9073-add9333eec9b",
+      "name": "27 - Poll Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3960,
+        -290
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://backend:3000/internal/jobs/' + $('25 - Dispatch Scheduled Job').item.json.data.id + '?runId=' + $('09 - Normalize Run').first().json.runId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "10056405-edbe-53de-aff3-e31c12564666",
+      "name": "28 - Job Poll Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4190,
+        -290
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const p=$input.first().json.data;\nif(!p||!p.status) return [{json:{stop:true,error:'Invalid job response'}}];\nif($runIndex>=240) return [{json:{stop:true,error:'Job polling budget exhausted',status:p.status}}];\nreturn [{json:{...p,stop:false}}];"
+      }
+    },
+    {
+      "id": "896c8407-509f-55a0-b5c1-6dda3b0d198e",
+      "name": "29 - Stop Job Poll?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4390,
+        -280
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "12d2f900-ddf8-51c8-811a-ffa0ed87edf4",
+              "leftValue": "={{ $json.stop }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "e8d295d3-91ff-5b97-a187-3b2827625bd5",
+      "name": "30 - Job Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4600,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ec5e31a8-e293-54cd-a43d-d2ac004f614e",
+              "leftValue": "={{ ['succeeded','failed','cancelled'].includes($json.status) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "f93b9b27-4de5-594c-8887-155a361f4b23",
+      "name": "31 - Runtime Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        410
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{success:false,error:'WF01 backend unavailable during execution; inspect run status before retry'}}];"
+      }
+    },
+    {
+      "id": "e365635c-d6d1-5165-95c8-b48e3c492445",
+      "name": "32 - Stop Polling Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4620,
+        90
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all();"
+      }
+    }
+  ],
+  "connections": {
+    "01 - Research Webhook": {
+      "main": [
+        [
+          {
+            "node": "02 - Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 - Validate Request": {
+      "main": [
+        [
+          {
+            "node": "03 - Valid Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 - Valid Request?": {
+      "main": [
+        [
+          {
+            "node": "06 - Existing Run?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "04 - Invalid Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 - Invalid Payload": {
+      "main": [
+        [
+          {
+            "node": "05 - Return 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 - Existing Run?": {
+      "main": [
+        [
+          {
+            "node": "07 - Reuse Existing Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "08 - Create Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07 - Reuse Existing Run": {
+      "main": [
+        [
+          {
+            "node": "08a - Verify Existing Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08a - Verify Existing Run": {
+      "main": [
+        [
+          {
+            "node": "09 - Normalize Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "10 - Create Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08 - Create Run": {
+      "main": [
+        [
+          {
+            "node": "09 - Normalize Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "10 - Create Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09 - Normalize Run": {
+      "main": [
+        [
+          {
+            "node": "12 - Return 202",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "10 - Create Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 - Create Error": {
+      "main": [
+        [
+          {
+            "node": "11 - Return 502",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12 - Return 202": {
+      "main": [
+        [
+          {
+            "node": "13 - n8n Dispatch Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13 - n8n Dispatch Mode?": {
+      "main": [
+        [
+          {
+            "node": "14 - Read Progress",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "15 - Backend-Managed Handoff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14 - Read Progress": {
+      "main": [
+        [
+          {
+            "node": "16 - Is Terminal?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "31 - Runtime Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "16 - Is Terminal?": {
+      "main": [
+        [
+          {
+            "node": "17 - Terminal Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "18 - Poll Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "18 - Poll Guard": {
+      "main": [
+        [
+          {
+            "node": "19 - Stop Observing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "19 - Stop Observing?": {
+      "main": [
+        [
+          {
+            "node": "20 - Observation Ended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "21 - Has Current Job?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "21 - Has Current Job?": {
+      "main": [
+        [
+          {
+            "node": "23 - Current Stage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "22 - Wait For Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "22 - Wait For Job": {
+      "main": [
+        [
+          {
+            "node": "14 - Read Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "23 - Current Stage": {
+      "main": [
+        [
+          {
+            "node": "25 - Dispatch Scheduled Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "25 - Dispatch Scheduled Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "25 - Dispatch Scheduled Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "25 - Dispatch Scheduled Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "25 - Dispatch Scheduled Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "25 - Dispatch Scheduled Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "24 - Stage Unsupported",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "25 - Dispatch Scheduled Job": {
+      "main": [
+        [
+          {
+            "node": "26 - Wait Before Poll",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "31 - Runtime Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "26 - Wait Before Poll": {
+      "main": [
+        [
+          {
+            "node": "27 - Poll Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "27 - Poll Job": {
+      "main": [
+        [
+          {
+            "node": "28 - Job Poll Guard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "31 - Runtime Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "28 - Job Poll Guard": {
+      "main": [
+        [
+          {
+            "node": "29 - Stop Job Poll?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "29 - Stop Job Poll?": {
+      "main": [
+        [
+          {
+            "node": "32 - Stop Polling Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "30 - Job Finished?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "30 - Job Finished?": {
+      "main": [
+        [
+          {
+            "node": "14 - Read Progress",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "26 - Wait Before Poll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 3600,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  "pinData": {},
+  "tags": []
+}

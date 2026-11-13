@@ -7,7 +7,7 @@ process.env.RESEARCH_DB_PATH = path.join(
   fs.mkdtempSync(path.join(os.tmpdir(), "knowledge-migration-")),
   "legacy.db",
 );
-const db = require("../src/config/database");
+const db = require("./legacy/sqlite-database.cjs");
 test("additive knowledge migration preserves pre-existing legacy rows and is idempotent", async () => {
   await db.run(
     "CREATE TABLE requests(id TEXT PRIMARY KEY,topic TEXT NOT NULL,goal TEXT NOT NULL,scope TEXT,output_length TEXT,status TEXT,created_at TEXT,updated_at TEXT)",

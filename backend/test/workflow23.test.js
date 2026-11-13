@@ -103,7 +103,7 @@ test('Workflow 2/3: language, performance, display policy, rate limits, cache an
             assert.equal(calls, before); assert.equal(cached.metrics.cacheHits, 4);
             assert.deepEqual(cached.sources.map(item => item.id), result.sources.map(item => item.id));
             // Legacy translations cannot expose old mixed English fallback content.
-            await db.run('UPDATE sources SET translation_status = NULL, translation_hash = NULL WHERE id = ?', [original.id]);
+            await db.run('UPDATE sources SET translation_status = NULL, translation_hash = NULL WHERE id = $1', [original.id]);
             const legacy = (await sources.getSourcesByRequestId(request.requestId)).find(item => item.id === original.id);
             assert.equal(legacy.displayContent, null); assert.equal(legacy.content, en.content);
             search.searchWeb = saved.search; content.fetchPageContent = saved.fetchPage; llm.generateJson = saved.generate;
@@ -151,7 +151,7 @@ test('Workflow 2/3: language, performance, display policy, rate limits, cache an
             assert.equal(items.length, calls);
             for (const item of items) {
                 assert.equal(detectSourceLanguage({ content: item.evidenceText }), 'vi');
-                const chunk = await db.get('SELECT * FROM chunks WHERE id = ?', [item.chunkId]);
+                const chunk = await db.get('SELECT * FROM chunks WHERE id = $1', [item.chunkId]);
                 assert.equal(chunk.source_id, item.sourceId);
                 const source = (await sources.getSourcesByRequestId(request.requestId)).find(s => s.id === item.sourceId);
                 assert.ok(source.url.startsWith('https://example.com/'));
@@ -162,7 +162,7 @@ test('Workflow 2/3: language, performance, display policy, rate limits, cache an
         });
         await t.test('429 retries honor Retry-After and preserve earlier successful evidence on partial result', async () => {
             const question = request.researchQuestions[1];
-            await db.run('DELETE FROM evidence_cache WHERE request_id = ? AND question_id = ?', [request.requestId, question.id]);
+            await db.run('DELETE FROM evidence_cache WHERE request_id = $1 AND question_id = $2', [request.requestId, question.id]);
             const before = await evidence.getEvidence(request.requestId);
             let calls = 0; const starts = [];
             global.fetch = async () => { calls++; starts.push(Date.now()); return new Response(JSON.stringify({ error: { status: 'RESOURCE_EXHAUSTED', message: 'Rate limited' } }), { status: 429, headers: { 'Retry-After': '0.012' } }); };

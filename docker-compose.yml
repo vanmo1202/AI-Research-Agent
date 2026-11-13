@@ -5,7 +5,11 @@ x-backend: &backend
     - ./backend/.env
   environment: &backend-env
     PORT: 3000
-    RESEARCH_DB_PATH: /app/data/research.db
+    PGHOST: postgres
+    PGPORT: "5432"
+    PGUSER: researchos
+    PGDATABASE: researchos
+    PGPASSWORD_FILE: /run/secrets/postgres_password
     DOCUMENT_STORAGE_PATH: /app/documents
     FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
     TRUSTED_PROXY_CIDRS: ${FRONTEND_PROXY_IP:-172.30.240.2}/32
@@ -13,12 +17,33 @@ x-backend: &backend
     INTERNAL_RESEARCH_USER_ID: ${INTERNAL_RESEARCH_USER_ID:-}
     INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in root .env}
   volumes:
-    - research_data:/app/data
+    - research_data:/app/data:ro
     - document_data:/app/documents
+  secrets: [postgres_password]
   networks: [research]
   restart: unless-stopped
 
 services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: researchos
+      POSTGRES_DB: researchos
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [postgres_data:/var/lib/postgresql]
+    networks: [research]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U researchos -d researchos']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    <<: *backend
+    command: [node, src/db/migrate.js]
+    restart: 'no'
+    depends_on: {postgres: {condition: service_healthy}}
   backend:
     <<: *backend
     networks:
@@ -26,9 +51,10 @@ services:
       browser_proxy:
         ipv4_address: ${BACKEND_PROXY_IP:-172.30.240.3}
     mem_limit: 512m
+    depends_on: {migrate: {condition: service_completed_successfully}}
     ports: ['127.0.0.1:3000:3000']
     healthcheck:
-      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -68,7 +94,7 @@ services:
   n8n:
     mem_limit: 1024m
     image: n8nio/n8n:2.46.1
-    ports: ['127.0.0.1:5678:5678']
+    ports: ['127.0.0.1:5679:5678']
     environment:
       GENERIC_TIMEZONE: Asia/Ho_Chi_Minh
       TZ: Asia/Ho_Chi_Minh
@@ -98,3 +124,8 @@ volumes:
   research_data:
   document_data:
   n8n_data:
+  postgres_data:
+
+secrets:
+  postgres_password:
+    file: ./deploy/secrets/postgres_password

@@ -1,5 +1,5 @@
 require("../config/environment").loadEnvironment();
-const { initializeDatabase } = require("../config/database");
+const { initializeDatabase, close } = require("../config/database");
 const { runOnce } = require("./runner");
 const { randomUUID } = require("node:crypto");
 const owner = `worker-${process.pid}-${randomUUID()}`;
@@ -40,6 +40,7 @@ for (const signal of ["SIGINT", "SIGTERM"])
     }
   }
   await knowledgeLoop;
+  await close();
   process.exit(0);
 })().catch(() => {
   console.error("[Worker] Startup failed");

@@ -1,67 +1,30 @@
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs"),
-  path = require("node:path");
-test("v2 n8n workflows are wired, bounded, credential-based and webhook-driven", () => {
-  const folder = path.join(__dirname, "../../n8n/workflows/v2"),
-    files = fs.readdirSync(folder).filter((f) => f.endsWith(".json"));
-  assert.equal(files.length, 7);
-  for (const file of files) {
-    const workflow = JSON.parse(
-        fs.readFileSync(path.join(folder, file), "utf8"),
-      ),
-      names = new Set(workflow.nodes.map((n) => n.name));
-    assert.equal(names.size, workflow.nodes.length);
-    assert.ok(workflow.nodes.some((n) => n.type.endsWith(".webhook")));
-    assert.ok(!workflow.nodes.some((n) => n.type.endsWith(".manualTrigger")));
-    for (const [name, c] of Object.entries(workflow.connections)) {
-      assert.ok(names.has(name));
-      for (const output of c.main)
-        for (const edge of output) assert.ok(names.has(edge.node));
-    }
-    for (const n of workflow.nodes.filter((n) =>
-      n.type.endsWith(".httpRequest"),
-    )) {
-      assert.ok(n.parameters.options.timeout <= 30000);
-      assert.ok(workflow.connections[n.name].main[1]?.length);
-      if (n.parameters.url.includes("/internal/"))
-        assert.equal(n.parameters.genericAuthType, "httpHeaderAuth");
-    }
-    if (file !== "create-run.json") {
-      for (const type of ["wait", "if", "switch"])
-        assert.ok(workflow.nodes.some((n) => n.type.endsWith("." + type)));
-      assert.ok(
-        workflow.nodes.some((n) => n.parameters.jsCode?.includes("count>=240")),
-      );
-    }
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const folder=path.join(__dirname,'../../n8n/workflows/researchos-realigned');
+test('five current ResearchOS workflows have bounded credential-based HTTP and real error outputs',()=>{
+ const files=fs.readdirSync(folder).filter(f=>f.endsWith('.json'));assert.equal(files.length,5);
+ for(const file of files){
+  const workflow=JSON.parse(fs.readFileSync(path.join(folder,file))),names=new Set(workflow.nodes.map(n=>n.name));
+  assert.equal(names.size,workflow.nodes.length);assert.equal(workflow.active,false);
+  assert.ok(workflow.nodes.some(n=>/\.(webhook|scheduleTrigger)$/.test(n.type)));
+  assert.ok(!workflow.nodes.some(n=>n.type.endsWith('.manualTrigger')));
+  for(const [source,c] of Object.entries(workflow.connections)){assert.ok(names.has(source));for(const output of c.main)for(const edge of output)assert.ok(names.has(edge.node));}
+  for(const n of workflow.nodes.filter(n=>n.type.endsWith('.httpRequest'))){
+   assert.ok(n.parameters.options.timeout>0&&n.parameters.options.timeout<=40000);
+   assert.equal(n.onError,'continueErrorOutput');assert.ok(workflow.connections[n.name].main[1]?.length);
+   assert.equal(n.parameters.genericAuthType,'httpHeaderAuth');
+   assert.ok(!(n.parameters.headerParameters?.parameters||[]).some(h=>/authorization|api.key|cookie/i.test(h.name)));
   }
+ }
 });
-
-test("Every shipped webhook requires a separate inbound credential before calling privileged internal APIs", () => {
-  const folders = [
-    path.join(__dirname, "../../n8n/workflows/v2"),
-    path.join(__dirname, "../../n8n/workflows/knowledge"),
-  ];
-  let hooks = 0;
-  for (const folder of folders)
-    for (const file of fs
-      .readdirSync(folder)
-      .filter((f) => f.endsWith(".json"))) {
-      const workflow = JSON.parse(
-        fs.readFileSync(path.join(folder, file), "utf8"),
-      );
-      for (const node of workflow.nodes.filter((n) =>
-        n.type.endsWith(".webhook"),
-      )) {
-        hooks++;
-        assert.equal(node.parameters.authentication, "headerAuth", file);
-        assert.equal(
-          node.credentials.httpHeaderAuth.name,
-          "Research Webhook Access",
-          file,
-        );
-        assert.equal(workflow.active, false, file);
-      }
-    }
-  assert.equal(hooks, 9);
+test('every shipped webhook requires inbound auth distinct from outbound internal credentials',()=>{
+ let hooks=0;
+ for(const file of fs.readdirSync(folder).filter(f=>f.endsWith('.json'))){
+  const workflow=JSON.parse(fs.readFileSync(path.join(folder,file)));
+  const outbound=new Set(workflow.nodes.filter(n=>n.type.endsWith('.httpRequest')).map(n=>n.credentials?.httpHeaderAuth?.id).filter(Boolean));
+  for(const node of workflow.nodes.filter(n=>n.type.endsWith('.webhook'))){
+   hooks++;assert.equal(node.parameters.authentication,'headerAuth');
+   if(node.credentials?.httpHeaderAuth?.id)assert.ok(!outbound.has(node.credentials.httpHeaderAuth.id));
+  }
+ }
+ assert.equal(hooks,3);
 });

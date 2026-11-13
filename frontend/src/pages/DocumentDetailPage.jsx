@@ -22,7 +22,7 @@ function Detail() {
     [busy, setBusy] = useState(false),
     lock = useRef(false);
   const doc = result.data,
-    page = Math.max(1, Math.min(doc?.page_count || 1, Number(params.get('page')) || 1));
+    page = Math.max(1, Math.min(doc?.page_count || 1, Math.trunc(Number(params.get('page'))) || 1));
   const pageData = useKnowledge(
     doc?.status === 'ready' ? `${resourcePath('documents', documentId)}/pages/${page}` : null,
   );

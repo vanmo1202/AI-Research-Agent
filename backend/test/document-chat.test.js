@@ -8,9 +8,9 @@ const chat=require('../src/knowledge/chat');
 const memory=require('../src/knowledge/memory');
 const {hash,now}=require('../src/knowledge/common');
 async function seed(id, owner='alice', page=1, content='A mass spring system exhibits simple harmonic motion. The restoring force determines the period of a spring oscillator.') {
-  await db.run("INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,page_count,status,created_at,updated_at) VALUES(?,?,?,'fixture.pdf',?,100,?,'ready',?,?)",[id,owner,id+'.pdf',hash(id),page,now(),now()]);
-  for(let p=1;p<=page;p++) await db.run('INSERT INTO document_pages VALUES(?,?,?)',[id,p,p===page?content:'Introductory page without the requested subject.']);
-  await db.run('INSERT INTO document_chunks VALUES(?,?,?,?,?,?)',[id+'-chunk',id,page,0,content,hash(content)]);
+  await db.run("INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,page_count,status,created_at,updated_at) VALUES($1,$2,$3,'fixture.pdf',$4,100,$5,'ready',$6,$7)",[id,owner,id+'.pdf',hash(id),page,now(),now()]);
+  for(let p=1;p<=page;p++) await db.run('INSERT INTO document_pages VALUES($1,$2,$3)',[id,p,p===page?content:'Introductory page without the requested subject.']);
+  await db.run('INSERT INTO document_chunks VALUES($1,$2,$3,$4,$5,$6)',[id+'-chunk',id,page,0,content,hash(content)]);
 }
 test('Direct PDF chat requires no research/planner, uses correct pages, verifies memory and isolates owners',async t=>{
   await db.initializeDatabase();
@@ -25,7 +25,7 @@ test('Direct PDF chat requires no research/planner, uses correct pages, verifies
   assert.ok(reply.citations.length); const c=reply.citations[0];
   assert.ok(['one','two'].includes(c.documentId));
   assert.equal(c.page,c.documentId==='one'?2:1);
-  assert.ok((await db.get('SELECT content FROM document_pages WHERE document_id=? AND page=?',[c.documentId,c.page])).content.includes(c.quote));
+  assert.ok((await db.get('SELECT content FROM document_pages WHERE document_id=$1 AND page=$2',[c.documentId,c.page])).content.includes(c.quote));
   await assert.rejects(chat.send(s.id,'alice',{content:'Explain simple harmonic motion',clientToken:'one-turn'}),{status:409});
   assert.equal((await chat.messages(s.id,'alice')).length,2);
   await assert.rejects(chat.messages(s.id,'bob'),{status:404});
@@ -41,7 +41,7 @@ test('Direct PDF chat requires no research/planner, uses correct pages, verifies
   const recalledReply=await chat.send(recalled.id,'alice',{content:'Explain simple harmonic motion',clientToken:'recall'});
   assert.ok(recalledReply.citations.some(c=>c.memoryId===m.id));
   assert.equal((await memory.list('alice','','candidate')).length,0,'Do not clone an already selected verified memory');
-  await db.run('UPDATE documents SET deleted_at=? WHERE id=?',[now(),c.documentId]);
+  await db.run('UPDATE documents SET deleted_at=$1 WHERE id=$2',[now(),c.documentId]);
   assert.equal(await memory.getValid(m.id,'alice',null),null);
   assert.equal((await memory.list('alice','','stale'))[0].status,'stale');
   await assert.rejects(chat.send(s.id,'alice',{content:'Explain simple harmonic motion',clientToken:'deleted'}),{status:404});
@@ -62,9 +62,9 @@ test('Unrelated question never calls Gemini; Vietnamese/English terms reach FTS 
   assert.throws(()=>chat.validateOutput({claims:[{text:'Invented',citations:[{contextId:'C1',referenceId:'fake',documentId:'private',page:99,quote:'invented source quote'}]}]},[]),{status:502});
   const m=(await memory.list('alice','','candidate')).find(m=>m.links[0].document_id==='language');
   assert.ok(m);
-  await db.run('UPDATE agent_memories SET content=?,content_hash=? WHERE id=?',['AI invented fact',hash('AI invented fact'),m.id]);
+  await db.run('UPDATE agent_memories SET content=$1,content_hash=$2 WHERE id=$3',['AI invented fact',hash('AI invented fact'),m.id]);
   await assert.rejects(memory.approve(m.id,'alice',false),{status:409});
-  assert.equal((await db.get('SELECT status FROM agent_memories WHERE id=?',[m.id])).status,'stale');
+  assert.equal((await db.get('SELECT status FROM agent_memories WHERE id=$1',[m.id])).status,'stale');
 });
 test('HTTP document-only endpoints keep Auth/CSRF and cross-account document/chat/memory access denied',async t=>{
   const {app}=require('../src/server');
@@ -96,7 +96,7 @@ test('HTTP document-only endpoints keep Auth/CSRF and cross-account document/cha
 test('Chat history cursor returns earlier messages in order and cannot cross chat ownership',async()=>{
   await seed('history');
   const s=await chat.create('alice',null,{documentIds:['history']});
-  await db.transaction(async tx=>{for(let i=0;i<120;i++)await tx.run("INSERT INTO chat_messages(id,chat_id,role,content,turn_id,status,created_at) VALUES(?,?,'user',?,?,'complete',?)",['history-'+i,s.id,'message '+i,'turn-'+i,now()]);});
+  await db.transaction(async tx=>{for(let i=0;i<120;i++)await tx.run("INSERT INTO chat_messages(id,chat_id,role,content,turn_id,status,created_at) VALUES($1,$2,'user',$3,$4,'complete',$5)",['history-'+i,s.id,'message '+i,'turn-'+i,now()]);});
   const latest=await chat.messages(s.id,'alice');assert.equal(latest.length,100);assert.equal(latest[0].content,'message 20');
   const older=await chat.messages(s.id,'alice',String(latest[0].position));assert.equal(older.length,20);assert.equal(older[0].content,'message 0');assert.equal(older[19].content,'message 19');
   await assert.rejects(chat.messages(s.id,'bob',latest[0].position),{status:404});

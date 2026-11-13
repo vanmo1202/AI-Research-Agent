@@ -6,8 +6,8 @@ const ok = (res, data, status = 200) =>
 exports.list = async (req, res) =>
   ok(
     res,
-    await db.all(`SELECT r.*, (SELECT id FROM research_runs WHERE request_id=r.id ORDER BY rowid DESC LIMIT 1) latestRunId,
- (SELECT status FROM research_runs WHERE request_id=r.id ORDER BY rowid DESC LIMIT 1) runStatus FROM requests r WHERE r.owner_id=? ORDER BY r.created_at DESC LIMIT 200`, [req.owner]),
+    await db.all(`SELECT r.*, (SELECT id FROM research_runs WHERE request_id=r.id ORDER BY legacy_position DESC LIMIT 1) "latestRunId",
+ (SELECT status FROM research_runs WHERE request_id=r.id ORDER BY legacy_position DESC LIMIT 1) "runStatus" FROM requests r WHERE r.owner_id=$1 ORDER BY r.created_at DESC LIMIT 200`, [req.owner]),
   );
 exports.create = async (req, res) => {
   const r = await service.create(
@@ -15,7 +15,7 @@ exports.create = async (req, res) => {
     req.body,
     req.get("Idempotency-Key"),
   );
-  ok(res, { requestId: r.request_id, runId: r.id, status: r.status }, 202);
+  ok(res, { requestId: r.request_id, runId: r.id, status: r.status, orchestration: r.orchestration }, 202);
 };
 exports.progress = async (req, res) =>
   ok(res, await service.progress(req.params.requestId, req.params.runId));
@@ -35,15 +35,12 @@ exports.cancel = async (req, res) => {
   const r = await service.cancel(req.params.runId);
   ok(res, { runId: r.id, status: r.status });
 };
-exports.sources = async (req, res) => {
-  await service.requireRun(req.params.runId);
-  ok(
-    res,
-    await db.all(
-      "SELECT * FROM source_versions WHERE run_id=? ORDER BY rowid",
-      [req.params.runId],
-    ),
-  );
+exports.sources = async (req,res)=>{
+ await service.requireRun(req.params.runId);
+ const sources=await db.all('SELECT * FROM source_versions WHERE run_id=$1 ORDER BY legacy_position',[req.params.runId]);
+ const jobs=await db.all("SELECT output_json FROM stage_jobs WHERE run_id=$1 AND stage='collecting' AND status='succeeded' ORDER BY legacy_position",[req.params.runId]);
+ const provenance=new Map(jobs.flatMap(j=>JSON.parse(j.output_json || '{}').provenance || []).map(p=>[p.id,p]));
+ ok(res,sources.map(s=>({...s,provenance:provenance.get(s.id) || null,canonicalUrl:provenance.get(s.id)?.canonicalUrl || s.url,sourceStatus:s.provider==='mock'?'mock':provenance.get(s.id)?.status || 'unverified'})));
 };
 exports.evidence = async (req, res) => {
   await service.requireRun(req.params.runId);
@@ -65,7 +62,7 @@ exports.reports = async (req, res) => {
     res,
     (
       await db.all(
-        "SELECT * FROM report_versions WHERE run_id=? ORDER BY rowid DESC",
+        "SELECT * FROM report_versions WHERE run_id=$1 ORDER BY legacy_position DESC",
         [req.params.runId],
       )
     ).map((r) => ({
@@ -88,7 +85,7 @@ exports.dispatch = async (req, res) =>
     202,
   );
 exports.job = async (req, res) => {
-  const j = await db.get("SELECT * FROM stage_jobs WHERE id=?", [
+  const j = await db.get("SELECT * FROM stage_jobs WHERE id=$1", [
     req.params.jobId,
   ]);
   if (!j || j.run_id !== req.query.runId)

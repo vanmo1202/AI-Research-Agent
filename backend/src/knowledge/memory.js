@@ -8,7 +8,7 @@ async function resolve(link, owner, connection = db) {
   if (link.kind === "document") {
     const c = await connection.get(
       `SELECT c.*,d.sha256,d.filename FROM document_chunks c JOIN documents d ON d.id=c.document_id
-      WHERE c.id=? AND d.owner_id=? AND d.status='ready' AND d.deleted_at IS NULL`,
+      WHERE c.id=$1 AND d.owner_id=$2 AND d.status='ready' AND d.deleted_at IS NULL`,
       [link.reference_id, owner],
     );
     if (!c || c.document_id !== link.document_id || c.page !== link.page)
@@ -25,7 +25,7 @@ async function resolve(link, owner, connection = db) {
   }
   if (link.kind === "evidence") {
     const e = await connection.get(
-      "SELECT e.*,s.title,s.url,s.content_vi,s.content,s.source_language,s.translation_status,r.topic,r.goal,r.scope FROM evidence e JOIN sources s ON s.id=e.source_id JOIN requests r ON r.id=e.request_id WHERE e.id=? AND s.id=? AND r.owner_id=?",
+      "SELECT e.*,s.title,s.url,s.content_vi,s.content,s.source_language,s.translation_status,r.topic,r.goal,r.scope FROM evidence e JOIN sources s ON s.id=e.source_id JOIN requests r ON r.id=e.request_id WHERE e.id=$1 AND s.id=$2 AND r.owner_id=$3",
       [link.reference_id, link.source_id, owner],
     );
     if (
@@ -57,7 +57,7 @@ async function resolve(link, owner, connection = db) {
       ),
     };
   }
-  const row = await connection.get("SELECT s.*,r.topic,r.goal,r.scope FROM sources s JOIN requests r ON r.id=s.request_id WHERE s.id=? AND r.owner_id=?", [
+  const row = await connection.get("SELECT s.*,r.topic,r.goal,r.scope FROM sources s JOIN requests r ON r.id=s.request_id WHERE s.id=$1 AND r.owner_id=$2", [
     link.source_id, owner,
   ]);
   const source = row && {
@@ -88,7 +88,7 @@ async function resolve(link, owner, connection = db) {
 }
 async function validate(m, owner, connection = db) {
   const links = await connection.all(
-    "SELECT * FROM memory_evidence_links WHERE memory_id=?",
+    "SELECT * FROM memory_evidence_links WHERE memory_id=$1",
     [m.id],
   );
   let valid = links.length > 0 && m.content_hash === hash(normalize(m.content));
@@ -107,7 +107,7 @@ async function validate(m, owner, connection = db) {
   }
   if (!valid && !["stale", "rejected"].includes(m.status)) {
     await connection.run(
-      "UPDATE agent_memories SET status='stale',updated_at=? WHERE id=?",
+      "UPDATE agent_memories SET status='stale',updated_at=$1 WHERE id=$2",
       [now(), m.id],
     );
     m.status = "stale";
@@ -116,7 +116,7 @@ async function validate(m, owner, connection = db) {
 }
 async function getValid(id, owner, requestId) {
   const m = await db.get(
-    "SELECT * FROM agent_memories WHERE id=? AND owner_id=? AND status='verified' AND (request_id IS ? OR kind='cross_research')",
+    "SELECT * FROM agent_memories WHERE id=$1 AND owner_id=$2 AND status='verified' AND (request_id IS NOT DISTINCT FROM $3 OR kind='cross_research')",
     [id, owner, requestId],
   );
   if (!m) return null;
@@ -144,13 +144,13 @@ async function candidates(session, messageId, citations) {
       );
       if (!live || live.versionHash !== c.versionHash || !normalize(live.content).includes(content)) return;
       const count = await tx.get(
-        "SELECT COUNT(*) AS n FROM agent_memories WHERE owner_id=?",
+        "SELECT COUNT(*) AS n FROM agent_memories WHERE owner_id=$1",
         [session.owner_id],
       );
       if (count.n >= 2000) return;
       const id = randomUUID();
       const inserted = await tx.run(
-        "INSERT OR IGNORE INTO agent_memories(id,owner_id,request_id,message_id,kind,content,content_hash,status,created_at,updated_at) VALUES(?,?,?,?,'research',?,?,'candidate',?,?)",
+        "INSERT INTO agent_memories(id,owner_id,request_id,message_id,kind,content,content_hash,status,created_at,updated_at) VALUES($1,$2,$3,$4,'research',$5,$6,'candidate',$7,$8) ON CONFLICT DO NOTHING",
         [
           id,
           session.owner_id,
@@ -164,7 +164,7 @@ async function candidates(session, messageId, citations) {
       );
       if (!inserted.changes) return;
       await tx.run(
-        "INSERT INTO memory_evidence_links(memory_id,kind,reference_id,document_id,page,source_id,version_hash,quote) VALUES(?,?,?,?,?,?,?,?)",
+        "INSERT INTO memory_evidence_links(memory_id,kind,reference_id,document_id,page,source_id,version_hash,quote) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
         [
           id,
           c.kind,
@@ -185,21 +185,20 @@ async function list(owner, query = "", status) {
     "Invalid memory status",
   );
   const params = [owner],
-    clauses = ["m.owner_id=?"];
+    clauses = ["m.owner_id=$1"];
   let from = "agent_memories m";
   if (query) {
     const q = match(query);
     if (!q) return [];
-    from += " JOIN agent_memories_fts ON agent_memories_fts.rowid=m.rowid";
-    clauses.push("agent_memories_fts MATCH ?");
+    clauses.push(`m.search_vector @@ research_query($${params.length+1})`);
     params.push(q);
   }
   if (status) {
-    clauses.push("m.status=?");
+    clauses.push(`m.status=$${params.length+1}`);
     params.push(status);
   }
   const rows = await db.all(
-    `SELECT m.* FROM ${from} WHERE ${clauses.join(" AND ")} ORDER BY ${query ? "bm25(agent_memories_fts)," : ""} m.updated_at DESC LIMIT 60`,
+    `SELECT m.* FROM ${from} WHERE ${clauses.join(" AND ")} ORDER BY ${query ? `ts_rank_cd(m.search_vector,research_query($2)) DESC,` : ""} m.updated_at DESC LIMIT 60`,
     params,
   );
   const result = [];
@@ -208,13 +207,13 @@ async function list(owner, query = "", status) {
 }
 async function approve(id, owner, crossResearch) {
   const result = await db.transaction(async tx => {
-    const m = await tx.get('SELECT * FROM agent_memories WHERE id=? AND owner_id=?', [id, owner]);
+    const m = await tx.get('SELECT * FROM agent_memories WHERE id=$1 AND owner_id=$2', [id, owner]);
     check(m, 'Memory not found', 404);
     check(['candidate', 'verified'].includes(m.status), 'Only current candidates can be approved', 409);
     const valid = await validate(m, owner, tx);
     // Commit invalidation, then return a conflict; never resurrect a concurrent stale source.
     if (!valid.valid) return { stale: true };
-    await tx.run("UPDATE agent_memories SET status='verified',kind=?,verification_json=?,updated_at=? WHERE id=? AND owner_id=?", [
+    await tx.run("UPDATE agent_memories SET status='verified',kind=$1,verification_json=$2,updated_at=$3 WHERE id=$4 AND owner_id=$5", [
       crossResearch ? 'cross_research' : 'research',
       JSON.stringify({ approvedBy: owner, approvedAt: now(), sourceValidatedAt: now(), method: 'human-reviewed-extractive-quote' }),
       now(), id, owner]);
@@ -225,26 +224,22 @@ async function approve(id, owner, crossResearch) {
 }
 
 async function maintain(owner) {
-  if (owner === undefined) {
-    const owners = await db.all('SELECT DISTINCT owner_id FROM agent_memories');
-    const results = [];
-    for (const row of owners) results.push(await maintain(row.owner_id));
-    return results;
-  }
-  const rows = await db.all(
-    "SELECT * FROM agent_memories WHERE owner_id=? AND status IN ('candidate','verified') ORDER BY COALESCE(last_checked_at,'') LIMIT 200",
-    [owner],
-  );
-  let stale = 0;
-  for (const m of rows) {
-    if (!(await validate(m, owner)).valid) stale++;
-    await db.run(
-      "UPDATE agent_memories SET last_checked_at=? WHERE id=? AND owner_id=?",
-      [now(), m.id, owner],
+  check(typeof owner === 'string' && owner.length > 0, 'Memory owner required');
+  // Bounded, database-only transaction: a transient failure must roll back all invalidations.
+  return db.transaction(async tx => {
+    const rows = await tx.all(
+      "SELECT * FROM agent_memories WHERE owner_id=$1 AND status IN ('candidate','verified') ORDER BY last_checked_at ASC NULLS FIRST LIMIT 200",
+      [owner],
     );
-  }
-  return { checked: rows.length, stale };
+    let stale = 0;
+    for (const m of rows) {
+      if (!(await validate(m, owner, tx)).valid) stale++;
+      await tx.run('UPDATE agent_memories SET last_checked_at=$1 WHERE id=$2 AND owner_id=$3', [now(),m.id,owner]);
+    }
+    return { checked: rows.length, stale };
+  });
 }
+
 module.exports = {
   resolve,
   validate,

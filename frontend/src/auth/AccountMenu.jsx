@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth, authApi } from './AuthProvider';
+import { ChevronDown } from 'lucide-react';
 export default function AccountMenu() {
   const { user, logout } = useAuth(),
     [message, setMessage] = useState(''),
@@ -38,7 +39,13 @@ export default function AccountMenu() {
         }
       }}
     >
-      <summary aria-label="Menu tài khoản">{user.name}</summary>
+      <summary aria-label="Menu tài khoản">
+        <span className="ref-avatar" aria-hidden="true">
+          {user.name?.slice(0, 1).toLocaleUpperCase()}
+        </span>
+        <span className="ref-account-name">{user.name}</span>
+        <ChevronDown size={14} />
+      </summary>
       <div className="account-popover">
         <strong>{user.name}</strong>
         <p>{user.email}</p>

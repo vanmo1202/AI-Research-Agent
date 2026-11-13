@@ -22,8 +22,8 @@ module.exports = async (ctx) => {
     ctx.input.searchMore &&
     ctx.run.current_round < 2 &&
     ctx.sources.length < ctx.input.numberOfSources &&
-    ctx.run.search_calls < 16 &&
-    ctx.run.llm_calls < 32;
+    ctx.run.search_calls < 3 &&
+    ctx.run.llm_calls < 12;
   return require("../validators/evaluation.validator").validate({
     coverage,
     action:

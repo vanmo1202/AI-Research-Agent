@@ -113,7 +113,7 @@ async function upload(req, owner) {
     const sha = digest.digest("hex");
     const result = await db.transaction(async (tx) => {
       const duplicate = await tx.get(
-        "SELECT * FROM documents WHERE owner_id=? AND sha256=? AND deleted_at IS NULL",
+        "SELECT * FROM documents WHERE owner_id=$1 AND sha256=$2 AND deleted_at IS NULL",
         [owner, sha],
       );
       if (duplicate) return { document: publicDoc(duplicate), duplicate: true };
@@ -129,16 +129,16 @@ async function upload(req, owner) {
         jobId = randomUUID(),
         time = now();
       await tx.run(
-        "INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'pending',?,?)",
+        "INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,'pending',$7,$8)",
         [id, owner, filename, name, sha, size, time, time],
       );
       await tx.run(
-        "INSERT INTO document_ingestion_jobs(id,document_id,status,created_at,updated_at) VALUES(?,?,'pending',?,?)",
+        "INSERT INTO document_ingestion_jobs(id,document_id,status,created_at,updated_at) VALUES($1,$2,'pending',$3,$4)",
         [jobId, id, time, time],
       );
       return {
         document: publicDoc(
-          await tx.get("SELECT * FROM documents WHERE id=?", [id]),
+          await tx.get("SELECT * FROM documents WHERE id=$1", [id]),
         ),
         jobId,
         duplicate: false,
@@ -155,7 +155,7 @@ async function retry(id, owner) {
   await document(id, owner);
   return db.transaction(async (tx) => {
     const doc = await tx.get(
-      "SELECT * FROM documents WHERE id=? AND owner_id=? AND deleted_at IS NULL",
+      "SELECT * FROM documents WHERE id=$1 AND owner_id=$2 AND deleted_at IS NULL",
       [id, owner],
     );
     check(
@@ -166,11 +166,11 @@ async function retry(id, owner) {
     const jobId = randomUUID(),
       time = now();
     await tx.run(
-      "UPDATE documents SET status='pending',error_code=NULL,updated_at=? WHERE id=?",
+      "UPDATE documents SET status='pending',error_code=NULL,updated_at=$1 WHERE id=$2",
       [time, id],
     );
     await tx.run(
-      "INSERT INTO document_ingestion_jobs(id,document_id,status,created_at,updated_at) VALUES(?,?,'pending',?,?)",
+      "INSERT INTO document_ingestion_jobs(id,document_id,status,created_at,updated_at) VALUES($1,$2,'pending',$3,$4)",
       [jobId, id, time, time],
     );
     return { jobId, status: "pending" };
@@ -180,15 +180,15 @@ async function remove(id, owner) {
   const doc = await document(id, owner);
   await db.transaction(async (tx) => {
     await tx.run(
-      "UPDATE documents SET deleted_at=?,updated_at=? WHERE id=? AND owner_id=?",
+      "UPDATE documents SET deleted_at=$1,updated_at=$2 WHERE id=$3 AND owner_id=$4",
       [now(), now(), id, owner],
     );
     await tx.run(
-      "UPDATE document_ingestion_jobs SET status='failed',error_code='DOCUMENT_DELETED',lease_until=NULL WHERE document_id=? AND status IN ('pending','processing')",
+      "UPDATE document_ingestion_jobs SET status='failed',error_code='DOCUMENT_DELETED',lease_until=NULL WHERE document_id=$1 AND status IN ('pending','processing')",
       [id],
     );
-    await tx.run("DELETE FROM research_documents WHERE document_id=?", [id]);
-    await tx.run("DELETE FROM document_pages WHERE document_id=?", [id]);
+    await tx.run("DELETE FROM research_documents WHERE document_id=$1", [id]);
+    await tx.run("DELETE FROM document_pages WHERE document_id=$1", [id]);
   });
   await fsp.unlink(storagePath(doc.storage_name)).catch((e) => {
     if (e.code !== "ENOENT")

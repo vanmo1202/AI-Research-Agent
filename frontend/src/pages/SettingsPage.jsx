@@ -117,7 +117,7 @@ export default function SettingsPage() {
               <p>Tavily hoặc Mock Search; provider hiển thị theo response.</p>
             </div>
             <div>
-              <strong>SQLite persistence</strong>
+              <strong>PostgreSQL persistence</strong>
               <p>Kế hoạch và nguồn tài liệu được lưu trên backend.</p>
             </div>
           </div>

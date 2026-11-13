@@ -3,7 +3,7 @@ require("./config/environment").loadEnvironment();
 const express = require("express");
 const cors = require("cors");
 
-const { initializeDatabase } = require("./config/database");
+const { initializeDatabase, get, close } = require("./config/database");
 const researchRoutes = require("./routes/research.routes");
 const logger = require("./utils/logger");
 const { getSettings } = require("./utils/settings");
@@ -30,10 +30,19 @@ app.get("/health", (req, res) => {
     });
 });
 
+app.get('/health/ready', async (_req,res) => {
+    try {
+        const migration=await get("SELECT version FROM postgres_schema_migrations WHERE version='002_search_and_integrity.sql'");
+        res.status(migration?200:503).json({status:migration?'ok':'unavailable',database:'postgresql'});
+    } catch { res.status(503).json({status:'unavailable',database:'postgresql'}); }
+});
+
 const auth = require('./auth');
 app.use('/api/auth', auth.router);
 app.use('/api', auth.csrf, auth.authenticate);
 app.get('/api/dashboard', require('./auth/dashboard'));
+app.get('/api/analytics', require('./auth/analytics'));
+app.use('/api/research/schedules', require('./schedules/routes').publicRouter);
 app.use('/api/research', require('./auth/ownership').researchAccess);
 const v2 = require("./routes/run.routes");
 app.use("/api/research", v2.router);
@@ -71,7 +80,7 @@ async function start() {
                 resolve(listener);
             });
         });
-        const shutdown = () => server.close(() => process.exit(0));
+        const shutdown = () => server.close(async () => { await close(); process.exit(0); });
         process.once("SIGTERM", shutdown);
         process.once("SIGINT", shutdown);
         return server;

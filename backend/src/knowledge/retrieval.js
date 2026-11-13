@@ -10,7 +10,7 @@ async function sourceContexts(requestId) {
     0,
     40,
   );
-  return sources.flatMap((source) =>
+  return sources.filter(source=>source.provider==='tavily' && require('../services/source-quality.service').isResearchUrl(source.url)).flatMap((source) =>
     createChunks(requestId, source).map((c) => ({
       kind: "source",
       referenceId: c.id,
@@ -36,21 +36,21 @@ async function retrieve(session, question, topK = 6) {
       await document(id, session.owner_id, true);
       if (session.request_id !== null) check(
         await db.get(
-          "SELECT 1 FROM research_documents WHERE request_id=? AND document_id=? AND owner_id=?",
+          "SELECT 1 FROM research_documents WHERE request_id=$1 AND document_id=$2 AND owner_id=$3",
           [session.request_id, id, session.owner_id],
         ),
         "Document no longer attached",
         409,
       );
     }
-    const query = require("../services/source-relevance.service").searchTerms(question).map(term => `"${term}"`).join(" OR ");
+    const query = require("../services/source-relevance.service").searchTerms(question).map(term => `"${term}"`).join(" ");
     if (query) {
       const rows = await db.all(
-        `SELECT c.*,d.filename,d.sha256,bm25(document_chunks_fts) AS rank
-        FROM document_chunks_fts JOIN document_chunks c ON c.rowid=document_chunks_fts.rowid JOIN documents d ON d.id=c.document_id
-        WHERE document_chunks_fts MATCH ? AND d.owner_id=? AND d.status='ready' AND d.deleted_at IS NULL AND d.id IN (${docIds.map(() => "?").join(",")})
-        ORDER BY rank LIMIT 24`,
-        [query, session.owner_id, ...docIds],
+        `SELECT c.*,d.filename,d.sha256,ts_rank_cd(c.search_vector,research_query($1)) AS rank
+        FROM document_chunks c JOIN documents d ON d.id=c.document_id
+        WHERE c.search_vector @@ research_query($1) AND d.owner_id=$2 AND d.status='ready' AND d.deleted_at IS NULL AND d.id=ANY($3::text[])
+        ORDER BY rank DESC,c.legacy_position LIMIT 24`,
+        [query, session.owner_id, docIds],
       );
       result.push(
         ...rows.map((r) => ({
@@ -65,9 +65,20 @@ async function retrieve(session, question, topK = 6) {
       );
     }
   }
+  // Overview requests need representative bounded excerpts, rather than literal matches
+  // for words like "summarize" that usually do not occur in the PDF itself.
+  const folded = require('./unified-routing').fold(question);
+  if (docIds.length && session.scope !== 'research' && /tom tat|tong quan|noi dung (chinh|file|tai lieu)|summari[sz]e|overview/.test(folded)) {
+    const rows = await db.all(
+      `SELECT * FROM (SELECT c.*,d.filename,d.sha256,row_number() OVER (PARTITION BY c.document_id ORDER BY c.page,c.chunk_index) AS sample
+       FROM document_chunks c JOIN documents d ON d.id=c.document_id
+       WHERE d.id=ANY($1::text[]) AND d.owner_id=$2 AND d.status='ready' AND d.deleted_at IS NULL) snippets
+       WHERE sample<=2 ORDER BY sample,document_id LIMIT 8`, [docIds,session.owner_id]);
+    result.push(...rows.map(r => ({kind:'document',referenceId:r.id,documentId:r.document_id,page:r.page,content:r.content,title:r.filename,versionHash:hash(r.sha256+r.content_hash),overview:true})));
+  }
   if (session.request_id && session.scope !== "documents") {
     const evidence = await db.all(
-      `SELECT e.*,s.title_vi,s.title,s.url,s.content_vi,s.content FROM evidence e JOIN sources s ON s.id=e.source_id WHERE e.request_id=? AND s.request_id=? ORDER BY e.relevance_score DESC LIMIT 200`,
+      `SELECT e.*,s.title_vi,s.title,s.url,s.content_vi,s.content FROM evidence e JOIN sources s ON s.id=e.source_id WHERE e.request_id=$1 AND s.request_id=$2 ORDER BY e.relevance_score DESC LIMIT 200`,
       [session.request_id, session.request_id],
     );
     const currentSources = await sourceContexts(session.request_id);
@@ -114,7 +125,7 @@ async function retrieve(session, question, topK = 6) {
     }
   }
   const ranked = result
-    .map((c) => ({ ...c, score: score(question, c.content) }))
+    .map((c) => ({ ...c, score: c.overview ? 1 : score(question, c.content) }))
     .filter((c) => c.score > 0.05)
     .sort((a, b) => b.score - a.score);
   const unique = ranked.filter(

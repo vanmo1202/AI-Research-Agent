@@ -46,5 +46,5 @@ jobs:
         run: npx playwright install --with-deps chrome
         working-directory: frontend
       - name: Run frontend E2E
-        run: npm run test:e2e
+        run: npm run test:rebuild
         working-directory: frontend

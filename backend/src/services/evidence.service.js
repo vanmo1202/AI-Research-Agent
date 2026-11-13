@@ -20,11 +20,11 @@ async function getEvidence(requestId) {
     const request = await requestModel.findById(requestId);
     if (!request) return [];
     const allowed = new Set(topical.eligibleSources(request, await sourceModel.getSourcesByRequestId(requestId)).map(s => s.id));
-    return (await database.all('SELECT * FROM evidence WHERE request_id = ? ORDER BY relevance_score DESC, rowid', [requestId]))
+    return (await database.all('SELECT * FROM evidence WHERE request_id = $1 ORDER BY relevance_score DESC, legacy_position', [requestId]))
         .map(rowEvidence).filter(item => allowed.has(item.sourceId) && detectSourceLanguage({ content: item.evidenceText }) === 'vi');
 }
 async function getAnalysis(requestId) {
-    const row = await database.get('SELECT metadata_json FROM analysis_results WHERE request_id = ?', [requestId]);
+    const row = await database.get('SELECT metadata_json FROM analysis_results WHERE request_id = $1', [requestId]);
     return row ? JSON.parse(row.metadata_json) : { requestId, status: 'pending', questions: [], metrics: {} };
 }
 function buildContext(question, ranked, sources, maxChars) {
@@ -80,7 +80,7 @@ async function analyze(requestId) {
             const context = buildContext(question, unique, sources, maxChars);
             logger.info('Workflow3', `question ${index + 1} selected ${context.chunks.length} chunks`);
             const hash = createHash('sha256').update(JSON.stringify(['vi-evidence-relevance-v2', context, mock, process.env.GEMINI_MODEL || 'gemini-2.5-flash'])).digest('hex');
-            const cached = await database.get('SELECT evidence_json FROM evidence_cache WHERE request_id = ? AND question_id = ? AND input_hash = ?', [requestId, question.id, hash]);
+            const cached = await database.get('SELECT evidence_json FROM evidence_cache WHERE request_id = $1 AND question_id = $2 AND input_hash = $3', [requestId, question.id, hash]);
             if (cached) { metrics.cacheHits++; return { questionId: question.id, status: 'complete', evidence: JSON.parse(cached.evidence_json), hash }; }
             try {
                 if (quotaError) throw quotaError;
@@ -110,7 +110,7 @@ async function analyze(requestId) {
                         evidenceText: item.evidenceText, relevanceScore: unique.find(c => c.id === item.chunkId)?.relevanceScore || 0,
                         reason: item.reason, citationLabel: `[Nguồn ${sources.findIndex(s => s.id === item.sourceId) + 1}]` };
                 });
-                await database.run('INSERT OR REPLACE INTO evidence_cache (request_id, question_id, input_hash, evidence_json) VALUES (?, ?, ?, ?)', [requestId, question.id, hash, JSON.stringify(evidence)]);
+                await database.run('INSERT INTO evidence_cache (request_id, question_id, input_hash, evidence_json) VALUES ($1, $2, $3, $4) ON CONFLICT(request_id,question_id,input_hash) DO UPDATE SET evidence_json=EXCLUDED.evidence_json', [requestId, question.id, hash, JSON.stringify(evidence)]);
                 return { questionId: question.id, status: 'complete', evidence, hash };
             } catch (error) {
                 if (error.code === 'GEMINI_QUOTA_EXHAUSTED') quotaError = error;
@@ -126,12 +126,12 @@ async function analyze(requestId) {
         const metadata = { requestId, status, partial, sourceCount: sources.length, chunkCount: chunks.length, evidenceCount: evidence.length,
             questions: results.map(({ evidence, hash, ...result }) => result), metrics };
         await database.transaction(async tx => {
-            await tx.run('DELETE FROM evidence WHERE request_id = ?', [requestId]);
-            await tx.run('DELETE FROM chunks WHERE request_id = ?', [requestId]);
-            for (const chunk of chunks) await tx.run('INSERT INTO chunks (id, request_id, source_id, chunk_index, content, char_count) VALUES (?, ?, ?, ?, ?, ?)', [chunk.id, requestId, chunk.sourceId, chunk.chunkIndex, chunk.content, chunk.charCount]);
-            for (const item of evidence) await tx.run('INSERT INTO evidence (id, request_id, source_id, chunk_id, research_question, evidence_text, relevance_score, reason, citation_label, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))', [item.id, requestId, item.sourceId, item.chunkId, item.researchQuestion, item.evidenceText, item.relevanceScore, item.reason, item.citationLabel, previous.find(old => old.id === item.id)?.createdAt || null]);
-            await tx.run('INSERT OR REPLACE INTO analysis_results (request_id, metadata_json) VALUES (?, ?)', [requestId, JSON.stringify(metadata)]);
-            await tx.run('UPDATE requests SET status = ?, updated_at = ? WHERE id = ?', [status, new Date().toISOString(), requestId]);
+            await tx.run('DELETE FROM evidence WHERE request_id = $1', [requestId]);
+            await tx.run('DELETE FROM chunks WHERE request_id = $1', [requestId]);
+            for (const chunk of chunks) await tx.run('INSERT INTO chunks (id, request_id, source_id, chunk_index, content, char_count) VALUES ($1, $2, $3, $4, $5, $6)', [chunk.id, requestId, chunk.sourceId, chunk.chunkIndex, chunk.content, chunk.charCount]);
+            for (const item of evidence) await tx.run('INSERT INTO evidence (id, request_id, source_id, chunk_id, research_question, evidence_text, relevance_score, reason, citation_label, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, CURRENT_TIMESTAMP))', [item.id, requestId, item.sourceId, item.chunkId, item.researchQuestion, item.evidenceText, item.relevanceScore, item.reason, item.citationLabel, previous.find(old => old.id === item.id)?.createdAt || null]);
+            await tx.run('INSERT INTO analysis_results (request_id, metadata_json) VALUES ($1, $2) ON CONFLICT(request_id) DO UPDATE SET metadata_json=EXCLUDED.metadata_json', [requestId, JSON.stringify(metadata)]);
+            await tx.run('UPDATE requests SET status = $1, updated_at = $2 WHERE id = $3', [status, new Date().toISOString(), requestId]);
         });
         logger.info('Workflow3', `total Gemini calls: ${metrics.geminiCalls}; cache hits: ${metrics.cacheHits}; total ${metrics.totalMs}ms`);
         return metadata;

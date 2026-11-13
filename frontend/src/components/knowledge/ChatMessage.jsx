@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import CitationCard from './CitationCard';
 const stages = {
   planning: 'Đang hiểu câu hỏi và tạo truy vấn...',
@@ -6,15 +8,28 @@ const stages = {
   answering: 'Đang tổng hợp câu trả lời và kiểm tra trích dẫn...',
   validating: 'Đang xác minh trích dẫn và quyền truy cập...',
 };
-export default function ChatMessage({ message }) {
+export default function ChatMessage({ message, onRetry }) {
   return (
     <article className={`chat-message ${message.role}`}>
-      <strong>{message.role === 'user' ? 'Bạn' : 'Trợ lý nghiên cứu'}</strong>
-      <p className="chat-content">
-        {message.status === 'pending'
-          ? stages[message.research?.stage] || 'Đang tìm nguồn và trả lời...'
-          : message.content || 'Chưa thể trả lời.'}
-      </p>
+      <strong>{message.role === 'user' ? 'Bạn' : 'Trợ lý AI'}</strong>
+      <div className="chat-content">
+        {message.status === 'pending' ? (
+          <p role="status">{stages[message.research?.stage] || 'Đang trả lời…'}</p>
+        ) : (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ children, ...props }) => (
+                <a {...props} target="_blank" rel="noopener noreferrer">
+                  {children}
+                </a>
+              ),
+            }}
+          >
+            {message.content || 'Chưa thể trả lời.'}
+          </ReactMarkdown>
+        )}
+      </div>
       {message.research?.mode === 'auto' && message.role === 'assistant' && (
         <div className="ro-auto-research-note">
           {message.research.searchStatus === 'sources_ready' && (
@@ -50,6 +65,11 @@ export default function ChatMessage({ message }) {
             ? `Mã lỗi: ${message.research.error.code} · Bước: ${stages[message.research.failedStage] || 'Kiểm tra nguồn'}`
             : 'Lượt trả lời thất bại. Bạn có thể gửi lại câu hỏi bằng thao tác thủ công.'}
         </p>
+      )}
+      {onRetry && (
+        <button type="button" className="button button-secondary" onClick={onRetry}>
+          Thử lại câu hỏi
+        </button>
       )}
       {(message.citations || []).map((citation, i) => (
         <CitationCard key={`${citation.referenceId}-${i}`} citation={citation} />

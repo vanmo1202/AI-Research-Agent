@@ -1,0 +1,32 @@
+const {test,after}=require('node:test'),assert=require('node:assert/strict');
+const db=require('../src/config/database');
+after(()=>db.close());
+test('offline workspace transfer rejects foreign message/document/source ownership and rolls back',async()=>{
+ await db.initializeDatabase();
+ const {transferWorkspace}=require('../scripts/transfer-legacy');
+ const now=new Date().toISOString();
+ await db.run("INSERT INTO users(id,email,name,password_hash,created_at,updated_at) VALUES('target','target@example.test','Target','unchanged',$1,$1)",[now]);
+ await db.run("INSERT INTO requests(id,topic,goal,owner_id) VALUES('legacy','Preserved','Goal','workspace'),('foreign','Foreign','Goal','another-user')");
+ await db.run("INSERT INTO chat_sessions(id,owner_id,request_id,title,scope,document_ids_json,created_at) VALUES('foreign-chat','another-user','foreign','Other','research','[]',$1)",[now]);
+ await db.run("INSERT INTO chat_messages(id,chat_id,role,content,turn_id,status,created_at) VALUES('foreign-message','foreign-chat','assistant','Foreign','turn','complete',$1)",[now]);
+ await db.run("INSERT INTO agent_memories(id,owner_id,request_id,message_id,kind,content,content_hash,status,created_at,updated_at) VALUES('legacy-memory','workspace','legacy','foreign-message','research','Preserved','hash','candidate',$1,$1)",[now]);
+ const reject=async()=>{
+  await assert.rejects(db.transaction(tx=>transferWorkspace(tx,'target')),/Ownership relationship mismatch/);
+  assert.equal((await db.get("SELECT owner_id FROM requests WHERE id='legacy'")).owner_id,'workspace');
+  assert.equal((await db.get("SELECT owner_id FROM agent_memories WHERE id='legacy-memory'")).owner_id,'workspace');
+ };
+ await reject();
+ await db.run("UPDATE agent_memories SET message_id=NULL WHERE id='legacy-memory'");
+ await db.run("INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,status,created_at,updated_at) VALUES('foreign-doc','another-user','other.pdf','other','sha',1,'ready',$1,$1)",[now]);
+ await db.run("INSERT INTO memory_evidence_links(memory_id,kind,reference_id,document_id,page,version_hash,quote) VALUES('legacy-memory','document','foreign-chunk','foreign-doc',1,'v','quote')");
+ await reject();
+ await db.run("DELETE FROM memory_evidence_links WHERE memory_id='legacy-memory'");
+ await db.run("INSERT INTO sources(id,request_id,query,url,normalized_url,collected_at) VALUES('foreign-source','foreign','q','https://example.test','https://example.test',$1)",[now]);
+ await db.run("INSERT INTO memory_evidence_links(memory_id,kind,reference_id,source_id,version_hash,quote) VALUES('legacy-memory','source','chunk','foreign-source','v','quote')");
+ await reject();
+ await db.run("DELETE FROM memory_evidence_links WHERE memory_id='legacy-memory'");
+ await db.transaction(tx=>transferWorkspace(tx,'target'));
+ assert.equal((await db.get("SELECT owner_id FROM requests WHERE id='legacy'")).owner_id,'target');
+ assert.equal((await db.get("SELECT content FROM agent_memories WHERE id='legacy-memory'")).content,'Preserved');
+ assert.equal((await db.get("SELECT password_hash FROM users WHERE id='target'")).password_hash,'unchanged');
+});

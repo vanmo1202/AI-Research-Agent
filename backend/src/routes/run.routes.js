@@ -37,6 +37,8 @@ for (const format of ["docx", "pdf"])
   });
 const internal = require("express").Router();
 internal.use(require("../auth/internal").internalAuth);
-internal.post("/runs/:runId/jobs", c.dispatch);
-internal.get("/jobs/:jobId", c.job);
+internal.use("/research/schedules", require("../schedules/routes").internalRouter);
+const { internalResearchOwner, internalRunAccess } = require("../auth/internal");
+internal.post("/runs/:runId/jobs", internalResearchOwner, internalRunAccess, c.dispatch);
+internal.get("/jobs/:jobId", internalResearchOwner, internalRunAccess, c.job);
 module.exports = { router, internal };

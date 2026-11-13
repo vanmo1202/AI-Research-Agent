@@ -18,11 +18,11 @@ test('Saved report exports: real DOCX/PDF, Unicode fonts, canonical citations an
     const base = `http://127.0.0.1:${server.address().port}`;
     const id = '12345678-1234-1234-1234-123456789abc';
     const content = '# Báo cáo tiếng Việt\n\n## 1. Giới thiệu\n\nNghiên cứu **bằng chứng** và *trích dẫn*.\n\n- Mục thứ nhất\n- Mục thứ hai\n\n> Đánh giá thận trọng.\n\n' + ('Đoạn phân tích về ứng dụng trí tuệ nhân tạo và các hạn chế của dữ liệu.\n\n').repeat(80) + '## Tài liệu tham khảo\n\n[Nguồn 1] Old English title — https://example.com/article';
-    await db.run('INSERT INTO requests (id, topic, goal, status) VALUES (?, ?, ?, ?)', [id, 'Chủ đề tiếng Việt', 'Mục tiêu', 'completed']);
-    await db.run('INSERT INTO requests (id, topic, goal, status) VALUES (?, ?, ?, ?)', ['no-report', 'Chưa tạo', 'Mục tiêu', 'planned']);
-    await db.run('INSERT INTO sources (id, request_id, query, title, title_vi, url, normalized_url, source_language, translation_status, provider, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', ['source', id, 'RAG', 'Old English title', 'Tiêu đề nguồn tiếng Việt', 'https://example.com/article', 'https://example.com/article', 'en', 'complete', 'tavily', new Date().toISOString()]);
-    await db.run('INSERT INTO reports (id, request_id, title, content, references_json) VALUES (?, ?, ?, ?, ?)', ['report', id, 'Báo cáo tiếng Việt', content, JSON.stringify([{ citationLabel: '[Nguồn 1]', title: 'Old English title', url: 'https://example.com/article' }])]);
-    const before = await db.get('SELECT * FROM reports WHERE request_id = ?', [id]);
+    await db.run('INSERT INTO requests (id, topic, goal, status) VALUES ($1, $2, $3, $4)', [id, 'Chủ đề tiếng Việt', 'Mục tiêu', 'completed']);
+    await db.run('INSERT INTO requests (id, topic, goal, status) VALUES ($1, $2, $3, $4)', ['no-report', 'Chưa tạo', 'Mục tiêu', 'planned']);
+    await db.run('INSERT INTO sources (id, request_id, query, title, title_vi, url, normalized_url, source_language, translation_status, provider, collected_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)', ['source', id, 'RAG', 'Old English title', 'Tiêu đề nguồn tiếng Việt', 'https://example.com/article', 'https://example.com/article', 'en', 'complete', 'tavily', new Date().toISOString()]);
+    await db.run('INSERT INTO reports (id, request_id, title, content, references_json) VALUES ($1, $2, $3, $4, $5)', ['report', id, 'Báo cáo tiếng Việt', content, JSON.stringify([{ citationLabel: '[Nguồn 1]', title: 'Old English title', url: 'https://example.com/article' }])]);
+    const before = await db.get('SELECT * FROM reports WHERE request_id = $1', [id]);
     global.fetch = () => { throw new Error('Export must not call any external API'); };
     try {
         await t.test('DOCX endpoint contains real zipped Word XML, body, headings and source hyperlinks', async () => {
@@ -57,7 +57,7 @@ test('Saved report exports: real DOCX/PDF, Unicode fonts, canonical citations an
                     assert.equal(response.status, status); assert.equal((await response.json()).success, false);
                 }
             }
-            assert.deepEqual(await db.get('SELECT * FROM reports WHERE request_id = ?', [id]), before);
+            assert.deepEqual(await db.get('SELECT * FROM reports WHERE request_id = $1', [id]), before);
         });
     } finally { global.fetch = fetch; await new Promise(resolve => server.close(resolve)); }
 });

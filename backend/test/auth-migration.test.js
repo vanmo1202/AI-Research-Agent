@@ -7,8 +7,8 @@ process.env.RESEARCH_DB_PATH = path.join(
   fs.mkdtempSync(path.join(os.tmpdir(), "auth-migration-")),
   "legacy.db",
 );
-const db = require("../src/config/database"),
-  migrate = require("../src/migrations/004-user-auth");
+const db = require("./legacy/sqlite-database.cjs"),
+  migrate = require("../scripts/migration/sqlite-history/004-user-auth");
 test("004 migration rolls back schema and data on injected failure, then preserves legacy rows", async () => {
   await db.run(
     "CREATE TABLE schema_migrations(version TEXT PRIMARY KEY,applied_at TEXT)",

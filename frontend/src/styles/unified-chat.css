@@ -1,0 +1,139 @@
+.unified-chat {
+  min-width: 0;
+}
+.unified-chat-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 20px;
+}
+.unified-chat-history {
+  min-width: 0;
+  max-height: 75dvh;
+  overflow: auto;
+}
+.unified-chat-history > .button {
+  width: 100%;
+}
+.unified-chat-history .chat-session-list a {
+  overflow-wrap: anywhere;
+}
+.unified-chat-main {
+  min-width: 0;
+}
+.unified-chat .unified-chat-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.unified-chat .chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 230px);
+  min-height: 440px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #dce2e7);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+}
+.unified-chat .chat-messages {
+  flex: 1;
+  min-height: 100px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.unified-chat .chat-content {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.unified-chat .chat-content pre {
+  padding: 14px;
+  border-radius: 10px;
+  background: #172b3a;
+  color: #f4f7fa;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.unified-chat .chat-content table {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+}
+.unified-chat .ro-chat-composer {
+  display: flex;
+  align-items: flex-end;
+  position: static;
+  margin-top: 12px;
+  flex-shrink: 0;
+}
+.unified-chat .ro-chat-composer textarea {
+  flex: 1;
+  min-width: 0;
+  resize: vertical;
+  max-height: 200px;
+}
+.unified-chat .unified-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+.unified-chat .unified-attachments span {
+  background: #edf4f5;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.unified-chat .ro-chat-sources {
+  max-height: 280px;
+  overflow: auto;
+}
+.unified-chat :is(button, a, textarea):focus-visible {
+  outline: 2px solid #147d92;
+  outline-offset: 3px;
+}
+@media (max-width: 1100px) {
+  .unified-chat-layout {
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+@media (max-width: 767px) {
+  .unified-chat-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .unified-chat-history {
+    max-height: 160px;
+  }
+  .unified-chat .chat-panel {
+    height: 65dvh;
+    min-height: 380px;
+    padding: 10px;
+  }
+  .unified-chat .ro-chat-composer {
+    gap: 6px;
+  }
+  .unified-chat .ro-chat-composer .button {
+    padding: 10px;
+  }
+  .unified-chat .ro-chat-composer .button span {
+    display: none;
+  }
+}
+.unified-web-preference {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #526575;
+  margin: 8px 0;
+}
+.unified-attachments button {
+  padding: 0 6px;
+  margin-left: 6px;
+  cursor: pointer;
+}
+.unified-chat .ro-chat-composer {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface, #fff);
+  z-index: 1;
+}

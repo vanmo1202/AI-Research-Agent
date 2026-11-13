@@ -18,9 +18,18 @@ export function StatusBadge({ status }) {
     generating_report: 'Đang tạo báo cáo',
   };
   const tone =
-    { planned: 'blue', collected: 'green', failed: 'red', searching: 'violet', planning: 'violet' }[
-      status
-    ] || 'neutral';
+    {
+      planned: 'blue',
+      collected: 'green',
+      completed: 'green',
+      failed: 'red',
+      partial: 'amber',
+      cancelled: 'neutral',
+      running: 'blue',
+      queued: 'blue',
+      searching: 'blue',
+      planning: 'blue',
+    }[status] || 'neutral';
   return (
     <Badge tone={tone}>
       <span className="status-dot" />

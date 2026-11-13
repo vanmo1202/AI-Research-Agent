@@ -1,28 +1,38 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth, SessionError } from '../auth/AuthProvider';
 import '../auth/auth.css';
 export default function LoginPage({ register = false }) {
-  const { user, loading, expired, signIn } = useAuth(),
+  const { user, loading, expired, signIn, authError, restore } = useAuth(),
     location = useLocation(),
     navigate = useNavigate();
+  const submitLock = useRef(false);
   const [visible, setVisible] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   if (loading) return <p role="status">Đang kiểm tra phiên…</p>;
+  if (authError) return <SessionError error={authError} retry={restore} />;
   const from = location.state?.from;
   const destination =
-    typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : '/';
+    typeof from === 'string' &&
+    from.startsWith('/') &&
+    !from.startsWith('//') &&
+    !/[\\\r\n]/.test(from) &&
+    !/^\/(?:login|register)(?:[/?#]|$)/.test(from)
+      ? from
+      : '/';
   if (user) return <Navigate to={destination} replace />;
   async function submit(event) {
     event.preventDefault();
+    if (submitLock.current) return;
     setError('');
     const data = Object.fromEntries(new FormData(event.currentTarget));
     if (register && data.password !== data.confirm) {
       setError('Mật khẩu xác nhận chưa khớp.');
       return;
     }
+    submitLock.current = true;
     setBusy(true);
     try {
       await signIn(register ? 'register' : 'login', {
@@ -34,6 +44,7 @@ export default function LoginPage({ register = false }) {
     } catch (e) {
       setError(e.message);
     } finally {
+      submitLock.current = false;
       setBusy(false);
     }
   }

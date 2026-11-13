@@ -1,0 +1,298 @@
+{
+  "name": "ResearchOS | WF03 Research Chat and RAG | v2 API compatible",
+  "active": false,
+  "nodes": [
+    {
+      "id": "adf93d9f-64d4-530d-92f4-93f05d7de5eb",
+      "name": "01 - Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "researchos/wf03/research-chat",
+        "responseMode": "responseNode",
+        "authentication": "headerAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "dd484d2c-c85d-52cd-a1ec-75cc2a82b231",
+      "name": "02 - Validate Chat Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$input.first().json.body??{};\nconst uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst valid=typeof b.chatId==='string'&&typeof b.requestId==='string'&&uuid.test(b.chatId??'')&&uuid.test(b.requestId??'')&&typeof b.content==='string'&&b.content.trim().length>0&&b.content.length<=2000&&typeof b.clientToken==='string'&&b.clientToken.trim().length>0&&b.clientToken.length<=100;\nreturn [{json:{valid,requestId:valid?b.requestId:null,chatId:valid?b.chatId:null,content:valid?b.content.trim():null,clientToken:valid?b.clientToken:null,error:valid?null:'Invalid requestId/chatId/content/clientToken'}}];"
+      }
+    },
+    {
+      "id": "06e33f71-60f3-5c41-af03-4de062997d26",
+      "name": "03 - Valid Chat?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        490,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5315a844-14c1-5767-b200-c275cf95de15",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "ac87e07e-7057-52ff-95d7-9b072763207d",
+      "name": "04 - Invalid Chat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{success:false,error:$input.first().json.error}}];"
+      }
+    },
+    {
+      "id": "695c55e0-b08b-5b38-a839-3ade2fb25d70",
+      "name": "05 - Return 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        960,
+        160
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "cfb5f12f-1648-5fbe-a7fa-5b0ea8a79471",
+      "name": "06 - Ask Backend RAG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        730,
+        -130
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://backend:3000/internal/knowledge/chats/' + $json.chatId + '/messages' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 40000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {requestId: $json.requestId, content: $json.content, clientToken: $json.clientToken} }}"
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": false
+    },
+    {
+      "id": "274d5290-a4ab-530a-8dc4-e3b454f6a588",
+      "name": "07 - Validate Backend Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        990,
+        -130
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const response=$input.first().json;\nif(response.success!==true||!response.data) throw new Error('Unexpected chat reply');\nreturn [{json:response}];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "888b7c7e-750b-534c-adbb-38a4beda6987",
+      "name": "08 - Return Chat Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1220,
+        -130
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "6f6dd03a-3e2b-5877-9922-d308e93482dd",
+      "name": "09 - Chat Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        970,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const v=$input.first().json; const n=Number(v.error?.httpCode??v.error?.statusCode??v.statusCode); const httpStatus=[400,401,403,404,409,429].includes(n)?n:502; return [{json:{success:false,httpStatus,error:\"Chat outcome may be unknown after timeout; read history with clientToken before any manual retry\"}}];"
+      }
+    },
+    {
+      "id": "89aa4d60-03d5-58e2-99d4-7cc3c786954f",
+      "name": "10 - Return 502",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1210,
+        180
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": "={{ $json.httpStatus }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "01 - Chat Webhook": {
+      "main": [
+        [
+          {
+            "node": "02 - Validate Chat Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 - Validate Chat Input": {
+      "main": [
+        [
+          {
+            "node": "03 - Valid Chat?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 - Valid Chat?": {
+      "main": [
+        [
+          {
+            "node": "06 - Ask Backend RAG",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "04 - Invalid Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 - Invalid Chat": {
+      "main": [
+        [
+          {
+            "node": "05 - Return 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 - Ask Backend RAG": {
+      "main": [
+        [
+          {
+            "node": "07 - Validate Backend Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "09 - Chat Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07 - Validate Backend Reply": {
+      "main": [
+        [
+          {
+            "node": "08 - Return Chat Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "09 - Chat Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09 - Chat Error": {
+      "main": [
+        [
+          {
+            "node": "10 - Return 502",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 60,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  "pinData": {},
+  "tags": []
+}
