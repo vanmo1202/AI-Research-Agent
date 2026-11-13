@@ -57,7 +57,7 @@ export default function ResearchPlanPage() {
         <div>
           <p className="eyebrow">TỪ Ý TƯỞNG ĐẾN MỘT KẾ HOẠCH RÕ RÀNG</p>
           <h1>Lập kế hoạch &amp; Thu thập</h1>
-          <p>Kế hoạch và nguồn tài liệu được cập nhật từ backend.</p>
+          <p>Kế hoạch và nguồn tài liệu được cập nhật từ máy chủ.</p>
         </div>
         <StatusBadge status={request.status} />
       </div>

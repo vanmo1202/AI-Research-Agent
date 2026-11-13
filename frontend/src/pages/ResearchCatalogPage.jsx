@@ -19,7 +19,7 @@ export default function ResearchCatalogPage({ kind = 'evidence' }) {
     <section className="ref-subpage">
       <div className="ref-page-heading">
         <div>
-          <p className="ref-eyebrow">RESEARCH / {report ? 'REPORTS' : 'EVIDENCE'}</p>
+          <p className="ref-eyebrow">NGHIÊN CỨU / {report ? 'BÁO CÁO' : 'BẰNG CHỨNG'}</p>
           <h1>{title}</h1>
           <p>
             {report
@@ -72,7 +72,7 @@ export default function ResearchCatalogPage({ kind = 'evidence' }) {
               <h2>{r.topic}</h2>
               <p>
                 {formatDate(r.created_at)} ·{' '}
-                {r.latestRunId ? 'Kết quả theo run gần nhất' : 'Nghiên cứu đã lưu'}
+                {r.latestRunId ? 'Kết quả theo lượt chạy gần nhất' : 'Nghiên cứu đã lưu'}
               </p>
               <Link
                 className="ref-secondary ref-btn-sm"
@@ -90,7 +90,7 @@ export default function ResearchCatalogPage({ kind = 'evidence' }) {
       )}
       <p className="ref-small-note">
         Danh sách tối đa 200 nghiên cứu mới nhất. Kết quả chỉ xuất hiện sau khi máy chủ lưu thành
-        công; trạng thái trên thẻ là trạng thái run/nghiên cứu, không phải xác nhận đã có báo cáo.
+        công; trạng thái trên thẻ là trạng thái lượt chạy/nghiên cứu, không phải xác nhận đã có báo cáo.
       </p>
     </section>
   );

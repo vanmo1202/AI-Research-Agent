@@ -158,7 +158,7 @@ export default function Sidebar({ open, onClose, onToggle }) {
             </span>
             <span className="ro-topnav-brand-copy">
               <strong className="ref-brand-name">ResearchOS</strong>
-              <span className="ref-brand-tagline">AI Research & Knowledge Workspace</span>
+              <span className="ref-brand-tagline">Không gian nghiên cứu và tri thức AI</span>
             </span>
           </Link>
 
