@@ -290,7 +290,7 @@ test('schedule dialog shows API failure inside the dialog and closes only on con
   await dialog.getByRole('button', { name: 'Tạo lịch', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(
-    page.getByText('Đã tạo lịch ở trạng thái tắt. Bật lịch khi automation đã được cấu hình.', {
+    page.getByText('Đã tạo lịch ở trạng thái tắt. Bật lịch khi tự động hóa đã được cấu hình.', {
       exact: true,
     }),
   ).toBeVisible();

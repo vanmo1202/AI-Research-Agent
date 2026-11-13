@@ -448,7 +448,7 @@ test('run sources use immutable version fields and chat stays scoped to research
   await expect(page.getByRole('heading', { name: 'Nguồn hỗ trợ nhận định nào?' })).toBeVisible();
   await expect(page.getByText('Nhận định được lưu từ máy chủ', { exact: true })).toBeVisible();
   await expect(page.locator('.os-source blockquote')).toHaveText('Trích đoạn nguồn bất biến');
-  await expect(page.getByText('Source version: sv · Chunk: chunk-one')).toBeVisible();
+  await expect(page.getByText('Phiên bản nguồn: sv · Đoạn văn bản: chunk-one')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Đối chiếu nguồn' })).toHaveAttribute(
     'href',
     'https://example.test/paper',
@@ -470,14 +470,14 @@ test('session service error offers recovery without treating it as logout', asyn
   await page.getByRole('button', { name: 'Thử lại kết nối' }).click();
   await expect(page.getByRole('heading', { name: 'Lịch nghiên cứu', exact: true })).toBeVisible();
 });
-test('mobile navigation traps focus and Escape restores the menu trigger', async ({ page }) => {
+test('mobile top navigation opens below header and Escape restores the menu trigger', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await mock(page);
   await page.goto('/');
   const trigger = page.getByRole('button', { name: 'Mở menu điều hướng' });
   await trigger.click();
-  await expect(page.getByRole('dialog', { name: 'Điều hướng chính' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Đóng menu', exact: true })).toBeFocused();
+  await expect(page.getByRole('navigation', { name: 'Điều hướng chính' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Đóng menu điều hướng' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
   await expect(trigger).toHaveAttribute('aria-expanded', 'false');

@@ -40,7 +40,12 @@ export default function AppLayout() {
   useEffect(() => {
     if (!open) return;
     const close = (event) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        window.requestAnimationFrame(() => {
+          document.querySelector('.ro-topnav-toggle')?.focus();
+        });
+      }
     };
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
