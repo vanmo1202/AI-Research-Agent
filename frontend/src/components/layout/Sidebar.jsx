@@ -1,212 +1,218 @@
 import { useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
+  BookOpen,
+  BrainCircuit,
   ChartNoAxesCombined,
   ChevronDown,
   CircleHelp,
-  FolderOpen,
-  Layers,
   FileText,
-  Workflow,
-  BookOpen,
-  BrainCircuit,
   Files,
+  FolderOpen,
   House,
+  Layers,
+  Menu,
   MessageSquareText,
   Settings,
+  Workflow,
   X,
 } from 'lucide-react';
 
-export default function Sidebar({ open, onClose }) {
-  const panel = useRef(null);
+function NavigationLink({ to, label, icon: Icon, onNavigate, end = false, submenu = false }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        ['ro-topnav-link', submenu && 'ro-topnav-sublink', isActive && 'ro-nav-active']
+          .filter(Boolean)
+          .join(' ')
+      }
+    >
+      <Icon size={18} aria-hidden="true" />
+      <span>{label}</span>
+    </NavLink>
+  );
+}
+
+const researchLinks = [
+  { to: '/workflow-1', label: 'Nghiên cứu chuyên sâu', icon: FolderOpen },
+  { to: '/researches', label: 'Các phiên nghiên cứu', icon: Layers },
+  { to: '/workflows', label: 'Workflow (5 luồng)', icon: Workflow },
+  { to: '/evidence', label: 'Phân tích bằng chứng', icon: BookOpen },
+  { to: '/reports', label: 'Báo cáo', icon: FileText },
+];
+
+const knowledgeLinks = [
+  { to: '/documents', label: 'Tài liệu (PDF)', icon: Files },
+  { to: '/chat', label: 'AI Research Chat', icon: MessageSquareText },
+  { to: '/memories', label: 'Bộ nhớ (Memory)', icon: BrainCircuit },
+];
+
+function NavigationGroup({ label, icon: Icon, links, active, onNavigate }) {
+  return (
+    <details className={'ro-topnav-group' + (active ? ' ro-nav-section-active' : '')}>
+      <summary>
+        <Icon size={18} aria-hidden="true" />
+        <span>{label}</span>
+        <ChevronDown className="ro-topnav-chevron" size={15} aria-hidden="true" />
+      </summary>
+      <div className="ro-topnav-dropdown">
+        {links.map((link) => (
+          <NavigationLink
+            key={link.to}
+            {...link}
+            submenu
+            onNavigate={onNavigate}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+// Keep the existing component entry point while presenting it as a top navigation bar.
+export default function Sidebar({ open, onClose, onToggle }) {
+  const { pathname } = useLocation();
+  const navigation = useRef(null);
+
   useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement;
-    const oldOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const focusFrame = requestAnimationFrame(() =>
-      panel.current?.querySelector('.mobile-close')?.focus(),
-    );
-    const focusTimer = setTimeout(() => {
-      if (panel.current && !panel.current.contains(document.activeElement))
-        panel.current.querySelector('.mobile-close')?.focus({ preventScroll: true });
-    }, 220);
-    const trap = (event) => {
-      if (event.key !== 'Tab') return;
-      const items = [...panel.current.querySelectorAll('a[href],button:not([disabled])')].filter(
-        (el) => el.getClientRects().length,
-      );
-      const first = items[0],
-        last = items.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
+    navigation.current?.querySelectorAll('details[open]').forEach((item) => {
+      item.open = false;
+    });
+  }, [pathname]);
+
+  useEffect(() => {
+    const dismiss = (event) => {
+      if (!navigation.current?.contains(event.target)) {
+        navigation.current?.querySelectorAll('details[open]').forEach((item) => {
+          item.open = false;
+        });
       }
     };
-    const media = window.matchMedia('(min-width: 791px)');
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const media = window.matchMedia('(min-width: 1081px)');
     const resize = () => {
       if (media.matches) onClose();
+    };
+    const trap = (event) => {
+      if (event.key !== 'Tab') return;
+      const candidates = navigation.current?.querySelectorAll('a[href], button:not([disabled]), summary');
+      const items = [...(candidates || [])].filter((el) => el.getClientRects().length);
+      const first = items[0];
+      const last = items.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     media.addEventListener('change', resize);
     document.addEventListener('keydown', trap);
     return () => {
-      cancelAnimationFrame(focusFrame);
-      clearTimeout(focusTimer);
       media.removeEventListener('change', resize);
       document.removeEventListener('keydown', trap);
-      document.body.style.overflow = oldOverflow;
-      previous?.focus();
+      document.body.style.overflow = originalOverflow;
     };
   }, [open, onClose]);
-  const { pathname } = useLocation();
-  const groups = [
-    [{ to: '/', label: 'Trang chủ', icon: House, active: pathname === '/' }],
-    [
-      {
-        to: '/researches',
-        label: 'Nghiên cứu chuyên sâu',
-        icon: FolderOpen,
-        active:
-          pathname === '/workflow-1' ||
-          (pathname.startsWith('/research/') && !pathname.includes('/chat')),
-      },
-      {
-        to: '/workflows',
-        label: 'Workflow (5 luồng)',
-        icon: Workflow,
-        sub: true,
-        active: pathname === '/workflows',
-      },
-      {
-        to: '/researches',
-        label: 'Các phiên nghiên cứu',
-        icon: Layers,
-        sub: true,
-        active: pathname === '/researches',
-      },
-      {
-        to: '/reports',
-        label: 'Báo cáo',
-        icon: FileText,
-        sub: true,
-        active: pathname === '/reports' || pathname.startsWith('/workflow-4'),
-      },
-    ],
-    [
-      { to: '/documents', label: 'Không gian tri thức', icon: BookOpen },
-      {
-        to: '/documents',
-        label: 'Tài liệu (PDF)',
-        icon: Files,
-        sub: true,
-        active: pathname.startsWith('/documents'),
-      },
-      {
-        to: '/chat',
-        label: 'AI Research Chat',
-        icon: MessageSquareText,
-        active: pathname.includes('/chat'),
-      },
-      {
-        to: '/memories',
-        label: 'Bộ nhớ (Memory)',
-        icon: BrainCircuit,
-        sub: true,
-        active: pathname.startsWith('/memories'),
-      },
-    ],
-    [
-      {
-        to: '/automations',
-        label: 'Tự động hóa (n8n)',
-        icon: Workflow,
-        active: pathname.startsWith('/automations') || pathname.startsWith('/schedules'),
-      },
-      {
-        to: '/activity',
-        label: 'Thống kê & hoạt động',
-        icon: ChartNoAxesCombined,
-        active: pathname === '/activity',
-      },
-    ],
-  ];
-  const item = ({ icon: Icon, ...it }) => (
-    <Link
-      key={it.label}
-      to={it.to}
-      className={`${it.sub ? 'ref-navsub' : 'ref-navitem'} ${it.active ? 'ref-active' : ''}`}
-      onClick={onClose}
-      aria-current={it.active ? 'page' : undefined}
-    >
-      <Icon className="ref-ico" />
-      <span>{it.label}</span>
-      {!it.sub && ['Nghiên cứu chuyên sâu', 'Không gian tri thức'].includes(it.label) && (
-        <ChevronDown size={14} className="ref-chevron" />
-      )}
-    </Link>
-  );
+
+  const navigate = () => {
+    navigation.current?.querySelectorAll('details[open]').forEach((item) => {
+      item.open = false;
+    });
+    onClose();
+  };
+  const researchActive =
+    pathname.startsWith('/research') ||
+    pathname.startsWith('/workflow-') ||
+    ['/workflows', '/evidence', '/reports'].includes(pathname);
+  const knowledgeActive =
+    pathname.startsWith('/documents') ||
+    pathname.includes('/chat') ||
+    pathname.startsWith('/memories');
+
   return (
     <>
       {open && (
         <button
-          className="ref-mobile-backdrop ref-show"
+          type="button"
+          className="ro-topnav-backdrop"
           aria-label="Đóng menu điều hướng"
+          tabIndex={-1}
           onClick={onClose}
         />
       )}
-      <aside
-        ref={panel}
-        id="studio-navigation"
-        className={`ref-sidebar ${open ? 'ref-open' : ''}`}
-        aria-label="Điều hướng chính"
-        role={open ? 'dialog' : undefined}
-        aria-modal={open ? true : undefined}
-      >
-        <Link className="ref-brand" to="/" onClick={onClose}>
-          <span className="ref-brand-logo">
-            <Layers size={22} />
-          </span>
-          <span>
-            <strong className="ref-brand-name">ResearchOS</strong>
-            <span className="ref-brand-tagline">AI Research & Knowledge Workspace</span>
-          </span>
-        </Link>
-        <button
-          type="button"
-          className="ref-icon-btn mobile-close ref-mobile-close"
-          aria-label="Đóng menu"
-          onClick={onClose}
-        >
-          <X size={21} />
-        </button>
-        <nav aria-label="Điều hướng workspace">
-          {groups.map((g, i) => (
-            <div className="ref-navgroup" key={i}>
-              {g.map(item)}
-            </div>
-          ))}
-        </nav>
-        <div className="ref-nav-spacer" />
-        <div className="ref-side-divider" />
-        {item({
-          to: '/settings',
-          label: 'Cài đặt',
-          icon: Settings,
-          active: pathname === '/settings',
-        })}
-        {item({
-          to: '/help',
-          label: 'Trợ giúp & Tài liệu',
-          icon: CircleHelp,
-          active: pathname === '/help',
-        })}
-        <div className="ref-sidebar-footer">
-          <span className="ref-version">ResearchOS Workspace</span>
+      <header className="ro-topnav-shell" ref={navigation}>
+        <div className="ro-topnav-inner">
+          <Link className="ro-topnav-brand" to="/" onClick={navigate}>
+            <span className="ref-brand-logo" aria-hidden="true">
+              <Layers size={23} />
+            </span>
+            <span className="ro-topnav-brand-copy">
+              <strong className="ref-brand-name">ResearchOS</strong>
+              <span className="ref-brand-tagline">AI Research & Knowledge Workspace</span>
+            </span>
+          </Link>
+
+          <button
+            type="button"
+            className="ro-topnav-toggle"
+            aria-label={open ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'}
+            aria-expanded={open}
+            aria-controls="studio-navigation"
+            onClick={onToggle}
+          >
+            {open ? <X size={23} /> : <Menu size={23} />}
+          </button>
+
+          <nav
+            id="studio-navigation"
+            className={'ro-topnav-links' + (open ? ' is-open' : '')}
+            aria-label="Điều hướng chính"
+          >
+            <NavigationLink to="/" end label="Trang chủ" icon={House} onNavigate={navigate} />
+            <NavigationGroup
+              label="Nghiên cứu"
+              icon={FolderOpen}
+              links={researchLinks}
+              active={researchActive}
+              onNavigate={navigate}
+            />
+            <NavigationGroup
+              label="Tri thức"
+              icon={BookOpen}
+              links={knowledgeLinks}
+              active={knowledgeActive}
+              onNavigate={navigate}
+            />
+            <NavigationLink
+              to="/automations"
+              label="Tự động hóa (n8n)"
+              icon={Workflow}
+              onNavigate={navigate}
+            />
+            <NavigationLink
+              to="/activity"
+              label="Hoạt động"
+              icon={ChartNoAxesCombined}
+              onNavigate={navigate}
+            />
+            <NavigationLink to="/help" label="Trợ giúp" icon={CircleHelp} onNavigate={navigate} />
+            <NavigationLink to="/settings" label="Cài đặt" icon={Settings} onNavigate={navigate} />
+          </nav>
         </div>
-      </aside>
+      </header>
     </>
   );
 }

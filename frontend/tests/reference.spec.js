@@ -307,3 +307,41 @@ test('activity retrieval errors are not presented as an empty account history', 
   await expect(page.getByRole('alert')).toContainText('Analytics unavailable');
   await expect(page.getByText('Chưa có hoạt động được ghi nhận.', { exact: true })).toHaveCount(0);
 });
+
+
+test('horizontal navigation sits above the main page and preserves the research dropdown', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await fixture(page);
+  await page.goto('/');
+  const nav = page.getByRole('navigation', { name: 'Điều hướng chính' });
+  await expect(nav.getByRole('link', { name: 'Trang chủ' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Tự động hóa (n8n)' })).toBeVisible();
+  await expect(page.locator('.ref-main')).toHaveCSS('margin-left', '0px');
+  const navBox = await nav.boundingBox();
+  const mainBox = await page.locator('#main-content').boundingBox();
+  expect(navBox.y).toBeLessThan(mainBox.y);
+  await nav.getByText('Nghiên cứu', { exact: true }).click();
+  await expect(nav.getByRole('link', { name: 'Workflow (5 luồng)' })).toBeVisible();
+});
+
+test('narrow screens open navigation below the top bar and close after a route change', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 850 });
+  await fixture(page);
+  await page.goto('/');
+  const toggle = page.getByRole('button', { name: 'Mở menu điều hướng' });
+  const links = page.locator('.ro-topnav-links');
+  await expect(toggle).toBeVisible();
+  await expect(links).not.toBeVisible();
+  await toggle.click();
+  await expect(links).toBeVisible();
+  const menuBox = await links.boundingBox();
+  const barBox = await page.locator('.ro-topnav-inner').boundingBox();
+  expect(menuBox.y).toBeGreaterThanOrEqual(barBox.y + barBox.height - 1);
+  await links.getByRole('link', { name: 'Tự động hóa (n8n)' }).click();
+  await expect(page).toHaveURL(/\/automations$/);
+  await expect(links).not.toBeVisible();
+});

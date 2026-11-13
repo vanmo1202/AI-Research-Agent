@@ -47,13 +47,13 @@ export default function AppLayout() {
   }, [open]);
   return (
     <WorkspaceUI>
-      <div className="ref-app">
+      <div className="ref-app ref-horizontal-app">
         <a href="#main-content" className="skip-link">
           Đi tới nội dung chính
         </a>
-        <Sidebar open={open} onClose={close} />
+        <Sidebar open={open} onClose={close} onToggle={() => setOpen((value) => !value)} />
         <div className="ref-main" inert={open}>
-          <Header onMenu={() => setOpen((v) => !v)} menuOpen={open} />
+          <Header />
           <main id="main-content" className="page-content ref-content" tabIndex={-1}>
             <Outlet />
           </main>
