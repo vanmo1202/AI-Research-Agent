@@ -92,11 +92,11 @@ export default function DashboardPage() {
         <div className="ref-left-stack">
           <section className="ref-card ref-workflows-panel">
             <PanelHeading
-              title="5 Luồng làm việc (Workflows)"
+              title="5 luồng làm việc"
               icon={Layers}
               action={
                 <Link className="ref-text-link" to="/workflows">
-                  Xem chi tiết workflows →
+                  Xem chi tiết các luồng →
                 </Link>
               }
               description="Quy trình nghiên cứu từ ý tưởng đến báo cáo, kết hợp tri thức và trợ lý AI."
@@ -147,7 +147,7 @@ export default function DashboardPage() {
                         <strong className="ref-recent-title">{r.topic}</strong>
                         <span className="ref-recent-meta">
                           {formatDate(r.created_at)} ·{' '}
-                          {r.latestRunId ? 'Run gần nhất' : 'Yêu cầu đã lưu'}
+                          {r.latestRunId ? 'Lượt chạy gần nhất' : 'Yêu cầu đã lưu'}
                         </span>
                       </span>
                       <StatusBadge status={r.runStatus || r.status} />
@@ -187,7 +187,7 @@ export default function DashboardPage() {
                   [
                     Database,
                     '/memories',
-                    'Bộ nhớ (Memory)',
+                    'Bộ nhớ AI',
                     `${summary.loading || summary.error ? '—' : (data?.verifiedMemoryCount ?? '—')} mục tri thức đã được duyệt`,
                     '#fff2e3',
                     '#dd810d',
