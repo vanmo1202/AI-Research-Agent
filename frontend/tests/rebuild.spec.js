@@ -470,7 +470,9 @@ test('session service error offers recovery without treating it as logout', asyn
   await page.getByRole('button', { name: 'Thử lại kết nối' }).click();
   await expect(page.getByRole('heading', { name: 'Lịch nghiên cứu', exact: true })).toBeVisible();
 });
-test('mobile top navigation opens below header and Escape restores the menu trigger', async ({ page }) => {
+test('mobile top navigation opens below header and Escape restores the menu trigger', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await mock(page);
   await page.goto('/');
