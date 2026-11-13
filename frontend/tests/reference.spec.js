@@ -344,3 +344,59 @@ test('narrow screens open navigation below the top bar and close after a route c
   await expect(page).toHaveURL(/\/automations$/);
   await expect(links).not.toBeVisible();
 });
+
+
+test('research progress displays Vietnamese stage names and quality labels', async ({ page }) => {
+  await fixture(page);
+  await page.route('**/api/research/*/runs/*/progress', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          requestId: id,
+          runId: run,
+          status: 'partial',
+          percent: 99,
+          currentStage: 'verifying',
+          completedStages: ['planning', 'collecting', 'analyzing'],
+          stageQuality: {
+            planning: 'planned',
+            collecting: 'accepted',
+            analyzing: 'traceable',
+            evaluating: 'insufficient',
+            composing: 'insufficient',
+            verifying: 'verified',
+          },
+          sourceCount: 5,
+          evidenceCount: 3,
+          recentEvents: [],
+        },
+      },
+    }),
+  );
+  await page.goto('/research/req-reference/runs/run-reference');
+  await expect(page.getByText('KHÔNG GIAN NGHIÊN CỨU', { exact: true })).toBeVisible();
+  await expect(page.locator('.os-run-meta')).toContainText('Mã yêu cầu');
+  await expect(page.locator('.os-run-meta')).toContainText('Mã lượt chạy');
+  await expect(page.locator('.os-stage-list strong')).toHaveText([
+    'Lập kế hoạch',
+    'Thu thập nguồn',
+    'Phân tích bằng chứng',
+    'Đánh giá độ phủ',
+    'Biên soạn báo cáo',
+    'Xác minh trích dẫn',
+  ]);
+  await expect(page.getByText('Chất lượng: Chưa đủ bằng chứng', { exact: true })).toHaveCount(2);
+  await expect(page.getByText('Chất lượng: Có thể truy vết', { exact: true })).toBeVisible();
+  await expect(page.locator('.os-progress')).not.toContainText('Planning');
+  await expect(page.locator('.os-progress')).not.toContainText('insufficient');
+});
+
+test('research status filter translates labels but keeps API values unchanged', async ({ page }) => {
+  await fixture(page);
+  await page.goto('/researches');
+  const options = page.getByRole('combobox', { name: 'Trạng thái lượt nghiên cứu' });
+  await expect(options.locator('option[value="partial"]')).toHaveText('Hoàn thành một phần');
+  await options.selectOption('partial');
+  await expect(options).toHaveValue('partial');
+});
