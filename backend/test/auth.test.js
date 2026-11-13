@@ -105,7 +105,7 @@ test("Auth sessions, CSRF, ownership, legacy preservation, revocation and thrott
   const runId = run.body.data.runId;
   const now = new Date().toISOString();
   await db.run(
-    "INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,status,created_at,updated_at) VALUES('private-pdf',?,'p.pdf','p','hash',1,'ready',?,?)",
+    "INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,status,created_at,updated_at) VALUES('private-pdf',$1,'p.pdf','p','hash',1,'ready',$2,$3)",
     [a.body.data.id, now, now],
   );
   const chat = await call(`/api/research/${id}/chats`, {
@@ -114,16 +114,16 @@ test("Auth sessions, CSRF, ownership, legacy preservation, revocation and thrott
   });
   assert.equal(chat.status, 201);
   await db.run(
-    "INSERT INTO agent_memories(id,owner_id,request_id,kind,content,content_hash,status,created_at,updated_at) VALUES('private-memory',?,?,'research','secret','hash','candidate',?,?)",
+    "INSERT INTO agent_memories(id,owner_id,request_id,kind,content,content_hash,status,created_at,updated_at) VALUES('private-memory',$1,$2,'research','secret','hash','candidate',$3,$4)",
     [a.body.data.id, id, now, now],
   );
-  const job = await db.get("SELECT id FROM stage_jobs WHERE run_id=?", [runId]);
+  const job = await db.get("SELECT id FROM stage_jobs WHERE run_id=$1", [runId]);
   await db.run(
-    "INSERT INTO analysis_versions(id,run_id,job_id,source_snapshot_hash,evidence_json,gaps_json,coverage_status,created_at) VALUES('private-analysis',?,?,'snapshot','[]','[]','complete',?)",
+    "INSERT INTO analysis_versions(id,run_id,job_id,source_snapshot_hash,evidence_json,gaps_json,coverage_status,created_at) VALUES('private-analysis',$1,$2,'snapshot','[]','[]','complete',$3)",
     [runId, job.id, now],
   );
   await db.run(
-    "INSERT INTO report_versions(id,run_id,job_id,analysis_version_id,content,references_json,citation_validation_json,status,created_at) VALUES('private-report',?,?,'private-analysis','secret','[]','{}','complete',?)",
+    "INSERT INTO report_versions(id,run_id,job_id,analysis_version_id,content,references_json,citation_validation_json,status,created_at) VALUES('private-report',$1,$2,'private-analysis','secret','[]','{}','complete',$3)",
     [runId, job.id, now],
   );
   for (const url of [
@@ -177,7 +177,7 @@ test("Auth sessions, CSRF, ownership, legacy preservation, revocation and thrott
         headers: { "X-Internal-Api-Key": "internal-test" },
       })
     ).status,
-    200,
+    503,
   );
   assert.equal(
     (
@@ -216,6 +216,7 @@ test("Auth sessions, CSRF, ownership, legacy preservation, revocation and thrott
     404,
   );
   process.env.INTERNAL_RESEARCH_USER_ID = a.body.data.id;
+  assert.equal((await call(`/internal/research/${id}`, {headers:{"X-Internal-Api-Key":"internal-test"}})).status,200);
 
   assert.equal(
     (
@@ -269,7 +270,7 @@ test("Auth sessions, CSRF, ownership, legacy preservation, revocation and thrott
   assert.equal(internal.status, 201);
   assert.equal(
     (
-      await db.get("SELECT owner_id FROM requests WHERE id=?", [
+      await db.get("SELECT owner_id FROM requests WHERE id=$1", [
         internal.body.data.requestId,
       ])
     ).owner_id,
@@ -292,7 +293,7 @@ test("Auth sessions, CSRF, ownership, legacy preservation, revocation and thrott
   );
   assert.equal((await call("/api/auth/me", { cookie: a.cookie })).status, 401);
   await db.run(
-    "UPDATE user_sessions SET expires_at='2000-01-01' WHERE user_id=?",
+    "UPDATE user_sessions SET expires_at='2000-01-01' WHERE user_id=$1",
     [b.body.data.id],
   );
   assert.equal((await call("/api/auth/me", { cookie: b.cookie })).status, 401);

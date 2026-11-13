@@ -1,120 +1,55 @@
-const fs = require("node:fs");
-const path = require("node:path");
-const sqlite3 = require("sqlite3").verbose();
-
-// Đường dẫn cố định theo thư mục backend, không phụ thuộc nơi chạy lệnh.
-const databasePath = process.env.RESEARCH_DB_PATH || path.join(__dirname, "../../data/research.db");
-fs.mkdirSync(path.dirname(databasePath), { recursive: true });
-const db = new sqlite3.Database(databasePath);
-db.configure("busyTimeout", 5000);
-
-function rawRun(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.run(sql, params, function (error) {
-            if (error) return reject(error);
-            resolve({ id: this.lastID, changes: this.changes });
-        });
-    });
+const {Pool,types}=require('pg');
+const {AsyncLocalStorage}=require('node:async_hooks');
+const fs=require('node:fs');
+// Existing services/API consume JSON strings, ISO strings, numeric counts and 0/1 flags.
+// Keep that boundary while PostgreSQL stores typed values.
+types.setTypeParser(20,value=>{const n=Number(value);if(!Number.isSafeInteger(n))throw Error('Unsafe BIGINT result');return n;});
+types.setTypeParser(1700,value=>{const n=Number(value);if(!Number.isFinite(n))throw Error('Invalid numeric result');return n;});
+types.setTypeParser(1184,value=>new Date(value).toISOString());
+types.setTypeParser(114,value=>value);
+types.setTypeParser(3802,value=>value);
+types.setTypeParser(16,value=>value==='t'?1:0);
+const context=new AsyncLocalStorage();
+let pool;
+function getPool(){
+ if(!pool){
+  const password=process.env.PGPASSWORD_FILE?fs.readFileSync(process.env.PGPASSWORD_FILE,'utf8').trimEnd():process.env.PGPASSWORD;
+  const schema=process.env.PGSCHEMA||'public';
+  if(!/^[a-z_][a-z0-9_]{0,62}$/.test(schema))throw Error('Invalid PGSCHEMA');
+  const max=Number(process.env.PGPOOL_MAX||5);
+  if(!Number.isInteger(max)||max<1||max>30)throw Error('Invalid PGPOOL_MAX');
+  if(!process.env.PGDATABASE)throw Error('PGDATABASE must be configured; SQLite fallback is disabled');
+  pool=new Pool({host:process.env.PGHOST||'127.0.0.1',port:Number(process.env.PGPORT||5432),user:process.env.PGUSER||'researchos',database:process.env.PGDATABASE,password,max,
+   options:`-c search_path=${schema},public -c timezone=UTC`,connectionTimeoutMillis:5000,idleTimeoutMillis:1000,statement_timeout:30000,idle_in_transaction_session_timeout:30000,
+   ssl:process.env.PGSSLROOTCERT?{ca:fs.readFileSync(process.env.PGSSLROOTCERT,'utf8'),rejectUnauthorized:true}:undefined,
+   application_name:'researchos'});
+  pool.on('error',e=>console.error('PostgreSQL idle client:',e.code||e.name));
+ }
+ return pool;
 }
-function rawGet(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (error, row) => error ? reject(error) : resolve(row));
-    });
+function rows(result){return result.rows.map(row=>{delete row.search_vector;delete row.legacy_position;return row;});}
+function api(client){return {
+ async run(sql,params=[]){const r=await client.query(sql,params);return {changes:r.rowCount,id:r.rows?.[0]?.id};},
+ async get(sql,params=[]){return rows(await client.query(sql,params))[0];},
+ async all(sql,params=[]){return rows(await client.query(sql,params));},
+ query:(sql,params=[])=>client.query(sql,params),
+};}
+const connection=()=>context.getStore()||getPool();
+const run=(sql,params)=>context.getStore()?api(context.getStore()).run(sql,params):transaction(tx=>tx.run(sql,params));
+const get=(sql,params)=>api(connection()).get(sql,params);
+const all=(sql,params)=>api(connection()).all(sql,params);
+async function transaction(work,{readOnly=false}={}){
+ if(context.getStore())throw Error('Nested transaction is unsupported; pass the transaction client');
+ const client=await getPool().connect();
+ try{
+  await client.query(readOnly?'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY':'BEGIN');
+  // Preserve legacy serialized RMW semantics across backend AND worker processes.
+  // This lock is held only for database work; never call providers while holding it.
+  if(!readOnly)await client.query("SELECT pg_advisory_xact_lock(hashtextextended('researchos:'||current_schema(),0))");
+  const result=await context.run(client,()=>work(api(client)));
+  await client.query('COMMIT');return result;
+ }catch(error){try{await client.query('ROLLBACK');}catch{}throw error;}finally{client.release();}
 }
-function rawAll(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (error, rows) => error ? reject(error) : resolve(rows));
-    });
-}
-// Một hàng đợi chung tránh truy vấn khác xen vào transaction trên cùng connection.
-let pending = Promise.resolve();
-function enqueue(task) {
-    const result = pending.then(task);
-    pending = result.catch(() => {});
-    return result;
-}
-const run = (sql, params = []) => enqueue(() => rawRun(sql, params));
-const get = (sql, params = []) => enqueue(() => rawGet(sql, params));
-const all = (sql, params = []) => enqueue(() => rawAll(sql, params));
-function transaction(work) {
-    return enqueue(async () => {
-        await rawRun("BEGIN IMMEDIATE");
-        try {
-            const result = await work({ run: rawRun, get: rawGet, all: rawAll });
-            await rawRun("COMMIT");
-            return result;
-        } catch (error) {
-            await rawRun("ROLLBACK");
-            throw error;
-        }
-    });
-}
-async function initializeDatabase() {
-    await run("PRAGMA foreign_keys = ON");
-    await run("PRAGMA journal_mode = WAL");
-    await run(`CREATE TABLE IF NOT EXISTS requests (
-        id TEXT PRIMARY KEY, topic TEXT NOT NULL, goal TEXT NOT NULL,
-        scope TEXT, output_length TEXT, status TEXT,
-        created_at TEXT, updated_at TEXT
-    )`);
-    await run(`CREATE TABLE IF NOT EXISTS plans (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        request_id TEXT NOT NULL REFERENCES requests(id),
-        question_id TEXT NOT NULL, research_question TEXT NOT NULL,
-        search_query TEXT NOT NULL, created_at TEXT
-    )`);
-    await run("CREATE INDEX IF NOT EXISTS plans_request_id ON plans(request_id)");
-    await run(`CREATE TABLE IF NOT EXISTS sources (
-        id TEXT PRIMARY KEY,
-        request_id TEXT NOT NULL REFERENCES requests(id),
-        query TEXT NOT NULL, title TEXT, url TEXT NOT NULL,
-        normalized_url TEXT NOT NULL, snippet TEXT, content TEXT, provider TEXT,
-        collected_at TEXT NOT NULL,
-        UNIQUE(request_id, normalized_url)
-    )`);
-    const sourceColumns = new Set((await all("PRAGMA table_info(sources)")).map(column => column.name));
-    for (const column of ["title_vi", "snippet_vi", "content_vi", "source_language", "translation_status", "translation_hash"]) {
-        if (!sourceColumns.has(column)) await run(`ALTER TABLE sources ADD COLUMN ${column} TEXT`);
-    }
-    await run(`CREATE TABLE IF NOT EXISTS chunks (
-        id TEXT PRIMARY KEY, request_id TEXT NOT NULL, source_id TEXT NOT NULL,
-        chunk_index INTEGER NOT NULL, content TEXT NOT NULL, char_count INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (request_id) REFERENCES requests(id), FOREIGN KEY (source_id) REFERENCES sources(id),
-        UNIQUE(source_id, chunk_index)
-    )`);
-    await run(`CREATE TABLE IF NOT EXISTS evidence (
-        id TEXT PRIMARY KEY, request_id TEXT NOT NULL, source_id TEXT NOT NULL,
-        chunk_id TEXT, research_question TEXT, evidence_text TEXT NOT NULL,
-        relevance_score REAL, reason TEXT, citation_label TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (request_id) REFERENCES requests(id), FOREIGN KEY (source_id) REFERENCES sources(id),
-        FOREIGN KEY (chunk_id) REFERENCES chunks(id)
-    )`);
-    await run(`CREATE TABLE IF NOT EXISTS reports (
-        id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE, title TEXT,
-        language TEXT DEFAULT 'vi', style TEXT, output_length TEXT, content TEXT NOT NULL,
-        references_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (request_id) REFERENCES requests(id)
-    )`);
-    await run(`CREATE TABLE IF NOT EXISTS evidence_cache (
-        request_id TEXT NOT NULL REFERENCES requests(id), question_id TEXT NOT NULL,
-        input_hash TEXT NOT NULL, evidence_json TEXT NOT NULL,
-        PRIMARY KEY(request_id, question_id, input_hash)
-    )`);
-    await run(`CREATE TABLE IF NOT EXISTS analysis_results (
-        request_id TEXT PRIMARY KEY REFERENCES requests(id), metadata_json TEXT NOT NULL
-    )`);
-    await run("CREATE INDEX IF NOT EXISTS idx_chunks_request_id ON chunks(request_id)");
-    await run("CREATE INDEX IF NOT EXISTS idx_chunks_source_id ON chunks(source_id)");
-    await run("CREATE INDEX IF NOT EXISTS idx_evidence_request_id ON evidence(request_id)");
-    await run("CREATE INDEX IF NOT EXISTS idx_evidence_source_id ON evidence(source_id)");
-    await require("../migrations/002-flow-v2")({ transaction });
-    await require("../migrations/003-knowledge")({ transaction });
-    await require("../migrations/004-user-auth")({ transaction });
-    await require("../migrations/005-query-indexes")({ transaction });
-    await require("../migrations/006-document-chats")({ transaction });
-    await require("../migrations/007-auto-research-chat")({ transaction });
-}
-module.exports = { run, get, all, transaction, initializeDatabase };
+async function initializeDatabase(){return require('../db/migrate').migrate(getPool());}
+async function close(){if(pool){const p=pool;pool=undefined;await p.end();}}
+module.exports={run,get,all,transaction,initializeDatabase,getPool,close};

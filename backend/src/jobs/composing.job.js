@@ -35,9 +35,16 @@ module.exports = async (ctx) => {
         limit: "Nguồn web có thể thay đổi; chưa có đánh giá phản biện độc lập.",
       };
   const cap = { short: 1, medium: 2, long: 4 }[ctx.input.outputLength] || 2;
-  const selected = ctx.plan.researchQuestions.flatMap((q) =>
+  const eligible = ctx.plan.researchQuestions.flatMap((q) =>
     evidence.filter((e) => e.questionId === q.id).slice(0, cap),
   );
+  let selected=[];
+  if(eligible.length){
+    const written=await ctx.provider.json(ctx, `Compose faithful research claims in ${en?'English':'Vietnamese'}. Use ONLY supplied evidence; no additional facts, sources or invented citations. Return {"claims":[{"evidenceId":"existing id","text":"supported statement"}]}. At most one concise claim per evidence item. Omit anything the exact quote cannot support.`, {topic:ctx.input.topic,goal:ctx.input.goal,evidence:eligible.map(e=>({evidenceId:e.id,question:e.researchQuestion,quote:e.originalQuote,evidenceText:e.evidenceText}))});
+    if(!Array.isArray(written.claims) || written.claims.length>eligible.length)throw ctx.provider.fail('INVALID_REPORT_CLAIMS');
+    const seen=new Set();
+    for(const claim of written.claims){const e=eligible.find(e=>e.id===claim.evidenceId);if(!e || seen.has(e.id) || typeof claim.text!=='string' || !claim.text.trim() || claim.text.length>1500 || /\[\d+\]|https?:\/\//.test(claim.text))throw ctx.provider.fail('INVALID_REPORT_CLAIMS');seen.add(e.id);selected.push({...e,reportClaim:claim.text.trim()});}
+  }
   const references = ctx.sources
     .filter((s) => selected.some((e) => e.sourceVersionId === s.id))
     .map((s, i) => ({
@@ -46,6 +53,7 @@ module.exports = async (ctx) => {
       citationLabel: `[${i + 1}]`,
       title: s.title,
       url: s.url,
+      claims:selected.filter(e=>e.sourceVersionId===s.id).map(e=>({evidenceId:e.id,text:e.reportClaim})),
     }));
   const sections = ctx.plan.researchQuestions.map((q) => {
     const items = selected.filter((e) => e.questionId === q.id);
@@ -55,13 +63,13 @@ module.exports = async (ctx) => {
         ? items
             .map(
               (e) =>
-                `${e.evidenceText} ${references.find((r) => r.sourceVersionId === e.sourceVersionId).citationLabel}`,
+                `${e.reportClaim} ${references.find((r) => r.sourceVersionId === e.sourceVersionId).citationLabel}`,
             )
             .join("\n\n")
         : text.missing)
     );
   });
-  const partial = evaluation.coverage !== "sufficient" || evidence.length !== previousEvidence.length;
+  const partial = evaluation.coverage !== "sufficient" || evidence.length !== previousEvidence.length || ctx.plan.researchQuestions.some(q=>!selected.some(e=>e.questionId===q.id));
   const summary = en
     ? `${selected.length} evidence items from ${references.length} sources.`
     : `Phân tích ${selected.length} bằng chứng từ ${references.length} nguồn.`;

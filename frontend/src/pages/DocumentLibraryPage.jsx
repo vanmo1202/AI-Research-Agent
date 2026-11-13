@@ -42,7 +42,9 @@ function Library() {
           <h1>Thư viện tài liệu</h1>
           <p>Tải lên, quản lý và khai thác tri thức từ các tài liệu PDF.</p>
         </div>
-        <span className="ro-document-count">{result.data?.length || 0} tài liệu</span>
+        <span className="ro-document-count">
+          {result.loading || result.error ? '—' : (result.data?.length ?? 0)} tài liệu
+        </span>
       </div>
       <section className="ro-upload-panel" aria-label="Tải tài liệu PDF">
         <span className="ro-upload-symbol">
@@ -64,6 +66,9 @@ function Library() {
         />
       </section>
       <ErrorMessage error={result.error || limits.error} />
+      {result.paused && (
+        <p role="status">Đã dừng theo dõi tự động. Làm mới tài liệu để kiểm tra trạng thái.</p>
+      )}
       <section className="ro-panel ro-library-panel">
         <div className="ro-panel-head">
           <div>

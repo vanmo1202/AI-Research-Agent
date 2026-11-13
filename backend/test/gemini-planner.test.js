@@ -199,9 +199,9 @@ test("Gemini Workflow 1 HTTP contract, SQLite status and Workflow 2 compatibilit
             assert.equal(failed.status, 502);
             const error = await failed.json();
             assert.equal(error.error, expectedError);
-            const row = await database.get("SELECT status FROM requests WHERE id = ?", [error.requestId]);
+            const row = await database.get("SELECT status FROM requests WHERE id = $1", [error.requestId]);
             assert.equal(row.status, "failed");
-            const plans = await database.all("SELECT * FROM plans WHERE request_id = ?", [error.requestId]);
+            const plans = await database.all("SELECT * FROM plans WHERE request_id = $1", [error.requestId]);
             assert.equal(plans.length, 0);
         }
     } finally {

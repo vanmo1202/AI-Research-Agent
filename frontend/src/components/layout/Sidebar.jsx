@@ -1,23 +1,21 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  AlertTriangle,
+  ChartNoAxesCombined,
+  ChevronDown,
+  CircleHelp,
+  FolderOpen,
+  Layers,
+  FileText,
+  Workflow,
   BookOpen,
   BrainCircuit,
-  Check,
-  FileBarChart2,
   Files,
   House,
-  Link2,
   MessageSquareText,
-  SearchCheck,
   Settings,
   X,
 } from 'lucide-react';
-import { getResearch, getEvidence } from '../../services/researchApi';
-import { researchJourney } from '../../utils/researchJourney';
-import useResearchHistory from '../../hooks/useResearchHistory';
-import { getLastRequestId, rememberResearch } from '../../utils/researchStorage';
 
 export default function Sidebar({ open, onClose }) {
   const panel = useRef(null);
@@ -48,7 +46,7 @@ export default function Sidebar({ open, onClose }) {
         first?.focus();
       }
     };
-    const media = window.matchMedia('(min-width: 901px)');
+    const media = window.matchMedia('(min-width: 791px)');
     const resize = () => {
       if (media.matches) onClose();
     };
@@ -64,131 +62,97 @@ export default function Sidebar({ open, onClose }) {
     };
   }, [open, onClose]);
   const { pathname } = useLocation();
-  const history = useResearchHistory();
-  const [backend, setBackend] = useState(null);
-  const routeId = pathname.match(/^\/(?:research|workflow-[234])\/([^/]+)/)?.[1];
-  const id = routeId || getLastRequestId();
-  const remembered = history.find((item) => item.requestId === id);
-  useEffect(() => {
-    if (!id) {
-      setBackend(null);
-      return;
-    }
-    const controller = new AbortController();
-    getResearch(id, controller.signal)
-      .then(async (data) => {
-        let analysis;
-        if (
-          [
-            'analyzing',
-            'analyzed',
-            'analyzed_partial',
-            'generating_report',
-            'completed',
-            'failed',
-          ].includes(data.request.status)
-        ) {
-          analysis = await getEvidence(id, controller.signal).catch(() => null);
-        }
-        if (controller.signal.aborted) return;
-        rememberResearch(data.request, { ...data, analysis });
-        setBackend({
-          id,
-          status: data.request.status,
-          planned: data.researchQuestions.length > 0,
-          analysisStatus: analysis?.status,
-          evidenceCount: analysis?.evidence?.length || 0,
-        });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setBackend(null);
-      });
-    return () => controller.abort();
-  }, [id, pathname, remembered?.status]);
-  const journey = researchJourney({
-    ...(backend?.id === id ? backend : { status: remembered?.status }),
-    stage: pathname.startsWith('/workflow-4') ? 4 : pathname.startsWith('/workflow-3') ? 3 : 2,
-  });
   const groups = [
-    {
-      label: 'TỔNG QUAN',
-      items: [{ to: '/', label: 'Tổng quan', icon: House, active: pathname === '/' }],
-    },
-    {
-      label: 'NGHIÊN CỨU',
-      items: [
-        {
-          to: '/workflow-1',
-          label: 'Quy trình nghiên cứu',
-          icon: SearchCheck,
-          active:
-            pathname === '/workflow-1' ||
-            (pathname.startsWith('/research/') && !pathname.includes('/chat')) ||
-            pathname.startsWith('/workflow-2'),
-        },
-        {
-          to: id ? `/workflow-3/${encodeURIComponent(id)}` : '/workflow-3',
-          label: 'Bằng chứng',
-          icon: BookOpen,
-          step: 1,
-          active: pathname.startsWith('/workflow-3'),
-        },
-        {
-          to: id ? `/workflow-4/${encodeURIComponent(id)}` : '/workflow-4',
-          label: 'Báo cáo',
-          icon: FileBarChart2,
-          step: 2,
-          active: pathname.startsWith('/workflow-4'),
-        },
-      ],
-    },
-    {
-      label: 'TRI THỨC',
-      items: [
-        {
-          to: '/documents',
-          label: 'Tài liệu (PDF)',
-          icon: Files,
-          active: pathname.startsWith('/documents'),
-        },
-        {
-          to: id ? `/research/${encodeURIComponent(id)}/chat` : '/chat',
-          label: 'Trò chuyện AI',
-          icon: MessageSquareText,
-          active: pathname === '/chat' || pathname.includes('/chat'),
-        },
-        {
-          to: '/memories',
-          label: 'Bộ nhớ AI',
-          icon: BrainCircuit,
-          active: pathname === '/memories',
-        },
-      ],
-    },
-    {
-      label: 'PHÒNG NGHIÊN CỨU',
-      items: [
-        {
-          to: '/sources',
-          label: 'Nguồn tài liệu',
-          icon: Link2,
-          active: pathname === '/sources' || pathname.startsWith('/sources/'),
-        },
-      ],
-    },
-    {
-      label: 'CẤU HÌNH',
-      items: [
-        { to: '/settings', label: 'Cài đặt', icon: Settings, active: pathname === '/settings' },
-      ],
-    },
+    [{ to: '/', label: 'Trang chủ', icon: House, active: pathname === '/' }],
+    [
+      {
+        to: '/researches',
+        label: 'Nghiên cứu chuyên sâu',
+        icon: FolderOpen,
+        active:
+          pathname === '/workflow-1' ||
+          (pathname.startsWith('/research/') && !pathname.includes('/chat')),
+      },
+      {
+        to: '/workflows',
+        label: 'Workflow (5 luồng)',
+        icon: Workflow,
+        sub: true,
+        active: pathname === '/workflows',
+      },
+      {
+        to: '/researches',
+        label: 'Các phiên nghiên cứu',
+        icon: Layers,
+        sub: true,
+        active: pathname === '/researches',
+      },
+      {
+        to: '/reports',
+        label: 'Báo cáo',
+        icon: FileText,
+        sub: true,
+        active: pathname === '/reports' || pathname.startsWith('/workflow-4'),
+      },
+    ],
+    [
+      { to: '/documents', label: 'Không gian tri thức', icon: BookOpen },
+      {
+        to: '/documents',
+        label: 'Tài liệu (PDF)',
+        icon: Files,
+        sub: true,
+        active: pathname.startsWith('/documents'),
+      },
+      {
+        to: '/chat',
+        label: 'AI Research Chat',
+        icon: MessageSquareText,
+        active: pathname.includes('/chat'),
+      },
+      {
+        to: '/memories',
+        label: 'Bộ nhớ (Memory)',
+        icon: BrainCircuit,
+        sub: true,
+        active: pathname.startsWith('/memories'),
+      },
+    ],
+    [
+      {
+        to: '/automations',
+        label: 'Tự động hóa (n8n)',
+        icon: Workflow,
+        active: pathname.startsWith('/automations') || pathname.startsWith('/schedules'),
+      },
+      {
+        to: '/activity',
+        label: 'Thống kê & hoạt động',
+        icon: ChartNoAxesCombined,
+        active: pathname === '/activity',
+      },
+    ],
   ];
+  const item = ({ icon: Icon, ...it }) => (
+    <Link
+      key={it.label}
+      to={it.to}
+      className={`${it.sub ? 'ref-navsub' : 'ref-navitem'} ${it.active ? 'ref-active' : ''}`}
+      onClick={onClose}
+      aria-current={it.active ? 'page' : undefined}
+    >
+      <Icon className="ref-ico" />
+      <span>{it.label}</span>
+      {!it.sub && ['Nghiên cứu chuyên sâu', 'Không gian tri thức'].includes(it.label) && (
+        <ChevronDown size={14} className="ref-chevron" />
+      )}
+    </Link>
+  );
   return (
     <>
       {open && (
         <button
-          type="button"
-          className="sidebar-backdrop"
+          className="ref-mobile-backdrop ref-show"
           aria-label="Đóng menu điều hướng"
           onClick={onClose}
         />
@@ -196,61 +160,51 @@ export default function Sidebar({ open, onClose }) {
       <aside
         ref={panel}
         id="studio-navigation"
-        className={`sidebar ${open ? 'sidebar-open' : ''}`}
+        className={`ref-sidebar ${open ? 'ref-open' : ''}`}
         aria-label="Điều hướng chính"
         role={open ? 'dialog' : undefined}
         aria-modal={open ? true : undefined}
       >
-        <Link className="brand ro-brand" to="/" onClick={onClose}>
-          <span className="brand-mark">
-            <BookOpen size={25} />
+        <Link className="ref-brand" to="/" onClick={onClose}>
+          <span className="ref-brand-logo">
+            <Layers size={22} />
           </span>
-          <span className="brand-copy">
-            <strong>
-              Research<span>OS</span>
-            </strong>
-            <small>Không gian nghiên cứu</small>
+          <span>
+            <strong className="ref-brand-name">ResearchOS</strong>
+            <span className="ref-brand-tagline">AI Research & Knowledge Workspace</span>
           </span>
         </Link>
         <button
           type="button"
-          className="icon-button mobile-close"
+          className="ref-icon-btn mobile-close ref-mobile-close"
           aria-label="Đóng menu"
           onClick={onClose}
         >
           <X size={21} />
         </button>
-        <nav className="sidebar-nav ro-sidebar-nav" aria-label="Điều hướng workspace">
-          {groups.map((group) => (
-            <div className="ro-nav-group" key={group.label}>
-              <p className="ro-nav-caption">{group.label}</p>
-              {group.items.map(({ icon: Icon, step, ...item }) => (
-                <Link
-                  key={item.label}
-                  to={item.to}
-                  className={`nav-item ${item.active ? 'active' : ''}`}
-                  onClick={onClose}
-                  aria-current={item.active ? 'page' : undefined}
-                  aria-label={item.label === 'Agent Memory' ? 'Bộ nhớ AI' : item.label}
-                >
-                  <Icon size={18} strokeWidth={1.9} />
-                  <span className="nav-label">
-                    <strong>{item.label}</strong>
-                  </span>
-                  {step !== undefined && journey.workflowSteps?.[step]?.state === 'complete' && (
-                    <Check className="nav-step-complete" size={14} />
-                  )}
-                  {step !== undefined && journey.workflowSteps?.[step]?.state === 'partial' && (
-                    <AlertTriangle className="nav-step-partial" size={14} />
-                  )}
-                </Link>
-              ))}
+        <nav aria-label="Điều hướng workspace">
+          {groups.map((g, i) => (
+            <div className="ref-navgroup" key={i}>
+              {g.map(item)}
             </div>
           ))}
         </nav>
-        <div className="ro-sidebar-foot">
-          <span className="ro-status-dot" /> Không gian cho tri thức{' '}
-          <span className="ro-sidebar-version">↗</span>
+        <div className="ref-nav-spacer" />
+        <div className="ref-side-divider" />
+        {item({
+          to: '/settings',
+          label: 'Cài đặt',
+          icon: Settings,
+          active: pathname === '/settings',
+        })}
+        {item({
+          to: '/help',
+          label: 'Trợ giúp & Tài liệu',
+          icon: CircleHelp,
+          active: pathname === '/help',
+        })}
+        <div className="ref-sidebar-footer">
+          <span className="ref-version">ResearchOS Workspace</span>
         </div>
       </aside>
     </>

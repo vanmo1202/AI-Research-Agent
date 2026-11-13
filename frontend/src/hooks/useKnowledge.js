@@ -6,12 +6,21 @@ export default function useKnowledge(path, poll = false) {
   const reload = useCallback(() => setRevision((n) => n + 1), []);
   useEffect(() => {
     const controller = new AbortController();
-    let timer;
+    let timer,
+      count = 0,
+      failures = 0;
     setState((s) =>
       s.path === path
-        ? { ...s, loading: !s.data, error: null }
-        : { path, loading: true, data: null, error: null },
+        ? { ...s, loading: !s.data, error: null, paused: false }
+        : { path, loading: true, data: null, error: null, paused: false },
     );
+    function schedule(delay) {
+      if (++count >= 240) {
+        setState((s) => ({ ...s, paused: true }));
+        return;
+      }
+      timer = setTimeout(load, delay);
+    }
     async function load() {
       if (!path) {
         setState({ path, loading: false, data: null, error: null });
@@ -20,10 +29,15 @@ export default function useKnowledge(path, poll = false) {
       try {
         const data = await knowledgeApi(path, { signal: controller.signal });
         if (controller.signal.aborted) return;
-        setState({ path, loading: false, data, error: null });
-        if (typeof poll === 'function' ? poll(data) : poll) timer = setTimeout(load, 2200);
+        failures = 0;
+        setState({ path, loading: false, data, error: null, paused: false });
+        if (typeof poll === 'function' ? poll(data) : poll)
+          schedule(document.hidden ? 15000 : Math.min(10000, 2200 + count * 100));
       } catch (error) {
-        if (!controller.signal.aborted) setState((s) => ({ ...s, loading: false, error }));
+        if (controller.signal.aborted) return;
+        setState((s) => ({ ...s, loading: false, error }));
+        if (poll && ![401, 403, 404].includes(error.status) && ++failures <= 4)
+          schedule(Math.min(30000, 2000 * 2 ** failures));
       }
     }
     load();
@@ -36,7 +50,6 @@ export default function useKnowledge(path, poll = false) {
     ? { ...state, reload }
     : { loading: true, data: null, error: null, reload };
 }
-
 export const pollDocuments = (data) =>
   (Array.isArray(data) ? data : [data]).some((d) => ['pending', 'processing'].includes(d?.status));
 export const pollMessages = (data) => data?.some((message) => message.status === 'pending');

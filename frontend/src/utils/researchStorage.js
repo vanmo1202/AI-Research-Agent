@@ -28,7 +28,7 @@ export function getLastRequestId() {
     return '';
   }
 }
-// Chỉ lưu metadata để điều hướng; nội dung result luôn tải lại từ SQLite qua API.
+// Chỉ lưu metadata để điều hướng; nội dung result luôn tải lại từ PostgreSQL qua API.
 export function rememberResearch(request, plan = {}, collection) {
   try {
     const history = getHistory();

@@ -1,9 +1,19 @@
+// Legacy API E2E must never initialize the serving PostgreSQL database.
+// Use the mock-only rebuild suite when isolated database initialization is not authorized.
+if (
+  !/^researchos_(?:migration_test|test_)/.test(process.env.PGDATABASE || '') ||
+  !/^test_[a-z0-9_]+$/.test(process.env.PGSCHEMA || '')
+) {
+  console.error(
+    'BLOCKED: legacy E2E requires an explicitly isolated PostgreSQL test database and PGSCHEMA test_*. No database was initialized. Run the mock-only rebuild suite instead.',
+  );
+  process.exit(1);
+}
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-research-browser-'));
-process.env.RESEARCH_DB_PATH = path.join(directory, 'research.db');
 process.env.DOCUMENT_STORAGE_PATH = path.join(directory, 'documents');
 process.env.RESEARCH_LOAD_ENV = 'false';
 const { start } = require('../../backend/src/server');

@@ -46,8 +46,8 @@ async function authenticate(req, res, next) {
       throw error("Vui lòng đăng nhập.", 401);
     const user = await db.get(
       `SELECT u.id,u.email,u.name,u.role,s.id session_id FROM user_sessions s
-      JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL
-      AND s.expires_at>? AND u.status='active'`,
+      JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.revoked_at IS NULL
+      AND s.expires_at>$2 AND u.status='active'`,
       [digest(token), new Date().toISOString()],
     );
     if (!user) throw error("Phiên đăng nhập đã hết hạn.", 401);
@@ -90,7 +90,7 @@ function setCookie(res, token) {
 async function issue(connection, user) {
   const token = crypto.randomBytes(32).toString("hex");
   await connection.run(
-    "INSERT INTO user_sessions(id,user_id,token_hash,created_at,expires_at) VALUES(?,?,?,?,?)",
+    "INSERT INTO user_sessions(id,user_id,token_hash,created_at,expires_at) VALUES($1,$2,$3,$4,$5)",
     [
       crypto.randomUUID(),
       user.id,
@@ -131,13 +131,13 @@ router.post("/register", limit, async (req, res) => {
   try {
     token = await db.transaction(async (tx) => {
       await tx.run(
-        "INSERT INTO users(id,email,name,password_hash,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+        "INSERT INTO users(id,email,name,password_hash,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6)",
         [user.id, user.email, user.name, hash, now, now],
       );
       return issue(tx, user);
     });
   } catch (e) {
-    if (e.code === "SQLITE_CONSTRAINT")
+    if (e.code === "23505")
       throw error("Không thể tạo tài khoản với thông tin này.");
     throw e;
   }
@@ -154,7 +154,7 @@ router.post("/login", limit, async (req, res) => {
   )
     throw error("Thông tin đăng nhập không hợp lệ.", 401);
   const user = await db.get(
-    "SELECT * FROM users WHERE email=? COLLATE NOCASE",
+    "SELECT * FROM users WHERE lower(email)=lower($1)",
     [email.trim()],
   );
   const valid = await verify(
@@ -166,7 +166,7 @@ router.post("/login", limit, async (req, res) => {
   const token = await db.transaction(async (tx) => {
     // Verification is expensive and stays outside the write lock. Recheck its snapshot inside it.
     const current = await tx.get(
-      "SELECT password_hash,status FROM users WHERE id=?",
+      "SELECT password_hash,status FROM users WHERE id=$1",
       [user.id],
     );
     if (
@@ -188,7 +188,7 @@ router.get("/me", authenticate, (req, res) => {
   res.json({ success: true, data: user });
 });
 router.post("/logout", authenticate, async (req, res) => {
-  await db.run("UPDATE user_sessions SET revoked_at=? WHERE id=?", [
+  await db.run("UPDATE user_sessions SET revoked_at=$1 WHERE id=$2", [
     new Date().toISOString(),
     req.user.session_id,
   ]);
@@ -200,7 +200,7 @@ router.post("/change-password", limit, authenticate, async (req, res) => {
   passwordPolicy(password);
   if (typeof currentPassword !== "string" || currentPassword.length > 128)
     throw error("Mật khẩu hiện tại không hợp lệ.");
-  const user = await db.get("SELECT password_hash FROM users WHERE id=?", [
+  const user = await db.get("SELECT password_hash FROM users WHERE id=$1", [
     req.owner,
   ]);
   if (!(await verify(currentPassword, user.password_hash)))
@@ -209,17 +209,17 @@ router.post("/change-password", limit, authenticate, async (req, res) => {
     now = new Date().toISOString();
   const token = await db.transaction(async (tx) => {
     const current = await tx.get(
-      "SELECT u.password_hash FROM users u JOIN user_sessions s ON s.user_id=u.id WHERE u.id=? AND u.status='active' AND s.id=? AND s.revoked_at IS NULL AND s.expires_at>?",
+      "SELECT u.password_hash FROM users u JOIN user_sessions s ON s.user_id=u.id WHERE u.id=$1 AND u.status='active' AND s.id=$2 AND s.revoked_at IS NULL AND s.expires_at>$3",
       [req.owner, req.user.session_id, new Date().toISOString()],
     );
     if (!current || current.password_hash !== user.password_hash)
       throw error("Phiên đăng nhập đã thay đổi. Vui lòng đăng nhập lại.", 401);
-    await tx.run("UPDATE users SET password_hash=?,updated_at=? WHERE id=?", [
+    await tx.run("UPDATE users SET password_hash=$1,updated_at=$2 WHERE id=$3", [
       hash,
       now,
       req.owner,
     ]);
-    await tx.run("UPDATE user_sessions SET revoked_at=? WHERE user_id=?", [
+    await tx.run("UPDATE user_sessions SET revoked_at=$1 WHERE user_id=$2", [
       now,
       req.owner,
     ]);

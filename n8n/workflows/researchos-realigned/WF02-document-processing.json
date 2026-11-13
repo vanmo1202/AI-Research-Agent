@@ -1,0 +1,389 @@
+{
+  "name": "ResearchOS | WF02 PDF Document Processing | v2 API compatible",
+  "active": false,
+  "nodes": [
+    {
+      "id": "c3d5015a-17b6-510f-a46b-801d74844edc",
+      "name": "01 - Document Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "researchos/wf02/document-processing",
+        "responseMode": "responseNode",
+        "authentication": "headerAuth",
+        "options": {}
+      }
+    },
+    {
+      "id": "41a13de5-f42d-56e8-9be4-ccf6ece974dd",
+      "name": "02 - Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const b=$input.first().json.body??{};\nconst uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst valid=uuid.test(b.documentId??'')&&uuid.test(b.jobId??'');\nreturn [{json:{valid,documentId:valid?b.documentId:null,jobId:valid?b.jobId:null,error:valid?null:'documentId/jobId UUID required'}}];"
+      }
+    },
+    {
+      "id": "440bc33a-ecf8-5ffe-8069-b6dd27cc9f71",
+      "name": "03 - Valid Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        510,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2e0c3829-4c00-568e-bb96-10cd7e90b393",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "e12ea129-ee0d-5937-ae45-d322ea8c4fa2",
+      "name": "04 - Bad Request Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        730,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{success:false,error:$input.first().json.error}}];"
+      }
+    },
+    {
+      "id": "695c55e0-b08b-5b38-a839-3ade2fb25d70",
+      "name": "05 - Return 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        950,
+        180
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "9359e321-a8d8-5c06-b412-4590a47cdad5",
+      "name": "06 - Read Document Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        -120
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://backend:3000/internal/knowledge/jobs/' + $('02 - Validate Input').first().json.jobId + '?documentId=' + $('02 - Validate Input').first().json.documentId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "7cf43028-f0eb-5960-af7b-cfed8a2765ee",
+      "name": "07 - Document IDs Match?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1020,
+        -120
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "553c2337-0963-5d60-ad63-68e7d1ba31f1",
+              "leftValue": "={{ $json.data?.document_id === $('02 - Validate Input').first().json.documentId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "1099f369-46c6-56d3-a3d9-7b3558bd9870",
+      "name": "08 - Document Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        -210
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ctx=$('02 - Validate Input').first().json;\nconst j=$input.first().json.data;\nif(!['pending','processing','ready','failed'].includes(j?.status))throw new Error('Invalid document job state');\nreturn [{json:{success:true,documentId:ctx.documentId,jobId:ctx.jobId,status:j.status,attempts:j.attempts??0,errorCode:j.error_code??null,updatedAt:j.updated_at??null,processingOwner:'backend-worker'}}];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "17cb3fdb-780b-5408-a95e-f625ec3924cc",
+      "name": "09 - Return Job Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1500,
+        -210
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "75c561ee-eeb1-5a7d-a32e-58bb88361d7c",
+      "name": "10 - IDs Mismatch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        90
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{success:false,error:'Job does not belong to provided documentId'}}];"
+      }
+    },
+    {
+      "id": "c06a4411-694a-53b9-a9a7-fd2110de9772",
+      "name": "11 - Return 409",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1480,
+        90
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 409
+        }
+      }
+    },
+    {
+      "id": "5d715b74-cb7d-539f-b841-b47a6ec40128",
+      "name": "12 - Backend Error Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1010,
+        270
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const v=$input.first().json; const n=Number(v.error?.httpCode??v.error?.statusCode??v.statusCode); const httpStatus=[400,401,403,404,409,429].includes(n)?n:502; return [{json:{success:false,httpStatus,error:\"Document job unavailable or access rejected\"}}];"
+      }
+    },
+    {
+      "id": "9138cf81-cf18-57c9-962a-ecaa6028c4c7",
+      "name": "13 - Return 502",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1250,
+        270
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": "={{ $json.httpStatus }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "01 - Document Webhook": {
+      "main": [
+        [
+          {
+            "node": "02 - Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 - Validate Input": {
+      "main": [
+        [
+          {
+            "node": "03 - Valid Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 - Valid Request?": {
+      "main": [
+        [
+          {
+            "node": "06 - Read Document Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "04 - Bad Request Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 - Bad Request Body": {
+      "main": [
+        [
+          {
+            "node": "05 - Return 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 - Read Document Job": {
+      "main": [
+        [
+          {
+            "node": "07 - Document IDs Match?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "12 - Backend Error Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07 - Document IDs Match?": {
+      "main": [
+        [
+          {
+            "node": "08 - Document Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "10 - IDs Mismatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08 - Document Status": {
+      "main": [
+        [
+          {
+            "node": "09 - Return Job Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "12 - Backend Error Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 - IDs Mismatch": {
+      "main": [
+        [
+          {
+            "node": "11 - Return 409",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12 - Backend Error Body": {
+      "main": [
+        [
+          {
+            "node": "13 - Return 502",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 60,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  "pinData": {},
+  "tags": []
+}

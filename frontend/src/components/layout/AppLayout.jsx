@@ -2,11 +2,20 @@ import { useEffect, useState, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import WorkspaceUI from '../workspace/WorkspaceUI';
 
 function pageTitle(path) {
   if (path === '/') return 'Tổng quan';
+  if (path === '/automations') return 'Tự động hóa (n8n)';
+  if (path === '/workflows') return '5 luồng làm việc';
+  if (path === '/activity') return 'Thống kê & hoạt động';
+  if (path === '/help') return 'Trợ giúp & Tài liệu';
+  if (path === '/reports') return 'Báo cáo';
+  if (path === '/evidence') return 'Phân tích bằng chứng';
+  if (path.startsWith('/schedules')) return 'Lịch nghiên cứu';
+  if (path === '/researches') return 'Nghiên cứu của bạn';
   if (path.startsWith('/documents')) return 'Thư viện tài liệu';
-  if (path === '/chat' || path.includes('/chat')) return 'Chat với tài liệu';
+  if (path.includes('/chat')) return 'AI Research Chat';
   if (path.startsWith('/memories')) return 'Agent Memory';
   if (path.startsWith('/workflow-4')) return 'Báo cáo nghiên cứu';
   if (path.startsWith('/workflow-3')) return 'Phân tích bằng chứng';
@@ -37,21 +46,19 @@ export default function AppLayout() {
     return () => window.removeEventListener('keydown', close);
   }, [open]);
   return (
-    <div className="app-shell">
-      <a href="#main-content" className="skip-link">
-        Đi tới nội dung chính
-      </a>
-      <Sidebar open={open} onClose={close} />
-      <div className="app-workspace" inert={open}>
-        <Header
-          onMenu={() => setOpen((v) => !v)}
-          menuOpen={open}
-          title={pageTitle(location.pathname)}
-        />
-        <main id="main-content" className="page-content" tabIndex={-1}>
-          <Outlet />
-        </main>
+    <WorkspaceUI>
+      <div className="ref-app">
+        <a href="#main-content" className="skip-link">
+          Đi tới nội dung chính
+        </a>
+        <Sidebar open={open} onClose={close} />
+        <div className="ref-main" inert={open}>
+          <Header onMenu={() => setOpen((v) => !v)} menuOpen={open} />
+          <main id="main-content" className="page-content ref-content" tabIndex={-1}>
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+    </WorkspaceUI>
   );
 }

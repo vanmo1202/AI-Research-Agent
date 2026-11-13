@@ -6,7 +6,7 @@ const assert = require("node:assert/strict"),
 const { spawnSync } = require("node:child_process");
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "auth-transfer-"));
 process.env.RESEARCH_DB_PATH = path.join(directory, "legacy.db");
-const db = require("../src/config/database");
+const db = require("./legacy/sqlite-database.cjs");
 test("Offline transfer backs up first, preserves data, and rolls back on duplicate documents", async () => {
   await db.initializeDatabase();
   const now = new Date().toISOString();
@@ -21,7 +21,7 @@ test("Offline transfer backs up first, preserves data, and rolls back on duplica
     spawnSync(
       process.execPath,
       [
-        path.join(__dirname, "../scripts/transfer-legacy.js"),
+        path.join(__dirname, "legacy/transfer-sqlite.cjs"),
         email,
         "--transfer-all-workspace",
       ],

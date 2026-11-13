@@ -6,8 +6,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node --test test/*.test.js",
-    "worker": "node src/workers/index.js"
+    "test": "node --import ./test/helpers/postgres-isolation.mjs --test --test-timeout=30000 test/*.test.js",
+    "worker": "node src/workers/index.js",
+    "db:migrate": "node src/db/migrate.js",
+    "db:import-sqlite": "node scripts/migration/import-sqlite.cjs"
   },
   "keywords": [],
   "author": "",
@@ -23,12 +25,13 @@
     "marked": "^18.1.2",
     "pdfjs-dist": "5.4.624",
     "pdfkit": "^0.20.2",
-    "sqlite3": "^6.0.1",
+    "pg": "8.16.3",
     "undici": "6.29.1"
   },
   "devDependencies": {
     "fflate": "^0.8.3",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "sqlite3": "^6.0.1"
   },
   "engines": {
     "node": ">=22.0.0 <25.0.0"

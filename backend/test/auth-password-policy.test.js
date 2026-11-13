@@ -50,7 +50,7 @@ test("Password boundary policy, old login compatibility, secure cookies and conc
     }
     assert.equal(registered.status, 201);
     assert.match(registered.headers.get("cache-control"), /no-store/);
-    const user = await db.get("SELECT password_hash FROM users WHERE email=?", [
+    const user = await db.get("SELECT password_hash FROM users WHERE email=$1", [
       email,
     ]);
     assert.notEqual(user.password_hash, password);
@@ -96,7 +96,7 @@ test("Password boundary policy, old login compatibility, secure cookies and conc
   const { hashPassword } = require("../src/auth"),
     now = new Date().toISOString();
   await db.run(
-    "INSERT INTO users(id,email,name,password_hash,created_at,updated_at) VALUES('old','old@example.test','Old',?,?,?)",
+    "INSERT INTO users(id,email,name,password_hash,created_at,updated_at) VALUES('old','old@example.test','Old',$1,$2,$3)",
     [await hashPassword("12345"), now, now],
   );
   assert.equal(
@@ -120,7 +120,7 @@ test("Password boundary policy, old login compatibility, secure cookies and conc
   );
   assert.deepEqual(results.map((r) => r.status).sort(), [200, 401]);
   const active = await db.get(
-    "SELECT COUNT(*) n FROM user_sessions WHERE user_id=? AND revoked_at IS NULL",
+    "SELECT COUNT(*) n FROM user_sessions WHERE user_id=$1 AND revoked_at IS NULL",
     [a.data.data.id],
   );
   assert.equal(active.n, 1);
@@ -142,7 +142,7 @@ test("Password boundary policy, old login compatibility, secure cookies and conc
   db.get = async (sql, params) => {
     const row = await originalGet(sql, params);
     if (
-      sql === "SELECT * FROM users WHERE email=? COLLATE NOCASE" &&
+      sql === "SELECT * FROM users WHERE lower(email)=lower($1)" &&
       params[0] === "late-login@example.test"
     ) {
       announce();
@@ -175,7 +175,7 @@ test("Password boundary policy, old login compatibility, secure cookies and conc
   assert.equal(
     (
       await db.get(
-        "SELECT COUNT(*) n FROM user_sessions WHERE user_id=? AND revoked_at IS NULL",
+        "SELECT COUNT(*) n FROM user_sessions WHERE user_id=$1 AND revoked_at IS NULL",
         [racing.data.data.id],
       )
     ).n,

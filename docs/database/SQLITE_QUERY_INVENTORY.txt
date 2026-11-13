@@ -1,0 +1,150 @@
+backend/src/workers/runner.js:8:  return db.transaction(async (tx) => {
+backend/src/workers/runner.js:77:  const r = await db.run(
+backend/src/workers/runner.js:93:  const planJob = await db.get(
+backend/src/workers/runner.js:97:  const evaluation = await db.get(
+backend/src/workers/runner.js:109:    sources: await db.all(
+backend/src/workers/runner.js:113:    chunks: await db.all(
+backend/src/workers/runner.js:118:    report: await db.get(
+backend/src/workers/runner.js:133:  return db.transaction(async (tx) => {
+backend/src/workers/runner.js:139:          `INSERT OR IGNORE INTO source_versions(id,run_id,query,title,url,normalized_url,provider,original_content,display_content_vi,content_hash,language,translation_status,collected_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+backend/src/workers/runner.js:162:            "INSERT OR IGNORE INTO source_chunks_v2(id,run_id,source_version_id,chunk_index,content) VALUES(?,?,?,?,?)",
+backend/src/workers/runner.js:288:  return db.transaction(async (tx) => {
+backend/src/knowledge/chat.js:27:  const row = await db.get(
+backend/src/knowledge/chat.js:61:      await db.get(
+backend/src/knowledge/chat.js:76:  await db.run(
+backend/src/knowledge/chat.js:230:  await db.transaction(async (tx) => {
+backend/src/knowledge/chat.js:279:      await db.all(
+backend/src/knowledge/chat.js:290:      await db.run("UPDATE chat_messages SET research_json=? WHERE chat_id=? AND turn_id=? AND role='assistant' AND status='pending'",[JSON.stringify({...info,stage:value}),id,turn]);
+backend/src/knowledge/chat.js:324:    const saved = await db.transaction(async (tx) => {
+backend/src/knowledge/chat.js:389:    await db.run(
+backend/src/knowledge/chat.js:398:    await db.run(
+backend/src/knowledge/chat.js:407:  const updated=await db.run('UPDATE chat_sessions SET auto_research=1,internet_enabled=? WHERE id=? AND owner_id=? AND busy_until<=?', [body.internetEnabled?1:0,id,owner,Date.now()]);
+backend/src/knowledge/chat.js:423:    await db.run(
+backend/src/knowledge/chat.js:429:    await db.all(
+backend/src/knowledge/auto-budget.js:45:    await db.transaction(async (tx) => {
+backend/src/knowledge/auto-budget.js:54:        "INSERT OR IGNORE INTO chat_turn_usage(chat_id,turn_id) VALUES(?,?)",
+backend/src/knowledge/auto-budget.js:70:          "INSERT OR IGNORE INTO chat_daily_usage(subject,day) VALUES(?,?)",
+backend/src/knowledge/auto-budget.js:107:      db.get(
+backend/src/models/run.model.js:4:const find = (id) => db.get("SELECT * FROM research_runs WHERE id=?", [id]);
+backend/src/models/run.model.js:6:  db.all("SELECT * FROM stage_jobs WHERE run_id=? ORDER BY rowid", [id]);
+backend/src/models/run.model.js:8:  db.get(
+backend/src/knowledge/documents.js:114:    const result = await db.transaction(async (tx) => {
+backend/src/knowledge/documents.js:156:  return db.transaction(async (tx) => {
+backend/src/knowledge/documents.js:181:  await db.transaction(async (tx) => {
+backend/src/models/source.model.js:18:    // UPSERT giữ id ổn định khi chạy lại Workflow 2; status cùng transaction.
+backend/src/models/source.model.js:19:    await database.transaction(async tx => {
+backend/src/knowledge/common.js:18:  const row = await db.get("SELECT * FROM requests WHERE id=?", [id]);
+backend/src/knowledge/common.js:24:  const row = await db.get(
+backend/src/controllers/run.controller.js:9:    await db.all(`SELECT r.*, (SELECT id FROM research_runs WHERE request_id=r.id ORDER BY rowid DESC LIMIT 1) latestRunId,
+backend/src/controllers/run.controller.js:42:    await db.all(
+backend/src/controllers/run.controller.js:67:      await db.all(
+backend/src/controllers/run.controller.js:91:  const j = await db.get("SELECT * FROM stage_jobs WHERE id=?", [
+backend/src/knowledge/routes.js:26:  const count = await db.get(
+backend/src/knowledge/routes.js:40:    ? await db.all(
+backend/src/knowledge/routes.js:44:    : await db.all(
+backend/src/knowledge/routes.js:52:  const job = await db.get(
+backend/src/knowledge/routes.js:79:    await db.get(
+backend/src/knowledge/routes.js:95:  await db.run("INSERT OR IGNORE INTO research_documents VALUES(?,?,?,?)", [
+backend/src/knowledge/routes.js:108:    await db.run(
+backend/src/knowledge/routes.js:122:    await db.all(
+backend/src/knowledge/routes.js:133:router.get('/chats', async (req, res) => ok(res, await db.all(
+backend/src/knowledge/routes.js:151:  await db.run("DELETE FROM chat_sessions WHERE id=? AND owner_id=?", [
+backend/src/knowledge/routes.js:182:  const result = await db.run(
+backend/src/knowledge/routes.js:190:  const result = await db.run(
+backend/src/knowledge/routes.js:223:    jobs: await db.all(
+backend/src/knowledge/routes.js:226:    memories: await db.all(
+backend/src/knowledge/routes.js:232:  const job = await db.get(
+backend/src/auth/index.js:47:    const user = await db.get(
+backend/src/auth/index.js:132:    token = await db.transaction(async (tx) => {
+backend/src/auth/index.js:156:  const user = await db.get(
+backend/src/auth/index.js:166:  const token = await db.transaction(async (tx) => {
+backend/src/auth/index.js:191:  await db.run("UPDATE user_sessions SET revoked_at=? WHERE id=?", [
+backend/src/auth/index.js:203:  const user = await db.get("SELECT password_hash FROM users WHERE id=?", [
+backend/src/auth/index.js:210:  const token = await db.transaction(async (tx) => {
+backend/src/config/database.js:13:        db.run(sql, params, function (error) {
+backend/src/config/database.js:21:        db.get(sql, params, (error, row) => error ? reject(error) : resolve(row));
+backend/src/config/database.js:26:        db.all(sql, params, (error, rows) => error ? reject(error) : resolve(rows));
+backend/src/config/database.js:29:// Một hàng đợi chung tránh truy vấn khác xen vào transaction trên cùng connection.
+backend/src/config/database.js:39:function transaction(work) {
+backend/src/config/database.js:53:    await run("PRAGMA foreign_keys = ON");
+backend/src/config/database.js:54:    await run("PRAGMA journal_mode = WAL");
+backend/src/config/database.js:61:        id INTEGER PRIMARY KEY AUTOINCREMENT,
+backend/src/config/database.js:75:    const sourceColumns = new Set((await all("PRAGMA table_info(sources)")).map(column => column.name));
+backend/src/config/database.js:113:    await require("../migrations/002-flow-v2")({ transaction });
+backend/src/config/database.js:114:    await require("../migrations/003-knowledge")({ transaction });
+backend/src/config/database.js:115:    await require("../migrations/004-user-auth")({ transaction });
+backend/src/config/database.js:116:    await require("../migrations/005-query-indexes")({ transaction });
+backend/src/config/database.js:117:    await require("../migrations/006-document-chats")({ transaction });
+backend/src/config/database.js:118:    await require("../migrations/007-auto-research-chat")({ transaction });
+backend/src/config/database.js:120:module.exports = { run, get, all, transaction, initializeDatabase };
+backend/src/auth/internal.js:17:    db.get(
+backend/src/auth/internal.js:28:      row = await db.get(
+backend/src/auth/internal.js:33:      row = await db.get(
+backend/src/auth/internal.js:38:      row = await db.get("SELECT owner_id FROM requests WHERE id=?", [
+backend/src/auth/ownership.js:6:    !(await db.get("SELECT 1 FROM requests WHERE id=? AND owner_id=?", [
+backend/src/auth/ownership.js:19:      const run = await db.get(
+backend/src/auth/ownership.js:26:      const report = await db.get(
+backend/src/auth/ownership.js:36:          !(await db.get(
+backend/src/knowledge/ingestion.js:55:  return db.transaction(async (tx) => {
+backend/src/knowledge/ingestion.js:97:    const doc = await db.get("SELECT * FROM documents WHERE id=?", [
+backend/src/knowledge/ingestion.js:111:    await db.transaction(async (tx) => {
+backend/src/knowledge/ingestion.js:147:    await db.transaction(async (tx) => {
+backend/src/auth/dashboard.js:3:  const summary = await db.get(
+backend/src/auth/dashboard.js:11:  const recentResearch = await db.all(
+backend/src/knowledge/auto-research.js:233:  const rows = await db.all(
+backend/src/knowledge/auto-research.js:372:  const rows = await db.transaction(async (tx) => {
+backend/src/knowledge/auto-research.js:434:    const docs = await db.all(
+backend/src/providers/research.provider.js:19:  const r = await db.run(
+backend/src/knowledge/retrieval.js:38:        await db.get(
+backend/src/knowledge/retrieval.js:48:      const rows = await db.all(
+backend/src/knowledge/retrieval.js:51:        WHERE document_chunks_fts MATCH ? AND d.owner_id=? AND d.status='ready' AND d.deleted_at IS NULL AND d.id IN (${docIds.map(() => "?").join(",")})
+backend/src/knowledge/retrieval.js:69:    const evidence = await db.all(
+backend/src/migrations/006-document-chats.js:2:// Every copy, trigger/index restore and FTS rebuild is inside the same rollbackable transaction.
+backend/src/migrations/006-document-chats.js:3:module.exports = async ({ transaction }) => transaction(async tx => {
+backend/src/migrations/006-document-chats.js:17:    const columns = (await tx.all(`PRAGMA table_info("${table}")`)).map(c => `"${c.name}"`).join(',');
+backend/src/migrations/006-document-chats.js:27:    if ((await tx.all(`PRAGMA foreign_key_check("${table}")`)).length)
+backend/src/knowledge/memory.js:118:  const m = await db.get(
+backend/src/knowledge/memory.js:133:    await db.transaction(async (tx) => {
+backend/src/knowledge/memory.js:153:        "INSERT OR IGNORE INTO agent_memories(id,owner_id,request_id,message_id,kind,content,content_hash,status,created_at,updated_at) VALUES(?,?,?,?,'research',?,?,'candidate',?,?)",
+backend/src/knowledge/memory.js:194:    clauses.push("agent_memories_fts MATCH ?");
+backend/src/knowledge/memory.js:201:  const rows = await db.all(
+backend/src/knowledge/memory.js:210:  const result = await db.transaction(async tx => {
+backend/src/knowledge/memory.js:229:    const owners = await db.all('SELECT DISTINCT owner_id FROM agent_memories');
+backend/src/knowledge/memory.js:234:  const rows = await db.all(
+backend/src/knowledge/memory.js:241:    await db.run(
+backend/src/services/evidence.service.js:113:                await database.run('INSERT OR REPLACE INTO evidence_cache (request_id, question_id, input_hash, evidence_json) VALUES (?, ?, ?, ?)', [requestId, question.id, hash, JSON.stringify(evidence)]);
+backend/src/services/evidence.service.js:128:        await database.transaction(async tx => {
+backend/src/services/evidence.service.js:133:            await tx.run('INSERT OR REPLACE INTO analysis_results (request_id, metadata_json) VALUES (?, ?)', [requestId, JSON.stringify(metadata)]);
+backend/src/migrations/004-user-auth.js:1:module.exports = async ({ transaction }) =>
+backend/src/migrations/004-user-auth.js:2:  transaction(async (db) => {
+backend/src/migrations/004-user-auth.js:4:      await db.get(
+backend/src/migrations/004-user-auth.js:9:    await db.run(`CREATE TABLE IF NOT EXISTS users (
+backend/src/migrations/004-user-auth.js:15:    await db.run(`CREATE TABLE IF NOT EXISTS user_sessions (
+backend/src/migrations/004-user-auth.js:19:    await db.run(
+backend/src/migrations/004-user-auth.js:22:    const columns = await db.all("PRAGMA table_info(requests)");
+backend/src/migrations/004-user-auth.js:24:      await db.run(
+backend/src/migrations/004-user-auth.js:27:    await db.run(
+backend/src/migrations/004-user-auth.js:30:    await db.run("INSERT INTO schema_migrations VALUES(?,?)", [
+backend/src/services/run.service.js:24:  return db.transaction(async (tx) => {
+backend/src/services/run.service.js:65:  const sources = await db.get(
+backend/src/services/run.service.js:88:    recentEvents: await db.all(
+backend/src/services/run.service.js:108:  return db.transaction(async (tx) => {
+backend/src/services/run.service.js:132:  return db.transaction(async (tx) => {
+backend/src/services/run.service.js:178:  const previous = await db.get(
+backend/src/services/run.service.js:185:    await db.run(
+backend/src/services/run.service.js:192:  const current = await db.get(
+backend/src/services/report.service.js:29:        await database.transaction(async tx => { await tx.run(`INSERT INTO reports (id, request_id, title, language, style, output_length, content, references_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(request_id) DO UPDATE SET title=excluded.title, language=excluded.language, style=excluded.style, output_length=excluded.output_length, content=excluded.content, references_json=excluded.references_json, updated_at=excluded.updated_at`, [id, requestId, config.title, config.language, config.style, config.outputLength, result.content, JSON.stringify(result.references), new Date().toISOString()]); await tx.run('UPDATE requests SET status = ?, updated_at = ? WHERE id = ?', ['completed', new Date().toISOString(), requestId]); });
+backend/src/migrations/003-knowledge.js:2:module.exports = async ({ transaction }) =>
+backend/src/migrations/003-knowledge.js:3:  transaction(async (tx) => {
+backend/src/migrations/003-knowledge.js:23:      `CREATE VIRTUAL TABLE document_chunks_fts USING fts5(content, content='document_chunks', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2')`,
+backend/src/migrations/003-knowledge.js:40:      `CREATE VIRTUAL TABLE agent_memories_fts USING fts5(content, content='agent_memories', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2')`,
+backend/src/migrations/005-query-indexes.js:2:module.exports = async ({ transaction }) =>
+backend/src/migrations/005-query-indexes.js:3:  transaction(async (tx) => {
+backend/src/migrations/002-flow-v2.js:3:  await database.transaction(async (tx) => {
+backend/src/migrations/002-flow-v2.js:47:      `CREATE TABLE run_events (id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL REFERENCES research_runs(id),
+backend/src/services/source-relevance.service.js:86:    if (content.relevant || translated.relevant) return { accepted: true, status: 'relevant', reason: 'TOPIC_CONTENT_MATCH', ...diagnostics, score: Math.max(content.score, translated.score) };
+backend/src/services/source-relevance.service.js:95:    return { accepted: false, status: 'rejected', reason: 'NO_TOPIC_MATCH', score: 0 };
+backend/src/migrations/007-auto-research-chat.js:1:module.exports = async ({ transaction }) =>
+backend/src/migrations/007-auto-research-chat.js:2:  transaction(async (tx) => {
+backend/src/services/run-export.service.js:4:  const report = await db.get("SELECT * FROM report_versions WHERE id=?", [id]);
+backend/src/services/run-export.service.js:7:  const run = await db.get("SELECT * FROM research_runs WHERE id=?", [

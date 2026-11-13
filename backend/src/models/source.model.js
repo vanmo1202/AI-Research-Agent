@@ -12,7 +12,7 @@ function fromRow(row) {
         provider: row.provider, collectedAt: row.collected_at };
 }
 async function getSourcesByRequestId(requestId) {
-    return (await database.all("SELECT * FROM sources WHERE request_id = ? ORDER BY rowid", [requestId])).map(fromRow);
+    return (await database.all("SELECT * FROM sources WHERE request_id = $1 ORDER BY legacy_position", [requestId])).map(fromRow);
 }
 async function createSources(requestId, sources, status = "collected") {
     // UPSERT giữ id ổn định khi chạy lại Workflow 2; status cùng transaction.
@@ -20,7 +20,7 @@ async function createSources(requestId, sources, status = "collected") {
         for (const source of sources) {
             await tx.run(`INSERT INTO sources
                 (id, request_id, query, title, url, normalized_url, snippet, content, provider, collected_at, title_vi, snippet_vi, content_vi, source_language, translation_status, translation_hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                 ON CONFLICT(request_id, normalized_url) DO UPDATE SET
                 query=excluded.query, title=excluded.title, url=excluded.url,
                 snippet=excluded.snippet, content=excluded.content,
@@ -31,13 +31,13 @@ async function createSources(requestId, sources, status = "collected") {
                 source.snippet, source.content, source.provider, source.collectedAt,
                 source.titleVi ?? null, source.snippetVi ?? null, source.contentVi ?? null, source.sourceLanguage || 'unknown', source.translationStatus || 'pending', source.translationHash || null]);
         }
-        await tx.run("UPDATE requests SET status = ?, updated_at = ? WHERE id = ?",
+        await tx.run("UPDATE requests SET status = $1, updated_at = $2 WHERE id = $3",
             [status, new Date().toISOString(), requestId]);
     });
     return getSourcesByRequestId(requestId);
 }
 async function createSource(requestId, source) { return createSources(requestId, [source]); }
 async function deleteSourcesByRequestId(requestId) {
-    return database.run("DELETE FROM sources WHERE request_id = ?", [requestId]);
+    return database.run("DELETE FROM sources WHERE request_id = $1", [requestId]);
 }
 module.exports = { createSource, createSources, getSourcesByRequestId, deleteSourcesByRequestId };

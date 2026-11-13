@@ -1,0 +1,157 @@
+{
+  "name": "ResearchOS | WF04 Agent Memory Maintenance | v2 API compatible",
+  "active": false,
+  "nodes": [
+    {
+      "id": "d4e97bb6-80ea-5f22-8a74-1f7c66a6b436",
+      "name": "01 - Every Six Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "42e1d755-0f12-5666-a78b-cfedac250b50",
+      "name": "02 - Maintenance Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{task:'memory-source-revalidation',requestedAt:new Date().toISOString()}}];"
+      }
+    },
+    {
+      "id": "e10c04e3-330a-5b2f-9f1a-7ad6eaef681b",
+      "name": "03 - Backend Memory Maintenance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:3000/internal/knowledge/maintenance",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "2332b252-8a2d-5bac-b2b8-1935a5e5f698",
+      "name": "04 - Maintenance Completed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        -100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const r=$input.first().json;if(r.success!==true||!Array.isArray(r.data))throw new Error('Invalid maintenance reply');return [{json:{success:true,operation:'memory-source-revalidation',summary:r.data,completedAt:new Date().toISOString()}}];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "75253aa8-7dd3-519c-87ed-b37e4e2e5154",
+      "name": "05 - Maintenance Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "throw new Error('MEMORY_MAINTENANCE_FAILED: inspect backend health; no memory was auto-approved');"
+      }
+    }
+  ],
+  "connections": {
+    "01 - Every Six Hours": {
+      "main": [
+        [
+          {
+            "node": "02 - Maintenance Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 - Maintenance Request": {
+      "main": [
+        [
+          {
+            "node": "03 - Backend Memory Maintenance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 - Backend Memory Maintenance": {
+      "main": [
+        [
+          {
+            "node": "04 - Maintenance Completed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "05 - Maintenance Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 - Maintenance Completed": {
+      "main": [
+        [],
+        [
+          {
+            "node": "05 - Maintenance Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 60,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  "pinData": {},
+  "tags": []
+}

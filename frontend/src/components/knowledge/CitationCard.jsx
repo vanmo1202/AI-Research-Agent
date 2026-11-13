@@ -11,6 +11,17 @@ export default function CitationCard({ citation }) {
       <blockquote>{citation.quote}</blockquote>
       {citation.documentId ? (
         <Link to={target}>Mở PDF · Trang {citation.page}</Link>
+      ) : ['run_report', 'legacy_report', 'run_analysis'].includes(citation.recordType) &&
+        citation.requestId ? (
+        <Link
+          to={
+            citation.runId
+              ? `/research/${encodeURIComponent(citation.requestId)}/runs/${encodeURIComponent(citation.runId)}?tab=${citation.recordType === 'run_analysis' ? 'evidence' : 'report'}`
+              : `/research/${encodeURIComponent(citation.requestId)}`
+          }
+        >
+          {citation.recordType === 'run_analysis' ? 'Mở đánh giá bằng chứng' : 'Mở đoạn báo cáo'}
+        </Link>
       ) : /^https?:\/\//i.test(target || '') ? (
         <a href={target} target="_blank" rel="noopener noreferrer">
           Mở nguồn

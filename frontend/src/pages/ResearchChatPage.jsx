@@ -149,6 +149,10 @@ function Chat() {
           <ArrowLeft size={15} /> Xem nghiên cứu
         </Link>
       </div>
+      <p className="os-notice">
+        Phạm vi nghiên cứu hiện đọc nguồn từ quy trình cũ; chưa hỗ trợ nguồn và bằng chứng của run
+        sáu giai đoạn. PDF đã gắn vẫn có thể dùng để hỏi đáp.
+      </p>
       <ErrorMessage error={error || chats.error || docs.error} />
       <div className="knowledge-chat-layout ro-chat-layout">
         <aside className="ro-chat-sidebar">
@@ -170,8 +174,8 @@ function Chat() {
                   Phạm vi nguồn
                   <select value={scope} onChange={(e) => setScope(e.target.value)}>
                     <option value="documents">PDF được chọn</option>
-                    <option value="research">Nguồn & bằng chứng nghiên cứu</option>
-                    <option value="combined">PDF + nghiên cứu + bộ nhớ được chọn</option>
+                    <option value="research">Nguồn & bằng chứng quy trình cũ</option>
+                    <option value="combined">PDF + nguồn cũ + bộ nhớ được chọn</option>
                   </select>
                 </label>
                 {scope !== 'research' && (

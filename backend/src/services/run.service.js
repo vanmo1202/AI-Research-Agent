@@ -16,14 +16,16 @@ async function requireRun(id) {
   if (!run) throw error("Run not found");
   return run;
 }
-async function create(requestId, body, idempotencyKey) {
+async function create(requestId,body,idempotencyKey){
+  return db.transaction(tx=>createInTransaction(tx,requestId,body,idempotencyKey));
+}
+async function createInTransaction(tx, requestId, body, idempotencyKey) {
   const opts = options(body);
   key(idempotencyKey);
   const request = await requests.findById(requestId);
   if (!request) throw error("Research request not found");
-  return db.transaction(async (tx) => {
     const previous = await tx.get(
-      "SELECT * FROM research_runs WHERE request_id=? AND idempotency_key=?",
+      "SELECT * FROM research_runs WHERE request_id=$1 AND idempotency_key=$2",
       [requestId, idempotencyKey],
     );
     if (previous) {
@@ -35,7 +37,7 @@ async function create(requestId, body, idempotencyKey) {
     const id = randomUUID(),
       date = model.now();
     await tx.run(
-      `INSERT INTO research_runs(id,request_id,input_snapshot_json,status,current_stage,created_at,updated_at,idempotency_key,orchestration) VALUES(?,?,?,'queued','planning',?,?,?,?)`,
+      `INSERT INTO research_runs(id,request_id,input_snapshot_json,status,current_stage,created_at,updated_at,idempotency_key,orchestration) VALUES($1,$2,$3,'queued','planning',$4,$5,$6,$7)`,
       [
         id,
         requestId,
@@ -48,51 +50,56 @@ async function create(requestId, body, idempotencyKey) {
     );
     await model.event(tx, id, "planning", "run.created", "Research run queued");
     await model.enqueue(tx, id, "planning", { round: 0 }, "planning:0");
-    return tx.get("SELECT * FROM research_runs WHERE id=?", [id]);
-  });
+    return tx.get("SELECT * FROM research_runs WHERE id=$1", [id]);
 }
 async function progress(requestId, id) {
-  const run = await requireRun(id);
-  if (run.request_id !== requestId) throw error("Run not found for request");
-  const jobs = await model.jobs(id);
-  const completedStages = [
-    ...new Set(
-      jobs.filter((j) => j.status === "succeeded").map((j) => j.stage),
-    ),
-  ];
-  const analysis = await model.latestAnalysis(id);
-  const evidence = analysis ? JSON.parse(analysis.evidence_json) : [];
-  const sources = await db.get(
-    "SELECT COUNT(*) count FROM source_versions WHERE run_id=?",
-    [id],
-  );
-  return {
-    requestId,
-    runId: id,
-    status: run.status,
-    currentStage: run.current_stage,
-    currentRound: run.current_round,
-    completedStages,
-    currentJob: publicJob(
-      jobs.find((j) =>
-        ["running", "queued", "retry_waiting"].includes(j.status),
+  // Run/stage/job fields must come from the same worker-visible PostgreSQL snapshot.
+  return db.transaction(async () => {
+    const run = await requireRun(id);
+    if (run.request_id !== requestId) throw error("Run not found for request");
+    const jobs = await model.jobs(id);
+    const completedStages = [
+      ...new Set(
+        jobs.filter((j) => j.status === "succeeded").map((j) => j.stage),
       ),
-    ),
-    percent:
-      run.status === "completed"
-        ? 100
-        : Math.min(99, Math.round((completedStages.length / 6) * 100)),
-    sourceCount: sources.count,
-    evidenceCount: evidence.length,
-    answeredQuestions: new Set(evidence.map((e) => e.questionId)).size,
-    recentEvents: await db.all(
-      "SELECT * FROM run_events WHERE run_id=? ORDER BY id DESC LIMIT 30",
+    ];
+    const analysis = await model.latestAnalysis(id);
+    const evidence = analysis ? JSON.parse(analysis.evidence_json) : [];
+    const sources = await db.get(
+      "SELECT COUNT(*) count FROM source_versions WHERE run_id=$1",
       [id],
-    ),
-    lastError: run.error_code
-      ? { code: run.error_code, message: run.error_message }
-      : null,
-  };
+    );
+    return {
+      requestId,
+      runId: id,
+      status: run.status,
+      orchestration: run.orchestration,
+      currentStage: run.current_stage,
+      currentRound: run.current_round,
+      completedStages,
+      progressMeaning:"stage_execution_not_citation_verification",
+      stageQuality:Object.fromEntries(jobs.filter(j=>j.status==='succeeded').map(j=>[j.stage,JSON.parse(j.output_json || '{}').qualityStatus || 'unverified'])),
+      currentJob: publicJob(
+        jobs.find((j) =>
+          ["running", "queued", "retry_waiting"].includes(j.status),
+        ),
+      ),
+      percent:
+        run.status === "completed"
+          ? 100
+          : Math.min(99, Math.round((completedStages.length / 6) * 100)),
+      sourceCount: sources.count,
+      evidenceCount: evidence.length,
+      answeredQuestions: new Set(evidence.map((e) => e.questionId)).size,
+      recentEvents: await db.all(
+        "SELECT * FROM run_events WHERE run_id=$1 ORDER BY id DESC LIMIT 30",
+        [id],
+      ),
+      lastError: run.error_code
+        ? { code: run.error_code, message: run.error_message }
+        : null,
+    };
+  }, { readOnly: true });
 }
 function publicJob(job) {
   if (!job) return null;
@@ -106,14 +113,14 @@ function publicJob(job) {
 async function cancel(id) {
   await requireRun(id);
   return db.transaction(async (tx) => {
-    const run = await tx.get("SELECT * FROM research_runs WHERE id=?", [id]);
+    const run = await tx.get("SELECT * FROM research_runs WHERE id=$1", [id]);
     if (terminal.includes(run.status)) return run;
     await tx.run(
-      "UPDATE research_runs SET status='cancelled',completed_at=?,updated_at=? WHERE id=?",
+      "UPDATE research_runs SET status='cancelled',completed_at=$1,updated_at=$2 WHERE id=$3",
       [model.now(), model.now(), id],
     );
     await tx.run(
-      "UPDATE stage_jobs SET status='cancelled',locked_by=NULL,locked_until=NULL,completed_at=? WHERE run_id=? AND status IN ('queued','running','retry_waiting')",
+      "UPDATE stage_jobs SET status='cancelled',locked_by=NULL,locked_until=NULL,completed_at=$1 WHERE run_id=$2 AND status IN ('queued','running','retry_waiting')",
       [model.now(), id],
     );
     await model.event(
@@ -123,7 +130,7 @@ async function cancel(id) {
       "run.cancelled",
       "Research run cancelled",
     );
-    return tx.get("SELECT * FROM research_runs WHERE id=?", [id]);
+    return tx.get("SELECT * FROM research_runs WHERE id=$1", [id]);
   });
 }
 async function retry(id, stage, idempotencyKey) {
@@ -131,7 +138,7 @@ async function retry(id, stage, idempotencyKey) {
   await requireRun(id);
   return db.transaction(async (tx) => {
     const previous = await tx.get(
-      "SELECT * FROM stage_jobs WHERE run_id=? AND idempotency_key=?",
+      "SELECT * FROM stage_jobs WHERE run_id=$1 AND idempotency_key=$2",
       [id, idempotencyKey],
     );
     if (previous) {
@@ -139,11 +146,11 @@ async function retry(id, stage, idempotencyKey) {
         throw error("Idempotency key reused for another stage", 409);
       return previous;
     }
-    const run = await tx.get("SELECT * FROM research_runs WHERE id=?", [id]);
+    const run = await tx.get("SELECT * FROM research_runs WHERE id=$1", [id]);
     if (!["failed", "partial"].includes(run.status))
       throw error("Only failed or partial runs can be retried", 409);
     const last = await tx.get(
-      "SELECT * FROM stage_jobs WHERE run_id=? ORDER BY rowid DESC LIMIT 1",
+      "SELECT * FROM stage_jobs WHERE run_id=$1 ORDER BY legacy_position DESC LIMIT 1",
       [id],
     );
     stage = stage || last.stage;
@@ -152,7 +159,7 @@ async function retry(id, stage, idempotencyKey) {
     if (
       previousStage &&
       !(await tx.get(
-        "SELECT id FROM stage_jobs WHERE run_id=? AND stage=? AND status='succeeded'",
+        "SELECT id FROM stage_jobs WHERE run_id=$1 AND stage=$2 AND status='succeeded'",
         [id, previousStage],
       ))
     )
@@ -165,7 +172,7 @@ async function retry(id, stage, idempotencyKey) {
       idempotencyKey,
     );
     await tx.run(
-      "UPDATE research_runs SET status='queued',current_stage=?,completed_at=NULL,error_code=NULL,error_message=NULL,updated_at=? WHERE id=?",
+      "UPDATE research_runs SET status='queued',current_stage=$1,completed_at=NULL,error_code=NULL,error_message=NULL,updated_at=$2 WHERE id=$3",
       [stage, model.now(), id],
     );
     return job;
@@ -176,21 +183,21 @@ async function dispatch(id, stage, idempotencyKey) {
   if (!STAGES.includes(stage)) throw invalid("Invalid stage");
   const run = await requireRun(id);
   const previous = await db.get(
-    "SELECT * FROM stage_jobs WHERE run_id=? AND idempotency_key=?",
+    "SELECT * FROM stage_jobs WHERE run_id=$1 AND idempotency_key=$2",
     [id, idempotencyKey],
   );
   if (previous) {
     if (previous.stage !== stage)
       throw error("Idempotency key reused for another stage", 409);
     await db.run(
-      "UPDATE dispatch_outbox SET status='released' WHERE job_id=? AND status='pending'",
+      "UPDATE dispatch_outbox SET status='released' WHERE job_id=$1 AND status='pending'",
       [previous.id],
     );
     return previous;
   }
   // Backend is authoritative: orchestrators may only address the already scheduled stage.
   const current = await db.get(
-    "SELECT * FROM stage_jobs WHERE run_id=? AND stage=? ORDER BY rowid DESC LIMIT 1",
+    "SELECT * FROM stage_jobs WHERE run_id=$1 AND stage=$2 ORDER BY legacy_position DESC LIMIT 1",
     [id, stage],
   );
   if (!current || stage !== run.current_stage)
@@ -201,6 +208,7 @@ async function dispatch(id, stage, idempotencyKey) {
 }
 module.exports = {
   create,
+  createInTransaction,
   progress,
   cancel,
   retry,

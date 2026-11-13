@@ -1,0 +1,233 @@
+{
+  "name": "ResearchOS | WF05 Scheduled Research | REQUIRES BACKEND ENDPOINT",
+  "active": false,
+  "nodes": [
+    {
+      "id": "dc935495-8786-51a2-a587-1134a8101508",
+      "name": "01 - Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e1b8c860-3786-5549-ad54-415afbf5a842",
+      "name": "02 - Build Schedule Window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const scheduleId=$vars.RESEARCHOS_SCHEDULE_ID;\nconst windowKey=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());\nconst valid=typeof scheduleId==='string'&&/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(scheduleId);\nreturn [{json:{valid,scheduleId:valid?scheduleId:null,windowKey,requestedAt:new Date().toISOString(),error:valid?null:'Configure RESEARCHOS_SCHEDULE_ID using an existing enabled backend schedule'}}];"
+      }
+    },
+    {
+      "id": "b009acb3-c668-557f-b319-635f4afac983",
+      "name": "03 - Schedule Configured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8a61b0f5-a927-5ae7-a605-7dca9b85a601",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "af25c25b-c835-53ee-827e-17c3813ebf76",
+      "name": "04 - Configuration Missing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        190
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "throw new Error('SCHEDULE_NOT_CONFIGURED');"
+      }
+    },
+    {
+      "id": "a9116105-fef2-5fea-be80-8230647bef43",
+      "name": "05 - Dispatch Scheduled Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        750,
+        -90
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:3000/internal/research/schedules/dispatch",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {scheduleId:$json.scheduleId,windowKey:$json.windowKey,requestedAt:$json.requestedAt} }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.scheduleId + ':' + $json.windowKey }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "3423d6e9-279b-5e3a-8752-368201da1f6e",
+      "name": "06 - Dispatch Accepted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1010,
+        -180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const r=$input.first().json;if(r.success!==true||!r.data?.runId)throw new Error('Invalid schedule dispatch reply');return [{json:{success:true,accepted:true,...r.data}}];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "eaecd3fc-d17b-5282-8576-b68b13776b4f",
+      "name": "07 - Dispatch Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1010,
+        110
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "throw new Error('SCHEDULE_DISPATCH_FAILED: inspect backend state before retrying the same window');"
+      }
+    }
+  ],
+  "connections": {
+    "01 - Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "02 - Build Schedule Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 - Build Schedule Window": {
+      "main": [
+        [
+          {
+            "node": "03 - Schedule Configured?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 - Schedule Configured?": {
+      "main": [
+        [
+          {
+            "node": "05 - Dispatch Scheduled Research",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "04 - Configuration Missing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05 - Dispatch Scheduled Research": {
+      "main": [
+        [
+          {
+            "node": "06 - Dispatch Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "07 - Dispatch Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "06 - Dispatch Accepted": {
+      "main": [
+        [],
+        [
+          {
+            "node": "07 - Dispatch Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 70,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  "pinData": {},
+  "tags": []
+}

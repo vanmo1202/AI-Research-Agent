@@ -1,0 +1,3225 @@
+{
+  "objects": [
+    {
+      "type": "index",
+      "name": "analysis_run_lookup",
+      "tbl_name": "analysis_versions",
+      "sql": "CREATE INDEX analysis_run_lookup ON analysis_versions(run_id)"
+    },
+    {
+      "type": "index",
+      "name": "chat_web_owner",
+      "tbl_name": "chat_web_sources",
+      "sql": "CREATE INDEX chat_web_owner ON chat_web_sources(owner_id,chat_id,retrieved_at)"
+    },
+    {
+      "type": "index",
+      "name": "chats_owner_request",
+      "tbl_name": "chat_sessions",
+      "sql": "CREATE INDEX chats_owner_request ON chat_sessions(owner_id,request_id,created_at)"
+    },
+    {
+      "type": "index",
+      "name": "chunks_run_lookup",
+      "tbl_name": "source_chunks_v2",
+      "sql": "CREATE INDEX chunks_run_lookup ON source_chunks_v2(run_id)"
+    },
+    {
+      "type": "index",
+      "name": "documents_hash",
+      "tbl_name": "documents",
+      "sql": "CREATE UNIQUE INDEX documents_hash ON documents(owner_id,sha256) WHERE deleted_at IS NULL"
+    },
+    {
+      "type": "index",
+      "name": "documents_owner",
+      "tbl_name": "documents",
+      "sql": "CREATE INDEX documents_owner ON documents(owner_id,created_at)"
+    },
+    {
+      "type": "index",
+      "name": "events_run",
+      "tbl_name": "run_events",
+      "sql": "CREATE INDEX events_run ON run_events(run_id,id)"
+    },
+    {
+      "type": "index",
+      "name": "idx_chunks_request_id",
+      "tbl_name": "chunks",
+      "sql": "CREATE INDEX idx_chunks_request_id ON chunks(request_id)"
+    },
+    {
+      "type": "index",
+      "name": "idx_chunks_source_id",
+      "tbl_name": "chunks",
+      "sql": "CREATE INDEX idx_chunks_source_id ON chunks(source_id)"
+    },
+    {
+      "type": "index",
+      "name": "idx_evidence_request_id",
+      "tbl_name": "evidence",
+      "sql": "CREATE INDEX idx_evidence_request_id ON evidence(request_id)"
+    },
+    {
+      "type": "index",
+      "name": "idx_evidence_source_id",
+      "tbl_name": "evidence",
+      "sql": "CREATE INDEX idx_evidence_source_id ON evidence(source_id)"
+    },
+    {
+      "type": "index",
+      "name": "ingestion_one_per_document",
+      "tbl_name": "document_ingestion_jobs",
+      "sql": "CREATE UNIQUE INDEX ingestion_one_per_document ON document_ingestion_jobs(document_id) WHERE status IN ('pending','processing')"
+    },
+    {
+      "type": "index",
+      "name": "ingestion_queue",
+      "tbl_name": "document_ingestion_jobs",
+      "sql": "CREATE INDEX ingestion_queue ON document_ingestion_jobs(status,created_at)"
+    },
+    {
+      "type": "index",
+      "name": "ingestion_single_worker",
+      "tbl_name": "document_ingestion_jobs",
+      "sql": "CREATE UNIQUE INDEX ingestion_single_worker ON document_ingestion_jobs((1)) WHERE status='processing'"
+    },
+    {
+      "type": "index",
+      "name": "jobs_claim",
+      "tbl_name": "stage_jobs",
+      "sql": "CREATE INDEX jobs_claim ON stage_jobs(status,available_at,locked_until)"
+    },
+    {
+      "type": "index",
+      "name": "memories_document_hash",
+      "tbl_name": "agent_memories",
+      "sql": "CREATE UNIQUE INDEX memories_document_hash ON agent_memories(owner_id,content_hash) WHERE request_id IS NULL"
+    },
+    {
+      "type": "index",
+      "name": "memories_owner_status",
+      "tbl_name": "agent_memories",
+      "sql": "CREATE INDEX memories_owner_status ON agent_memories(owner_id,status,updated_at)"
+    },
+    {
+      "type": "index",
+      "name": "memory_links_reference",
+      "tbl_name": "memory_evidence_links",
+      "sql": "CREATE INDEX memory_links_reference ON memory_evidence_links(kind,reference_id)"
+    },
+    {
+      "type": "index",
+      "name": "messages_chat",
+      "tbl_name": "chat_messages",
+      "sql": "CREATE INDEX messages_chat ON chat_messages(chat_id,created_at)"
+    },
+    {
+      "type": "index",
+      "name": "one_active_job_per_run",
+      "tbl_name": "stage_jobs",
+      "sql": "CREATE UNIQUE INDEX one_active_job_per_run ON stage_jobs(run_id) WHERE status IN ('queued','running','retry_waiting')"
+    },
+    {
+      "type": "index",
+      "name": "plans_request_id",
+      "tbl_name": "plans",
+      "sql": "CREATE INDEX plans_request_id ON plans(request_id)"
+    },
+    {
+      "type": "index",
+      "name": "reports_run_lookup",
+      "tbl_name": "report_versions",
+      "sql": "CREATE INDEX reports_run_lookup ON report_versions(run_id)"
+    },
+    {
+      "type": "index",
+      "name": "requests_owner",
+      "tbl_name": "requests",
+      "sql": "CREATE INDEX requests_owner ON requests(owner_id,created_at)"
+    },
+    {
+      "type": "index",
+      "name": "runs_request",
+      "tbl_name": "research_runs",
+      "sql": "CREATE INDEX runs_request ON research_runs(request_id,created_at)"
+    },
+    {
+      "type": "index",
+      "name": "runs_request_lookup",
+      "tbl_name": "research_runs",
+      "sql": "CREATE INDEX runs_request_lookup ON research_runs(request_id)"
+    },
+    {
+      "type": "index",
+      "name": "sessions_user",
+      "tbl_name": "user_sessions",
+      "sql": "CREATE INDEX sessions_user ON user_sessions(user_id,expires_at)"
+    },
+    {
+      "type": "index",
+      "name": "sources_run_lookup",
+      "tbl_name": "source_versions",
+      "sql": "CREATE INDEX sources_run_lookup ON source_versions(run_id)"
+    },
+    {
+      "type": "table",
+      "name": "agent_memories",
+      "tbl_name": "agent_memories",
+      "sql": "CREATE TABLE \"agent_memories\" (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, request_id TEXT REFERENCES requests(id), message_id TEXT REFERENCES \"chat_messages\"(id) ON DELETE SET NULL, kind TEXT NOT NULL CHECK(kind IN ('research','cross_research')), content TEXT NOT NULL, content_hash TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('candidate','verified','rejected','stale')), verification_json TEXT NOT NULL DEFAULT '{}', last_checked_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(owner_id,request_id,content_hash))"
+    },
+    {
+      "type": "table",
+      "name": "agent_memories_fts",
+      "tbl_name": "agent_memories_fts",
+      "sql": "CREATE VIRTUAL TABLE agent_memories_fts USING fts5(content, content='agent_memories', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2')"
+    },
+    {
+      "type": "table",
+      "name": "agent_memories_fts_config",
+      "tbl_name": "agent_memories_fts_config",
+      "sql": "CREATE TABLE 'agent_memories_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID"
+    },
+    {
+      "type": "table",
+      "name": "agent_memories_fts_data",
+      "tbl_name": "agent_memories_fts_data",
+      "sql": "CREATE TABLE 'agent_memories_fts_data'(id INTEGER PRIMARY KEY, block BLOB)"
+    },
+    {
+      "type": "table",
+      "name": "agent_memories_fts_docsize",
+      "tbl_name": "agent_memories_fts_docsize",
+      "sql": "CREATE TABLE 'agent_memories_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)"
+    },
+    {
+      "type": "table",
+      "name": "agent_memories_fts_idx",
+      "tbl_name": "agent_memories_fts_idx",
+      "sql": "CREATE TABLE 'agent_memories_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID"
+    },
+    {
+      "type": "table",
+      "name": "analysis_results",
+      "tbl_name": "analysis_results",
+      "sql": "CREATE TABLE analysis_results (\n        request_id TEXT PRIMARY KEY REFERENCES requests(id), metadata_json TEXT NOT NULL\n    )"
+    },
+    {
+      "type": "table",
+      "name": "analysis_versions",
+      "tbl_name": "analysis_versions",
+      "sql": "CREATE TABLE analysis_versions (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES research_runs(id),\n job_id TEXT NOT NULL UNIQUE REFERENCES stage_jobs(id), source_snapshot_hash TEXT NOT NULL,\n evidence_json TEXT NOT NULL, coverage_status TEXT NOT NULL, gaps_json TEXT NOT NULL, created_at TEXT NOT NULL)"
+    },
+    {
+      "type": "table",
+      "name": "chat_daily_usage",
+      "tbl_name": "chat_daily_usage",
+      "sql": "CREATE TABLE chat_daily_usage (subject TEXT NOT NULL, day TEXT NOT NULL,\n      search_calls INTEGER NOT NULL DEFAULT 0, llm_calls INTEGER NOT NULL DEFAULT 0,\n      input_bytes INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0,\n      page_fetches INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(subject,day))"
+    },
+    {
+      "type": "table",
+      "name": "chat_messages",
+      "tbl_name": "chat_messages",
+      "sql": "CREATE TABLE \"chat_messages\" (id TEXT PRIMARY KEY, chat_id TEXT NOT NULL REFERENCES \"chat_sessions\"(id) ON DELETE CASCADE, role TEXT NOT NULL CHECK(role IN ('user','assistant')), content TEXT NOT NULL, citations_json TEXT NOT NULL DEFAULT '[]', turn_id TEXT, status TEXT NOT NULL CHECK(status IN ('pending','complete','failed')), created_at TEXT NOT NULL, research_json TEXT NOT NULL DEFAULT '{}', UNIQUE(chat_id,turn_id,role))"
+    },
+    {
+      "type": "table",
+      "name": "chat_sessions",
+      "tbl_name": "chat_sessions",
+      "sql": "CREATE TABLE \"chat_sessions\" (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, request_id TEXT REFERENCES requests(id), title TEXT NOT NULL, scope TEXT NOT NULL CHECK(scope IN ('documents','research','combined')), document_ids_json TEXT NOT NULL, memory_ids_json TEXT NOT NULL DEFAULT '[]', busy_until INTEGER NOT NULL DEFAULT 0, active_token TEXT, created_at TEXT NOT NULL, auto_research INTEGER NOT NULL DEFAULT 0 CHECK(auto_research IN (0,1)), internet_enabled INTEGER NOT NULL DEFAULT 0 CHECK(internet_enabled IN (0,1)))"
+    },
+    {
+      "type": "table",
+      "name": "chat_turn_usage",
+      "tbl_name": "chat_turn_usage",
+      "sql": "CREATE TABLE chat_turn_usage (chat_id TEXT NOT NULL, turn_id TEXT NOT NULL,\n      search_calls INTEGER NOT NULL DEFAULT 0, llm_calls INTEGER NOT NULL DEFAULT 0,\n      input_bytes INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0,\n      page_fetches INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(chat_id,turn_id))"
+    },
+    {
+      "type": "table",
+      "name": "chat_web_sources",
+      "tbl_name": "chat_web_sources",
+      "sql": "CREATE TABLE chat_web_sources (\n    id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, chat_id TEXT REFERENCES chat_sessions(id) ON DELETE SET NULL,\n    turn_id TEXT NOT NULL, question TEXT NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL,\n    content TEXT NOT NULL, content_hash TEXT NOT NULL, retrieved_at TEXT NOT NULL, provider TEXT NOT NULL,\n    UNIQUE(chat_id,turn_id,url))"
+    },
+    {
+      "type": "table",
+      "name": "chunks",
+      "tbl_name": "chunks",
+      "sql": "CREATE TABLE chunks (\n        id TEXT PRIMARY KEY, request_id TEXT NOT NULL, source_id TEXT NOT NULL,\n        chunk_index INTEGER NOT NULL, content TEXT NOT NULL, char_count INTEGER,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        FOREIGN KEY (request_id) REFERENCES requests(id), FOREIGN KEY (source_id) REFERENCES sources(id),\n        UNIQUE(source_id, chunk_index)\n    )"
+    },
+    {
+      "type": "table",
+      "name": "dispatch_outbox",
+      "tbl_name": "dispatch_outbox",
+      "sql": "CREATE TABLE dispatch_outbox (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES research_runs(id),\n job_id TEXT NOT NULL UNIQUE REFERENCES stage_jobs(id), event_type TEXT NOT NULL, payload_json TEXT NOT NULL,\n status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, sent_at TEXT)"
+    },
+    {
+      "type": "table",
+      "name": "document_chunks",
+      "tbl_name": "document_chunks",
+      "sql": "CREATE TABLE document_chunks (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, page INTEGER NOT NULL,\n      chunk_index INTEGER NOT NULL, content TEXT NOT NULL, content_hash TEXT NOT NULL,\n      FOREIGN KEY(document_id,page) REFERENCES document_pages(document_id,page) ON DELETE CASCADE,\n      UNIQUE(document_id,page,chunk_index))"
+    },
+    {
+      "type": "table",
+      "name": "document_chunks_fts",
+      "tbl_name": "document_chunks_fts",
+      "sql": "CREATE VIRTUAL TABLE document_chunks_fts USING fts5(content, content='document_chunks', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2')"
+    },
+    {
+      "type": "table",
+      "name": "document_chunks_fts_config",
+      "tbl_name": "document_chunks_fts_config",
+      "sql": "CREATE TABLE 'document_chunks_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID"
+    },
+    {
+      "type": "table",
+      "name": "document_chunks_fts_data",
+      "tbl_name": "document_chunks_fts_data",
+      "sql": "CREATE TABLE 'document_chunks_fts_data'(id INTEGER PRIMARY KEY, block BLOB)"
+    },
+    {
+      "type": "table",
+      "name": "document_chunks_fts_docsize",
+      "tbl_name": "document_chunks_fts_docsize",
+      "sql": "CREATE TABLE 'document_chunks_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)"
+    },
+    {
+      "type": "table",
+      "name": "document_chunks_fts_idx",
+      "tbl_name": "document_chunks_fts_idx",
+      "sql": "CREATE TABLE 'document_chunks_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID"
+    },
+    {
+      "type": "table",
+      "name": "document_ingestion_jobs",
+      "tbl_name": "document_ingestion_jobs",
+      "sql": "CREATE TABLE document_ingestion_jobs (id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id), status TEXT NOT NULL CHECK(status IN ('pending','processing','ready','failed')), attempts INTEGER NOT NULL DEFAULT 0, generation INTEGER NOT NULL DEFAULT 0, lease_until INTEGER, error_code TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    },
+    {
+      "type": "table",
+      "name": "document_pages",
+      "tbl_name": "document_pages",
+      "sql": "CREATE TABLE document_pages (document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,\n      page INTEGER NOT NULL CHECK(page>0), content TEXT NOT NULL, PRIMARY KEY(document_id,page))"
+    },
+    {
+      "type": "table",
+      "name": "documents",
+      "tbl_name": "documents",
+      "sql": "CREATE TABLE documents (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, filename TEXT NOT NULL,\n      storage_name TEXT NOT NULL, sha256 TEXT NOT NULL, byte_size INTEGER NOT NULL CHECK(byte_size>0),\n      page_count INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL CHECK(status IN ('pending','processing','ready','failed')),\n      error_code TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT)"
+    },
+    {
+      "type": "table",
+      "name": "evidence",
+      "tbl_name": "evidence",
+      "sql": "CREATE TABLE evidence (\n        id TEXT PRIMARY KEY, request_id TEXT NOT NULL, source_id TEXT NOT NULL,\n        chunk_id TEXT, research_question TEXT, evidence_text TEXT NOT NULL,\n        relevance_score REAL, reason TEXT, citation_label TEXT,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        FOREIGN KEY (request_id) REFERENCES requests(id), FOREIGN KEY (source_id) REFERENCES sources(id),\n        FOREIGN KEY (chunk_id) REFERENCES chunks(id)\n    )"
+    },
+    {
+      "type": "table",
+      "name": "evidence_cache",
+      "tbl_name": "evidence_cache",
+      "sql": "CREATE TABLE evidence_cache (\n        request_id TEXT NOT NULL REFERENCES requests(id), question_id TEXT NOT NULL,\n        input_hash TEXT NOT NULL, evidence_json TEXT NOT NULL,\n        PRIMARY KEY(request_id, question_id, input_hash)\n    )"
+    },
+    {
+      "type": "table",
+      "name": "memory_evidence_links",
+      "tbl_name": "memory_evidence_links",
+      "sql": "CREATE TABLE \"memory_evidence_links\" (id INTEGER PRIMARY KEY, memory_id TEXT NOT NULL REFERENCES \"agent_memories\"(id) ON DELETE CASCADE, kind TEXT NOT NULL CHECK(kind IN ('document','evidence','source')), reference_id TEXT NOT NULL, document_id TEXT, page INTEGER, source_id TEXT, version_hash TEXT NOT NULL, quote TEXT NOT NULL)"
+    },
+    {
+      "type": "table",
+      "name": "plans",
+      "tbl_name": "plans",
+      "sql": "CREATE TABLE plans (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        request_id TEXT NOT NULL REFERENCES requests(id),\n        question_id TEXT NOT NULL, research_question TEXT NOT NULL,\n        search_query TEXT NOT NULL, created_at TEXT\n    )"
+    },
+    {
+      "type": "table",
+      "name": "report_versions",
+      "tbl_name": "report_versions",
+      "sql": "CREATE TABLE report_versions (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES research_runs(id),\n job_id TEXT NOT NULL UNIQUE REFERENCES stage_jobs(id), analysis_version_id TEXT NOT NULL REFERENCES analysis_versions(id),\n content TEXT NOT NULL, references_json TEXT NOT NULL, citation_validation_json TEXT NOT NULL,\n status TEXT NOT NULL, created_at TEXT NOT NULL)"
+    },
+    {
+      "type": "table",
+      "name": "reports",
+      "tbl_name": "reports",
+      "sql": "CREATE TABLE reports (\n        id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE, title TEXT,\n        language TEXT DEFAULT 'vi', style TEXT, output_length TEXT, content TEXT NOT NULL,\n        references_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n        FOREIGN KEY (request_id) REFERENCES requests(id)\n    )"
+    },
+    {
+      "type": "table",
+      "name": "requests",
+      "tbl_name": "requests",
+      "sql": "CREATE TABLE requests (\n        id TEXT PRIMARY KEY, topic TEXT NOT NULL, goal TEXT NOT NULL,\n        scope TEXT, output_length TEXT, status TEXT,\n        created_at TEXT, updated_at TEXT\n    , owner_id TEXT NOT NULL DEFAULT 'workspace')"
+    },
+    {
+      "type": "table",
+      "name": "research_documents",
+      "tbl_name": "research_documents",
+      "sql": "CREATE TABLE research_documents (request_id TEXT NOT NULL REFERENCES requests(id), document_id TEXT NOT NULL REFERENCES documents(id), owner_id TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(request_id,document_id))"
+    },
+    {
+      "type": "table",
+      "name": "research_runs",
+      "tbl_name": "research_runs",
+      "sql": "CREATE TABLE research_runs (\n id TEXT PRIMARY KEY, request_id TEXT NOT NULL REFERENCES requests(id), input_snapshot_json TEXT NOT NULL,\n status TEXT NOT NULL CHECK(status IN ('queued','running','completed','partial','failed','cancelled')),\n current_stage TEXT, current_round INTEGER NOT NULL DEFAULT 0, last_successful_stage TEXT,\n created_at TEXT NOT NULL, started_at TEXT, completed_at TEXT, updated_at TEXT NOT NULL,\n error_code TEXT, error_message TEXT, idempotency_key TEXT NOT NULL, orchestration TEXT NOT NULL DEFAULT 'backend',\n llm_calls INTEGER NOT NULL DEFAULT 0, search_calls INTEGER NOT NULL DEFAULT 0,\n UNIQUE(request_id,idempotency_key))"
+    },
+    {
+      "type": "table",
+      "name": "run_events",
+      "tbl_name": "run_events",
+      "sql": "CREATE TABLE run_events (id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL REFERENCES research_runs(id),\n stage TEXT, event_type TEXT NOT NULL, message TEXT NOT NULL, metadata_json TEXT NOT NULL, created_at TEXT NOT NULL)"
+    },
+    {
+      "type": "table",
+      "name": "schema_migrations",
+      "tbl_name": "schema_migrations",
+      "sql": "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)"
+    },
+    {
+      "type": "table",
+      "name": "source_chunks_v2",
+      "tbl_name": "source_chunks_v2",
+      "sql": "CREATE TABLE source_chunks_v2 (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES research_runs(id),\n source_version_id TEXT NOT NULL REFERENCES source_versions(id), chunk_index INTEGER NOT NULL, content TEXT NOT NULL,\n UNIQUE(source_version_id,chunk_index))"
+    },
+    {
+      "type": "table",
+      "name": "source_versions",
+      "tbl_name": "source_versions",
+      "sql": "CREATE TABLE source_versions (\n id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES research_runs(id), query TEXT NOT NULL, title TEXT, url TEXT NOT NULL,\n normalized_url TEXT NOT NULL, provider TEXT, original_content TEXT NOT NULL, display_content_vi TEXT,\n content_hash TEXT NOT NULL, language TEXT, translation_status TEXT, collected_at TEXT NOT NULL,\n UNIQUE(run_id,normalized_url))"
+    },
+    {
+      "type": "table",
+      "name": "sources",
+      "tbl_name": "sources",
+      "sql": "CREATE TABLE sources (\n        id TEXT PRIMARY KEY,\n        request_id TEXT NOT NULL REFERENCES requests(id),\n        query TEXT NOT NULL, title TEXT, url TEXT NOT NULL,\n        normalized_url TEXT NOT NULL, snippet TEXT, content TEXT, provider TEXT,\n        collected_at TEXT NOT NULL, title_vi TEXT, snippet_vi TEXT, content_vi TEXT, source_language TEXT, translation_status TEXT, translation_hash TEXT,\n        UNIQUE(request_id, normalized_url)\n    )"
+    },
+    {
+      "type": "table",
+      "name": "stage_jobs",
+      "tbl_name": "stage_jobs",
+      "sql": "CREATE TABLE stage_jobs (\n id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES research_runs(id), stage TEXT NOT NULL,\n status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','retry_waiting','failed','cancelled')),\n attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 3,\n idempotency_key TEXT NOT NULL, locked_by TEXT, locked_until TEXT, heartbeat_at TEXT,\n input_json TEXT NOT NULL, output_json TEXT, error_json TEXT, created_at TEXT NOT NULL,\n started_at TEXT, completed_at TEXT, available_at TEXT NOT NULL, generation INTEGER NOT NULL DEFAULT 0,\n UNIQUE(run_id,idempotency_key))"
+    },
+    {
+      "type": "table",
+      "name": "user_sessions",
+      "tbl_name": "user_sessions",
+      "sql": "CREATE TABLE user_sessions (\n    id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,\n    token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL,\n    expires_at TEXT NOT NULL, revoked_at TEXT)"
+    },
+    {
+      "type": "table",
+      "name": "users",
+      "tbl_name": "users",
+      "sql": "CREATE TABLE users (\n    id TEXT PRIMARY KEY, email TEXT NOT NULL COLLATE NOCASE UNIQUE,\n    name TEXT NOT NULL, password_hash TEXT NOT NULL,\n    role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin')),\n    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled')),\n    created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    },
+    {
+      "type": "trigger",
+      "name": "document_chunks_ad",
+      "tbl_name": "document_chunks",
+      "sql": "CREATE TRIGGER document_chunks_ad AFTER DELETE ON document_chunks BEGIN INSERT INTO document_chunks_fts(document_chunks_fts,rowid,content) VALUES('delete',old.rowid,old.content); END"
+    },
+    {
+      "type": "trigger",
+      "name": "document_chunks_ai",
+      "tbl_name": "document_chunks",
+      "sql": "CREATE TRIGGER document_chunks_ai AFTER INSERT ON document_chunks BEGIN INSERT INTO document_chunks_fts(rowid,content) VALUES(new.rowid,new.content); END"
+    },
+    {
+      "type": "trigger",
+      "name": "document_chunks_au",
+      "tbl_name": "document_chunks",
+      "sql": "CREATE TRIGGER document_chunks_au AFTER UPDATE ON document_chunks BEGIN INSERT INTO document_chunks_fts(document_chunks_fts,rowid,content) VALUES('delete',old.rowid,old.content); INSERT INTO document_chunks_fts(rowid,content) VALUES(new.rowid,new.content); END"
+    },
+    {
+      "type": "trigger",
+      "name": "knowledge_chunk_stale",
+      "tbl_name": "document_chunks",
+      "sql": "CREATE TRIGGER knowledge_chunk_stale AFTER DELETE ON document_chunks BEGIN UPDATE agent_memories SET status='stale',updated_at=CURRENT_TIMESTAMP WHERE id IN (SELECT memory_id FROM memory_evidence_links WHERE kind='document' AND reference_id=old.id); END"
+    },
+    {
+      "type": "trigger",
+      "name": "knowledge_document_stale",
+      "tbl_name": "documents",
+      "sql": "CREATE TRIGGER knowledge_document_stale AFTER UPDATE OF deleted_at ON documents WHEN new.deleted_at IS NOT NULL BEGIN UPDATE agent_memories SET status='stale',updated_at=CURRENT_TIMESTAMP WHERE id IN (SELECT memory_id FROM memory_evidence_links WHERE document_id=new.id); END"
+    },
+    {
+      "type": "trigger",
+      "name": "knowledge_evidence_delete",
+      "tbl_name": "evidence",
+      "sql": "CREATE TRIGGER knowledge_evidence_delete AFTER DELETE ON evidence BEGIN UPDATE agent_memories SET status='stale',updated_at=CURRENT_TIMESTAMP WHERE id IN (SELECT memory_id FROM memory_evidence_links WHERE kind='evidence' AND reference_id=old.id); END"
+    },
+    {
+      "type": "trigger",
+      "name": "knowledge_evidence_update",
+      "tbl_name": "evidence",
+      "sql": "CREATE TRIGGER knowledge_evidence_update AFTER UPDATE ON evidence BEGIN UPDATE agent_memories SET status='stale',updated_at=CURRENT_TIMESTAMP WHERE id IN (SELECT memory_id FROM memory_evidence_links WHERE kind='evidence' AND reference_id=old.id); END"
+    },
+    {
+      "type": "trigger",
+      "name": "knowledge_source_delete",
+      "tbl_name": "sources",
+      "sql": "CREATE TRIGGER knowledge_source_delete AFTER DELETE ON sources BEGIN UPDATE agent_memories SET status='stale',updated_at=CURRENT_TIMESTAMP WHERE id IN (SELECT memory_id FROM memory_evidence_links WHERE source_id=old.id); END"
+    },
+    {
+      "type": "trigger",
+      "name": "knowledge_source_update",
+      "tbl_name": "sources",
+      "sql": "CREATE TRIGGER knowledge_source_update AFTER UPDATE ON sources BEGIN UPDATE agent_memories SET status='stale',updated_at=CURRENT_TIMESTAMP WHERE id IN (SELECT memory_id FROM memory_evidence_links WHERE source_id=old.id); END"
+    },
+    {
+      "type": "trigger",
+      "name": "memories_ad",
+      "tbl_name": "agent_memories",
+      "sql": "CREATE TRIGGER memories_ad AFTER DELETE ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts,rowid,content) VALUES('delete',old.rowid,old.content); END"
+    },
+    {
+      "type": "trigger",
+      "name": "memories_ai",
+      "tbl_name": "agent_memories",
+      "sql": "CREATE TRIGGER memories_ai AFTER INSERT ON agent_memories BEGIN INSERT INTO agent_memories_fts(rowid,content) VALUES(new.rowid,new.content); END"
+    },
+    {
+      "type": "trigger",
+      "name": "memories_au",
+      "tbl_name": "agent_memories",
+      "sql": "CREATE TRIGGER memories_au AFTER UPDATE OF content ON agent_memories BEGIN INSERT INTO agent_memories_fts(agent_memories_fts,rowid,content) VALUES('delete',old.rowid,old.content); INSERT INTO agent_memories_fts(rowid,content) VALUES(new.rowid,new.content); END"
+    }
+  ],
+  "tables": [
+    {
+      "table": "agent_memories",
+      "count": 7,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "owner_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "message_id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "kind",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "content_hash",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "verification_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": "'{}'",
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "last_checked_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 10,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 11,
+          "name": "updated_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chat_messages",
+          "from": "message_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "SET NULL",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "analysis_results",
+      "count": 6,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "metadata_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "analysis_versions",
+      "count": 0,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "run_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "job_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "source_snapshot_hash",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "evidence_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "coverage_status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "gaps_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "stage_jobs",
+          "from": "job_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "research_runs",
+          "from": "run_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "chat_daily_usage",
+      "count": 2,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "subject",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "day",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 2
+        },
+        {
+          "cid": 2,
+          "name": "search_calls",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "llm_calls",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "input_bytes",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "output_tokens",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "page_fetches",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": []
+    },
+    {
+      "table": "chat_messages",
+      "count": 8,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "chat_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "role",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "citations_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": "'[]'",
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "turn_id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "research_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": "'{}'",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chat_sessions",
+          "from": "chat_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "chat_sessions",
+      "count": 5,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "owner_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "title",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "scope",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "document_ids_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "memory_ids_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": "'[]'",
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "busy_until",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "active_token",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 10,
+          "name": "auto_research",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 11,
+          "name": "internet_enabled",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "chat_turn_usage",
+      "count": 3,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "chat_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "turn_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 2
+        },
+        {
+          "cid": 2,
+          "name": "search_calls",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "llm_calls",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "input_bytes",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "output_tokens",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "page_fetches",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": []
+    },
+    {
+      "table": "chat_web_sources",
+      "count": 10,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "owner_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "chat_id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "turn_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "question",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "title",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "url",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "content_hash",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "retrieved_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 10,
+          "name": "provider",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chat_sessions",
+          "from": "chat_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "SET NULL",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "chunks",
+      "count": 1050,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "source_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "chunk_index",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "char_count",
+          "type": "INTEGER",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "created_at",
+          "type": "DATETIME",
+          "notnull": 0,
+          "dflt_value": "CURRENT_TIMESTAMP",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "sources",
+          "from": "source_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "dispatch_outbox",
+      "count": 0,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "run_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "job_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "event_type",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "payload_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "attempts",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "sent_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "stage_jobs",
+          "from": "job_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "research_runs",
+          "from": "run_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "document_chunks",
+      "count": 63,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "document_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "page",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "chunk_index",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "content_hash",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "document_pages",
+          "from": "document_id",
+          "to": "document_id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        },
+        {
+          "id": 0,
+          "seq": 1,
+          "table": "document_pages",
+          "from": "page",
+          "to": "page",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "document_ingestion_jobs",
+      "count": 3,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "document_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "attempts",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "generation",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "lease_until",
+          "type": "INTEGER",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "error_code",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "updated_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "documents",
+          "from": "document_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "document_pages",
+      "count": 60,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "document_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "page",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 2
+        },
+        {
+          "cid": 2,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "documents",
+          "from": "document_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "documents",
+      "count": 3,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "owner_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "filename",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "storage_name",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "sha256",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "byte_size",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "page_count",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "error_code",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 10,
+          "name": "updated_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 11,
+          "name": "deleted_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": []
+    },
+    {
+      "table": "evidence",
+      "count": 17,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "source_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "chunk_id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "research_question",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "evidence_text",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "relevance_score",
+          "type": "REAL",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "reason",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "citation_label",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "created_at",
+          "type": "DATETIME",
+          "notnull": 0,
+          "dflt_value": "CURRENT_TIMESTAMP",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chunks",
+          "from": "chunk_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "sources",
+          "from": "source_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 2,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "evidence_cache",
+      "count": 24,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "question_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 2
+        },
+        {
+          "cid": 2,
+          "name": "input_hash",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 3
+        },
+        {
+          "cid": 3,
+          "name": "evidence_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "memory_evidence_links",
+      "count": 7,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "INTEGER",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "memory_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "kind",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "reference_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "document_id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "page",
+          "type": "INTEGER",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "source_id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "version_hash",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "quote",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "agent_memories",
+          "from": "memory_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "plans",
+      "count": 32,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "INTEGER",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "question_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "research_question",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "search_query",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "report_versions",
+      "count": 0,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "run_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "job_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "analysis_version_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "references_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "citation_validation_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "analysis_versions",
+          "from": "analysis_version_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "stage_jobs",
+          "from": "job_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 2,
+          "seq": 0,
+          "table": "research_runs",
+          "from": "run_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "reports",
+      "count": 4,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "title",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "language",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": "'vi'",
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "style",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "output_length",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "references_json",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "created_at",
+          "type": "DATETIME",
+          "notnull": 0,
+          "dflt_value": "CURRENT_TIMESTAMP",
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "updated_at",
+          "type": "DATETIME",
+          "notnull": 0,
+          "dflt_value": "CURRENT_TIMESTAMP",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "requests",
+      "count": 8,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "topic",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "goal",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "scope",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "output_length",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "updated_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "owner_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": "'workspace'",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": []
+    },
+    {
+      "table": "research_documents",
+      "count": 0,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "document_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 2
+        },
+        {
+          "cid": 2,
+          "name": "owner_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "documents",
+          "from": "document_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "research_runs",
+      "count": 0,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "input_snapshot_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "current_stage",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "current_round",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "last_successful_stage",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "started_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "completed_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 10,
+          "name": "updated_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 11,
+          "name": "error_code",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 12,
+          "name": "error_message",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 13,
+          "name": "idempotency_key",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 14,
+          "name": "orchestration",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": "'backend'",
+          "pk": 0
+        },
+        {
+          "cid": 15,
+          "name": "llm_calls",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 16,
+          "name": "search_calls",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "run_events",
+      "count": 0,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "INTEGER",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "run_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "stage",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "event_type",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "message",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "metadata_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "research_runs",
+          "from": "run_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "schema_migrations",
+      "count": 6,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "version",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "applied_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": []
+    },
+    {
+      "table": "source_chunks_v2",
+      "count": 0,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "run_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "source_version_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "chunk_index",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "source_versions",
+          "from": "source_version_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "research_runs",
+          "from": "run_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "source_versions",
+      "count": 0,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "run_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "query",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "title",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "url",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "normalized_url",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "provider",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "original_content",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "display_content_vi",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "content_hash",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 10,
+          "name": "language",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 11,
+          "name": "translation_status",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 12,
+          "name": "collected_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "research_runs",
+          "from": "run_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "sources",
+      "count": 134,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "request_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "query",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "title",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "url",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "normalized_url",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "snippet",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "content",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "provider",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "collected_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 10,
+          "name": "title_vi",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 11,
+          "name": "snippet_vi",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 12,
+          "name": "content_vi",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 13,
+          "name": "source_language",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 14,
+          "name": "translation_status",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 15,
+          "name": "translation_hash",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "requests",
+          "from": "request_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "stage_jobs",
+      "count": 0,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "run_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "stage",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "attempts",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "max_attempts",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "3",
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "idempotency_key",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "locked_by",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 8,
+          "name": "locked_until",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 9,
+          "name": "heartbeat_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 10,
+          "name": "input_json",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 11,
+          "name": "output_json",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 12,
+          "name": "error_json",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 13,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 14,
+          "name": "started_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 15,
+          "name": "completed_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 16,
+          "name": "available_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 17,
+          "name": "generation",
+          "type": "INTEGER",
+          "notnull": 1,
+          "dflt_value": "0",
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "research_runs",
+          "from": "run_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "user_sessions",
+      "count": 2,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "user_id",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "token_hash",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "expires_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "revoked_at",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "users",
+          "from": "user_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ]
+    },
+    {
+      "table": "users",
+      "count": 2,
+      "columns": [
+        {
+          "cid": 0,
+          "name": "id",
+          "type": "TEXT",
+          "notnull": 0,
+          "dflt_value": null,
+          "pk": 1
+        },
+        {
+          "cid": 1,
+          "name": "email",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 2,
+          "name": "name",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 3,
+          "name": "password_hash",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 4,
+          "name": "role",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": "'user'",
+          "pk": 0
+        },
+        {
+          "cid": 5,
+          "name": "status",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": "'active'",
+          "pk": 0
+        },
+        {
+          "cid": 6,
+          "name": "created_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        },
+        {
+          "cid": 7,
+          "name": "updated_at",
+          "type": "TEXT",
+          "notnull": 1,
+          "dflt_value": null,
+          "pk": 0
+        }
+      ],
+      "foreignKeys": []
+    }
+  ],
+  "foreignKeyViolationCount": 0
+}

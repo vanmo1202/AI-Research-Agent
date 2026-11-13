@@ -15,6 +15,7 @@ for (const [address, prefix] of [
   ["172.16.0.0", 12],
   ["192.168.0.0", 16],
   ["224.0.0.0", 4],
+  ["100.64.0.0",10],["192.0.0.0",24],["192.0.2.0",24],["198.18.0.0",15],["198.51.100.0",24],["203.0.113.0",24],["240.0.0.0",4],
 ]) {
   blocked.addSubnet(address, prefix, "ipv4");
 }
@@ -24,6 +25,7 @@ for (const [address, prefix] of [
   ["fc00::", 7],
   ["fe80::", 10],
   ["ff00::", 8],
+  ["2001:db8::",32],
 ]) {
   blocked.addSubnet(address, prefix, "ipv6");
 }
@@ -108,7 +110,16 @@ async function fetchPageContent(url, options = {}) {
             throw new Error("Page exceeds 2 MB limit");
           chunks.push(Buffer.from(chunk));
         }
-        return cleanContent(Buffer.concat(chunks).toString("utf8"));
+        const html=Buffer.concat(chunks).toString('utf8');
+        const content=cleanContent(html);
+        if(!options.detailed)return content;
+        const $=cheerio.load(html),candidate=$('link[rel="canonical"]').attr('href');
+        let canonicalUrl=normalizeUrl(current);
+        if(candidate){try{const u=new URL(candidate,current);if(u.hostname===new URL(current).hostname && normalizeUrl(u.href))canonicalUrl=normalizeUrl(u.href);}catch{}}
+        return {content,url:normalizeUrl(current),canonicalUrl,httpStatus:response.status,
+          title:$('title').first().text().trim().slice(0,500),author:$('meta[name="author"]').attr('content') || null,
+          publishedAt:$('meta[property="article:published_time"]').attr('content') || null,
+          retrievedAt:new Date().toISOString()};
       } finally {
         if (
           response?.body &&
@@ -122,7 +133,7 @@ async function fetchPageContent(url, options = {}) {
     throw new Error("Too many redirects");
   } catch {
     logger.warn("Content", "Fetch failed; keeping source with empty content");
-    return "";
+    return options.detailed ? null : "";
   }
 }
 module.exports = { fetchPageContent, cleanContent, checkPublicUrl };

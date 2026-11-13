@@ -1,10 +1,10 @@
 const db = require("../config/database");
 const renderer = require("./report-export.service");
 exports.exportReport = async (id, format) => {
-  const report = await db.get("SELECT * FROM report_versions WHERE id=?", [id]);
+  const report = await db.get("SELECT * FROM report_versions WHERE id=$1", [id]);
   if (!report)
     throw Object.assign(new Error("Report not found"), { status: 404 });
-  const run = await db.get("SELECT * FROM research_runs WHERE id=?", [
+  const run = await db.get("SELECT * FROM research_runs WHERE id=$1", [
     report.run_id,
   ]);
   const input = JSON.parse(run.input_snapshot_json),

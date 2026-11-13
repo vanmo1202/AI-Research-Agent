@@ -45,19 +45,19 @@ function budget(session, turn, signal) {
     await db.transaction(async (tx) => {
       check();
       const lease = await tx.get(
-        "SELECT id FROM chat_sessions WHERE id=? AND owner_id=? AND active_token=? AND busy_until>?",
+        "SELECT id FROM chat_sessions WHERE id=$1 AND owner_id=$2 AND active_token=$3 AND busy_until>$4",
         [session.id, session.owner_id, turn, Date.now()],
       );
       if (!lease)
         throw fail("Lượt chat đã hết hạn. Hãy kiểm tra lịch sử.", 409);
       await tx.run(
-        "INSERT OR IGNORE INTO chat_turn_usage(chat_id,turn_id) VALUES(?,?)",
+        "INSERT INTO chat_turn_usage(chat_id,turn_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
         [session.id, turn],
       );
       const rows = [
         {
           table: "chat_turn_usage",
-          where: "chat_id=? AND turn_id=?",
+          columns: ["chat_id","turn_id"],
           args: [session.id, turn],
           max: bound.turn,
         },
@@ -67,19 +67,19 @@ function budget(session, turn, signal) {
         ["global", bound.global],
       ]) {
         await tx.run(
-          "INSERT OR IGNORE INTO chat_daily_usage(subject,day) VALUES(?,?)",
+          "INSERT INTO chat_daily_usage(subject,day) VALUES($1,$2) ON CONFLICT DO NOTHING",
           [subject, day],
         );
         rows.push({
           table: "chat_daily_usage",
-          where: "subject=? AND day=?",
+          columns: ["subject","day"],
           args: [subject, day],
           max,
         });
       }
       for (const row of rows) {
         const used = await tx.get(
-          `SELECT * FROM ${row.table} WHERE ${row.where}`,
+          `SELECT * FROM ${row.table} WHERE ${row.columns.map((column,i)=>`${column}=$${i+1}`).join(" AND ")}`,
           row.args,
         );
         for (const [key, value] of Object.entries(charges))
@@ -93,8 +93,8 @@ function budget(session, turn, signal) {
       for (const row of rows)
         await tx.run(
           `UPDATE ${row.table} SET ${Object.keys(charges)
-            .map((key) => `${key}=${key}+?`)
-            .join(",")} WHERE ${row.where}`,
+            .map((key,i) => `${key}=${key}+$${i+1}`)
+            .join(",")} WHERE ${row.columns.map((column,i)=>`${column}=$${Object.keys(charges).length+i+1}`).join(" AND ")}`,
           [...Object.values(charges), ...row.args],
         );
     });
@@ -105,7 +105,7 @@ function budget(session, turn, signal) {
     signal,
     usage: () =>
       db.get(
-        "SELECT search_calls,llm_calls,input_bytes,output_tokens,page_fetches FROM chat_turn_usage WHERE chat_id=? AND turn_id=?",
+        "SELECT search_calls,llm_calls,input_bytes,output_tokens,page_fetches FROM chat_turn_usage WHERE chat_id=$1 AND turn_id=$2",
         [session.id, turn],
       ),
   };

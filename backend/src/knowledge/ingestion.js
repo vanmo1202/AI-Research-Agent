@@ -54,17 +54,17 @@ function parse(file) {
 async function claim() {
   return db.transaction(async (tx) => {
     const expired = await tx.all(
-      "SELECT * FROM document_ingestion_jobs WHERE status='processing' AND lease_until<?",
+      "SELECT * FROM document_ingestion_jobs WHERE status='processing' AND lease_until<$1",
       [Date.now()],
     );
     for (const job of expired) {
       const status = job.attempts < 3 ? "pending" : "failed";
       await tx.run(
-        "UPDATE document_ingestion_jobs SET status=?,lease_until=NULL,error_code=?,updated_at=? WHERE id=?",
+        "UPDATE document_ingestion_jobs SET status=$1,lease_until=NULL,error_code=$2,updated_at=$3 WHERE id=$4",
         [status, "LEASE_EXPIRED", now(), job.id],
       );
       await tx.run(
-        "UPDATE documents SET status=?,error_code=?,updated_at=? WHERE id=? AND deleted_at IS NULL",
+        "UPDATE documents SET status=$1,error_code=$2,updated_at=$3 WHERE id=$4 AND deleted_at IS NULL",
         [status, "LEASE_EXPIRED", now(), job.document_id],
       );
     }
@@ -75,15 +75,15 @@ async function claim() {
     )
       return null;
     const job = await tx.get(
-      "SELECT j.* FROM document_ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE j.status='pending' AND d.deleted_at IS NULL ORDER BY j.created_at,j.rowid LIMIT 1",
+      "SELECT j.* FROM document_ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE j.status='pending' AND d.deleted_at IS NULL ORDER BY j.created_at,j.legacy_position LIMIT 1",
     );
     if (!job) return null;
     await tx.run(
-      "UPDATE document_ingestion_jobs SET status='processing',attempts=attempts+1,generation=generation+1,lease_until=?,updated_at=? WHERE id=?",
+      "UPDATE document_ingestion_jobs SET status='processing',attempts=attempts+1,generation=generation+1,lease_until=$1,updated_at=$2 WHERE id=$3",
       [Date.now() + LEASE, now(), job.id],
     );
     await tx.run(
-      "UPDATE documents SET status='processing',error_code=NULL,updated_at=? WHERE id=?",
+      "UPDATE documents SET status='processing',error_code=NULL,updated_at=$1 WHERE id=$2",
       [now(), job.document_id],
     );
     return { ...job, generation: job.generation + 1 };
@@ -94,7 +94,7 @@ async function runOnce() {
   if (!job) return false;
   console.info("[Knowledge] Ingestion started", job.id);
   try {
-    const doc = await db.get("SELECT * FROM documents WHERE id=?", [
+    const doc = await db.get("SELECT * FROM documents WHERE id=$1", [
       job.document_id,
     ]);
     const pages = await parse(storagePath(doc.storage_name));
@@ -110,19 +110,19 @@ async function runOnce() {
     check(chunks.length <= 2500, "Too many chunks", 422);
     await db.transaction(async (tx) => {
       const owned = await tx.get(
-        "SELECT j.id FROM document_ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE j.id=? AND j.generation=? AND j.status='processing' AND j.lease_until>? AND d.deleted_at IS NULL",
+        "SELECT j.id FROM document_ingestion_jobs j JOIN documents d ON d.id=j.document_id WHERE j.id=$1 AND j.generation=$2 AND j.status='processing' AND j.lease_until>$3 AND d.deleted_at IS NULL",
         [job.id, job.generation, Date.now()],
       );
       if (!owned) throw fail("Ingestion lease lost", 409, "LEASE_EXPIRED");
-      await tx.run("DELETE FROM document_pages WHERE document_id=?", [doc.id]);
+      await tx.run("DELETE FROM document_pages WHERE document_id=$1", [doc.id]);
       for (const p of pages)
-        await tx.run("INSERT INTO document_pages VALUES(?,?,?)", [
+        await tx.run("INSERT INTO document_pages VALUES($1,$2,$3)", [
           doc.id,
           p.page,
           p.content,
         ]);
       for (const c of chunks)
-        await tx.run("INSERT INTO document_chunks VALUES(?,?,?,?,?,?)", [
+        await tx.run("INSERT INTO document_chunks VALUES($1,$2,$3,$4,$5,$6)", [
           c.id,
           doc.id,
           c.page,
@@ -131,11 +131,11 @@ async function runOnce() {
           c.hash,
         ]);
       await tx.run(
-        "UPDATE documents SET status='ready',page_count=?,error_code=NULL,updated_at=? WHERE id=?",
+        "UPDATE documents SET status='ready',page_count=$1,error_code=NULL,updated_at=$2 WHERE id=$3",
         [pages.length, now(), doc.id],
       );
       await tx.run(
-        "UPDATE document_ingestion_jobs SET status='ready',lease_until=NULL,error_code=NULL,updated_at=? WHERE id=?",
+        "UPDATE document_ingestion_jobs SET status='ready',lease_until=NULL,error_code=NULL,updated_at=$1 WHERE id=$2",
         [now(), job.id],
       );
     });
@@ -146,12 +146,12 @@ async function runOnce() {
       : "INGESTION_FAILED";
     await db.transaction(async (tx) => {
       const result = await tx.run(
-        "UPDATE document_ingestion_jobs SET status='failed',error_code=?,lease_until=NULL,updated_at=? WHERE id=? AND generation=? AND status='processing'",
+        "UPDATE document_ingestion_jobs SET status='failed',error_code=$1,lease_until=NULL,updated_at=$2 WHERE id=$3 AND generation=$4 AND status='processing'",
         [code, now(), job.id, job.generation],
       );
       if (result.changes)
         await tx.run(
-          "UPDATE documents SET status='failed',error_code=?,updated_at=? WHERE id=? AND deleted_at IS NULL",
+          "UPDATE documents SET status='failed',error_code=$1,updated_at=$2 WHERE id=$3 AND deleted_at IS NULL",
           [code, now(), job.document_id],
         );
     });

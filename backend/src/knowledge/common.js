@@ -15,14 +15,14 @@ function guard(req, res, next) {
 }
 async function research(id, owner) {
   check(typeof id === "string" && id.length <= 100, "Invalid research ID");
-  const row = await db.get("SELECT * FROM requests WHERE id=?", [id]);
+  const row = await db.get("SELECT * FROM requests WHERE id=$1", [id]);
   check(row, "Research request not found", 404);
   if (owner !== undefined) check(row.owner_id === owner, "Research request not found", 404);
   return row;
 }
 async function document(id, owner, ready = false) {
   const row = await db.get(
-    "SELECT * FROM documents WHERE id=? AND owner_id=? AND deleted_at IS NULL",
+    "SELECT * FROM documents WHERE id=$1 AND owner_id=$2 AND deleted_at IS NULL",
     [id, owner],
   );
   check(row, "Document not found", 404);
@@ -52,8 +52,7 @@ function match(query) {
       .match(/[\p{L}\p{N}]{2,}/gu) || [];
   return [...new Set(words)]
     .slice(0, 24)
-    .map((w) => `"${w}"`)
-    .join(" OR ");
+    .join(" ");
 }
 const normalize = (value) =>
   String(value || "")

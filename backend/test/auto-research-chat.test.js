@@ -94,7 +94,7 @@ test("Auto defaults to Internet without creating Research Plan; rejects finance/
   assert.equal((await db.get("SELECT COUNT(*) n FROM requests")).n, before);
   assert.equal(
     (
-      await db.get("SELECT COUNT(*) n FROM chat_web_sources WHERE chat_id=?", [
+      await db.get("SELECT COUNT(*) n FROM chat_web_sources WHERE chat_id=$1", [
         s.id,
       ])
     ).n,
@@ -353,7 +353,7 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
   const owner = "quota";
   const s = await chat.create(owner, null, {});
   await db.run(
-    "UPDATE chat_sessions SET busy_until=?,active_token=? WHERE id=?",
+    "UPDATE chat_sessions SET busy_until=$1,active_token=$2 WHERE id=$3",
     [Date.now() + 60000, "quota", s.id],
   );
   const { budget } = require("../src/knowledge/auto-budget");
@@ -371,7 +371,7 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
   try {
     const s2 = await chat.create(owner, null, {});
     await db.run(
-      "UPDATE chat_sessions SET busy_until=?,active_token=? WHERE id=?",
+      "UPDATE chat_sessions SET busy_until=$1,active_token=$2 WHERE id=$3",
       [Date.now() + 60000, "quota2", s2.id],
     );
     await assert.rejects(
@@ -381,7 +381,7 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
       { status: 429 },
     );
     const usage = await db.get(
-      "SELECT search_calls FROM chat_daily_usage WHERE subject=? AND day=?",
+      "SELECT search_calls FROM chat_daily_usage WHERE subject=$1 AND day=$2",
       ["user:quota", new Date().toISOString().slice(0, 10)],
     );
     assert.equal(usage.search_calls, 2);
@@ -389,7 +389,7 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
       process.execPath,
       [
         "-e",
-        "const s=require('sqlite3'),d=new s.Database(process.argv[1],s.OPEN_READONLY);d.get('SELECT search_calls FROM chat_daily_usage WHERE subject=?',['user:quota'],(e,r)=>{if(e)process.exit(1);console.log(r.search_calls);d.close()})",
+        "const d=require('./src/config/database');d.get('SELECT search_calls FROM chat_daily_usage WHERE subject=$1',['user:quota']).then(r=>console.log(r.search_calls)).catch(()=>process.exitCode=1).finally(()=>d.close())",
         process.env.RESEARCH_DB_PATH,
       ],
       { cwd: path.join(__dirname, ".."), encoding: "utf8" },
@@ -402,7 +402,7 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
     process.env.AUTO_CHAT_GLOBAL_SEARCH_LIMIT = "1";
     const other = await chat.create("global-cap", null, {});
     await db.run(
-      "UPDATE chat_sessions SET busy_until=?,active_token=? WHERE id=?",
+      "UPDATE chat_sessions SET busy_until=$1,active_token=$2 WHERE id=$3",
       [Date.now() + 60000, "global", other.id],
     );
     await assert.rejects(
@@ -411,11 +411,11 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
       ),
       { status: 429 },
     );
-    await db.run("DELETE FROM chat_sessions WHERE id=?", [s2.id]);
+    await db.run("DELETE FROM chat_sessions WHERE id=$1", [s2.id]);
     assert.equal(
       (
         await db.get(
-          "SELECT search_calls FROM chat_daily_usage WHERE subject=? AND day=?",
+          "SELECT search_calls FROM chat_daily_usage WHERE subject=$1 AND day=$2",
           ["user:quota", new Date().toISOString().slice(0, 10)],
         )
       ).search_calls,
@@ -441,9 +441,9 @@ test("Auto uses private PDFs offline; when local synthesis is insufficient it pe
   await db.run(
     "INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,page_count,status,created_at,updated_at) VALUES('local','local-user','private.pdf','local.pdf','sha',100,1,'ready','now','now')",
   );
-  await db.run("INSERT INTO document_pages VALUES('local',1,?)", [privateText]);
+  await db.run("INSERT INTO document_pages VALUES('local',1,$1)", [privateText]);
   await db.run(
-    "INSERT INTO document_chunks VALUES('local-chunk','local',1,0,?,?)",
+    "INSERT INTO document_chunks VALUES('local-chunk','local',1,0,$1,$2)",
     [privateText, hash(privateText)],
   );
   let searches = 0,

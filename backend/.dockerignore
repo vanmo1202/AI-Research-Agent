@@ -18,3 +18,12 @@ credentials/
 *.key
 
 data/documents/
+
+# Never send runtime database state (including nested files) into app images.
+data/
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite-*
+**/*.sqlite3
+**/*.sqlite3-*

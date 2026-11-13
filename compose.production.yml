@@ -4,7 +4,11 @@ x-app-env: &app-env
   NODE_ENV: production
   RESEARCH_LOAD_ENV: 'false'
   PORT: '3000'
-  RESEARCH_DB_PATH: /app/data/research.db
+  PGHOST: postgres
+  PGPORT: "5432"
+  PGUSER: researchos
+  PGDATABASE: researchos
+  PGPASSWORD_FILE: /run/secrets/postgres_password
   DOCUMENT_STORAGE_PATH: /app/documents
   FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set exact HTTPS origin}
   COOKIE_SECURE: 'true'
@@ -27,8 +31,8 @@ x-app: &app
   image: ${BACKEND_IMAGE:?Set reviewed backend image}
   user: '1000:1000'
   environment: *app-env
-  secrets: [internal_api_key, gemini_api_key, tavily_api_key]
-  volumes: [research_data:/app/data, document_data:/app/documents]
+  secrets: [internal_api_key, gemini_api_key, tavily_api_key, postgres_password]
+  volumes: [research_data:/app/data:ro, document_data:/app/documents]
   networks: [research]
   read_only: true
   tmpfs: ['/tmp:rw,noexec,nosuid,size=128m,mode=1777']
@@ -40,14 +44,42 @@ x-app: &app
     driver: json-file
     options: {max-size: '10m', max-file: '3'}
 services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?Set reviewed PostgreSQL 18 image digest}
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, SETUID, SETGID, FOWNER]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 640m
+    logging: *logging
+    environment:
+      POSTGRES_USER: researchos
+      POSTGRES_DB: researchos
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [postgres_data:/var/lib/postgresql]
+    networks: [research]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U researchos -d researchos']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    <<: *app
+    command: [node, src/db/migrate.js]
+    restart: 'no'
+    mem_limit: 512m
+    depends_on: {postgres: {condition: service_healthy}}
   backend:
     <<: *app
     networks:
       research: {}
       app_proxy: {ipv4_address: 172.29.243.3}
     mem_limit: 512m
+    depends_on: {migrate: {condition: service_completed_successfully}}
     healthcheck:
-      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 4
@@ -158,8 +190,11 @@ volumes:
   research_data: {}
   document_data: {}
   n8n_data: {}
+  postgres_data: {}
 secrets:
   internal_api_key: {file: '${SECRETS_DIRECTORY:?Set secrets directory}/internal_api_key'}
   gemini_api_key: {file: '${SECRETS_DIRECTORY:?Set secrets directory}/gemini_api_key'}
   tavily_api_key: {file: '${SECRETS_DIRECTORY:?Set secrets directory}/tavily_api_key'}
   n8n_encryption_key: {file: '${SECRETS_DIRECTORY:?Set secrets directory}/n8n_encryption_key'}
+
+  postgres_password: {file: '${SECRETS_DIRECTORY:?Set secrets directory}/postgres_password'}

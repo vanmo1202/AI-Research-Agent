@@ -66,7 +66,9 @@ export default function MemoryCard({ memory, onChange }) {
             </a>
           )}
           <blockquote>{link.quote}</blockquote>
-          <code title={link.version_hash}>Phiên bản: {link.version_hash.slice(0, 16)}</code>
+          <code title={link.version_hash}>
+            Phiên bản: {link.version_hash?.slice(0, 16) || 'Chưa có mã'}
+          </code>
         </div>
       ))}
       {['candidate', 'verified'].includes(memory.status) && (
@@ -77,7 +79,7 @@ export default function MemoryCard({ memory, onChange }) {
             onChange={(e) => setCross(e.target.checked)}
             disabled={busy}
           />
-          Cho phép đề xuất dùng ở nghiên cứu khác
+          Cho phép đề xuất dùng ở nghiên cứu khác trong cùng tài khoản
         </label>
       )}
       {memory.status === 'verified' &&

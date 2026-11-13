@@ -117,7 +117,7 @@ test('Mixed Tavily collection filters before translation, deduplicates, preserve
     assert.deepEqual(repeat.sources.map(s => s.id), result.sources.map(s => s.id));
     assert.equal(calls, 8, 'One search per existing planned query; no hidden search expansion');
     const { spawnSync } = require('node:child_process');
-    const child = spawnSync(process.execPath, ['-e', `const s=require('sqlite3');const d=new s.Database(process.argv[1],s.OPEN_READONLY);d.all('SELECT title,url FROM sources WHERE request_id=?',[process.argv[2]],(e,r)=>{if(e)process.exit(1);console.log(JSON.stringify(r));d.close()})`, process.env.RESEARCH_DB_PATH, request.requestId], { cwd: path.join(__dirname, '..'), encoding: 'utf8' });
+    const child = spawnSync(process.execPath, ['-e', "const d=require('./src/config/database');d.all('SELECT title,url FROM sources WHERE request_id=$1',[process.argv[1]]).then(r=>console.log(JSON.stringify(r))).catch(()=>process.exitCode=1).finally(()=>d.close())", request.requestId], { cwd: path.join(__dirname, '..'), encoding: 'utf8' });
     assert.equal(child.status, 0, child.stderr);
     assert.deepEqual(JSON.parse(child.stdout), [{ title: validPhysics.title, url: validPhysics.url }]);
 });
@@ -152,11 +152,11 @@ test('Flow v2 rejects all off-topic Tavily results, persists zero sources and te
     assert.equal(progress.sourceCount, 0);
     assert.equal(progress.evidenceCount, 0);
     assert.ok(calls > 0 && calls <= 12, `Unexpected search expansion: ${calls}`);
-    assert.equal((await db.get('SELECT llm_calls FROM research_runs WHERE id=?', [run.id])).llm_calls, 0);
-    const jobs = await db.all("SELECT output_json FROM stage_jobs WHERE run_id=? AND stage='collecting'", [run.id]);
+    assert.equal((await db.get('SELECT llm_calls FROM research_runs WHERE id=$1', [run.id])).llm_calls, 0);
+    const jobs = await db.all("SELECT output_json FROM stage_jobs WHERE run_id=$1 AND stage='collecting'", [run.id]);
     assert.equal(jobs.length, 3, 'At most the initial search and two controlled expansion rounds');
     assert.ok(jobs.every(j => JSON.parse(j.output_json).warnings.some(w => w.code === 'NO_RELEVANT_SOURCES')));
-    const report = await db.get('SELECT * FROM report_versions WHERE run_id=?', [run.id]);
+    const report = await db.get('SELECT * FROM report_versions WHERE run_id=$1', [run.id]);
     assert.deepEqual(JSON.parse(report.references_json), []);
     assert.match(report.content, /Chưa có bằng chứng phù hợp/);
 });
@@ -174,7 +174,7 @@ test('Flow v2 mixed collection normalizes snippets, deduplicates, excludes misle
     const service = require('../src/services/run.service');
     const run = await service.create(request.requestId, { searchMore: false }, 'mixed-v2');
     t.after(() => service.cancel(run.id));
-    await db.run("UPDATE research_runs SET status='running' WHERE id=?", [run.id]);
+    await db.run("UPDATE research_runs SET status='running' WHERE id=$1", [run.id]);
     const ctx = { run, input: { ...physics, numberOfSources: 12 }, check() {}, signal: new AbortController().signal };
     const provider = require('../src/providers/research.provider');
     const result = await provider.collect(ctx, ['market trends', 'dao động điều hòa con lắc lò xo'], []);
@@ -182,10 +182,10 @@ test('Flow v2 mixed collection normalizes snippets, deduplicates, excludes misle
     assert.equal(result.sources[0].url, validPhysics.url);
     assert.equal(result.sources[0].original_content, validPhysics.content);
     assert.ok(result.warnings.some(w => w.code === 'SOURCE_OFF_TOPIC'));
-    assert.equal((await db.get('SELECT llm_calls FROM research_runs WHERE id=?', [run.id])).llm_calls, 0);
+    assert.equal((await db.get('SELECT llm_calls FROM research_runs WHERE id=$1', [run.id])).llm_calls, 0);
     const runner = require('../src/workers/runner');
     for (let i = 0; i < 20; i++) if (!(await runner.runOnce())) break;
-    const persisted = await db.all('SELECT * FROM source_versions WHERE run_id=?', [run.id]);
+    const persisted = await db.all('SELECT * FROM source_versions WHERE run_id=$1', [run.id]);
     assert.equal(persisted.length, 1);
     assert.equal(persisted[0].url, validPhysics.url);
     assert.equal(persisted[0].original_content, validPhysics.content);
@@ -198,7 +198,7 @@ test('Evidence and new reports exclude legacy off-topic rows without deleting th
     for (const source of [legacy, good]) Object.assign(source, { sourceLanguage: 'vi', translationStatus: 'not_required', contentVi: source.content, titleVi: source.title });
     // Explicit fixture seeding simulates historical rows; production data is never rewritten.
     await sourceModel.createSources(request.requestId, [legacy, good]);
-    const before = await db.all('SELECT * FROM sources WHERE request_id=?', [request.requestId]);
+    const before = await db.all('SELECT * FROM sources WHERE request_id=$1', [request.requestId]);
     const evidence = require('../src/services/evidence.service');
     const result = await evidence.analyze(request.requestId);
     assert.ok(result.evidenceCount > 0);
@@ -211,7 +211,7 @@ test('Evidence and new reports exclude legacy off-topic rows without deleting th
     assert.ok(report.references.every(r => r.url === validPhysics.url));
     assert.match(report.content, /\[Nguồn 1\]/);
     assert.ok(!report.content.includes(finance[0].url));
-    assert.deepEqual(await db.all('SELECT * FROM sources WHERE request_id=?', [request.requestId]), before);
+    assert.deepEqual(await db.all('SELECT * FROM sources WHERE request_id=$1', [request.requestId]), before);
     t.mock.method(require('../src/services/llm.service'), 'generateJson', () => assert.fail('No LLM for excluded sources'));
     const badOnly = await research.createResearchRequest(physics);
     await sourceModel.createSources(badOnly.requestId, [legacy]);
@@ -244,7 +244,7 @@ test('V2 extraction excludes bad sources before Gemini and rejects off-topic quo
     const service = require('../src/services/run.service');
     const run = await service.create(request.requestId, { searchMore: false }, 'extraction-gate');
     t.after(() => service.cancel(run.id));
-    await db.run("UPDATE research_runs SET status='running' WHERE id=?", [run.id]);
+    await db.run("UPDATE research_runs SET status='running' WHERE id=$1", [run.id]);
     const badSource = { id: 'bad', title: finance[0].title, original_content: finance[0].raw_content };
     const goodSource = { id: 'good', title: validPhysics.title, original_content: validPhysics.content };
     const badChunk = { id: 'bad-chunk', source_version_id: 'bad', provider: 'tavily', content: finance[0].raw_content };

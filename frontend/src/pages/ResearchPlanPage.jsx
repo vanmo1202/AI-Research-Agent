@@ -61,6 +61,9 @@ export default function ResearchPlanPage() {
         </div>
         <StatusBadge status={request.status} />
       </div>
+      <Button to={`/research/${encodeURIComponent(request.id)}/chat`} variant="secondary">
+        Hỏi AI về nghiên cứu
+      </Button>
       <ResearchStepper status={request.status} />
       <ErrorMessage error={search.error || resource.error} />
       {request.status === 'failed' && !search.error && (

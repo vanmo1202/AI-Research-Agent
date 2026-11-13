@@ -7,11 +7,11 @@ process.env.RESEARCH_DB_PATH = path.join(
   fs.mkdtempSync(path.join(os.tmpdir(), "auto-chat-migration-")),
   "old.db",
 );
-const db = require("../src/config/database"),
-  migrate = require("../src/migrations/007-auto-research-chat");
+const db = require("./legacy/sqlite-database.cjs"),
+  migrate = require("../scripts/migration/sqlite-history/007-auto-research-chat");
 test("007 additive migration preserves private legacy conversations and rolls back schema/counters on failure", async () => {
   const cached =
-    require.cache[require.resolve("../src/migrations/007-auto-research-chat")];
+    require.cache[require.resolve("../scripts/migration/sqlite-history/007-auto-research-chat")];
   cached.exports = async () => {};
   try {
     await db.initializeDatabase();

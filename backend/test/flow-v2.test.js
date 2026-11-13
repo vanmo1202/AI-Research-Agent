@@ -96,7 +96,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
       assert.equal(claims.filter(Boolean).length, 1);
       const job = claims.find(Boolean);
       await db.run(
-        "UPDATE stage_jobs SET locked_until='2000-01-01' WHERE id=?",
+        "UPDATE stage_jobs SET locked_until='2000-01-01' WHERE id=$1",
         [job.id],
       );
       const recovered = await runner.claim("c");
@@ -156,16 +156,16 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
       await drain({ customProvider: real });
       assert.equal((await service.requireRun(r.id)).status, "completed");
       const first = await db.get(
-        "SELECT * FROM report_versions WHERE run_id=?",
+        "SELECT * FROM report_versions WHERE run_id=$1",
         [r.id],
       );
-      await db.run("UPDATE research_runs SET status='partial' WHERE id=?", [
+      await db.run("UPDATE research_runs SET status='partial' WHERE id=$1", [
         r.id,
       ]);
       await service.retry(r.id, "composing", "report-revision");
       await drain({ customProvider: real });
       const versions = await db.all(
-        "SELECT * FROM report_versions WHERE run_id=? ORDER BY rowid",
+        "SELECT * FROM report_versions WHERE run_id=$1 ORDER BY legacy_position",
         [r.id],
       );
       assert.equal(versions.length, 2);
@@ -187,7 +187,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
       );
       assert.equal(
         (
-          await db.all("SELECT * FROM source_versions WHERE run_id=?", [
+          await db.all("SELECT * FROM source_versions WHERE run_id=$1", [
             second.id,
           ])
         ).length,
@@ -236,7 +236,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
     });
     assert.equal((await service.requireRun(r.id)).status, "failed");
     assert.equal(
-      (await db.all("SELECT * FROM analysis_versions WHERE run_id=?", [r.id]))
+      (await db.all("SELECT * FROM analysis_versions WHERE run_id=$1", [r.id]))
         .length,
       0,
     );
@@ -281,7 +281,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
     "provider query isolation, timeouts, translation failure and durable budgets",
     async () => {
       const r = await create();
-      await db.run("UPDATE research_runs SET status='running' WHERE id=?", [
+      await db.run("UPDATE research_runs SET status='running' WHERE id=$1", [
         r.id,
       ]);
       const oldFetch = global.fetch,
@@ -327,7 +327,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
         await assert.rejects(provider.collect(ctx, ["fail"], []), {
           code: "SEARCH_UNAVAILABLE",
         });
-        await db.run("UPDATE research_runs SET llm_calls=32 WHERE id=?", [
+        await db.run("UPDATE research_runs SET llm_calls=32 WHERE id=$1", [
           r.id,
         ]);
         await assert.rejects(provider.json(ctx, "test", {}), {
@@ -355,10 +355,10 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
           },
         },
       });
-      let job = await db.get("SELECT * FROM stage_jobs WHERE run_id=?", [r.id]);
+      let job = await db.get("SELECT * FROM stage_jobs WHERE run_id=$1", [r.id]);
       assert.equal(job.status, "retry_waiting");
       await db.run(
-        "UPDATE stage_jobs SET available_at='2000-01-01' WHERE id=?",
+        "UPDATE stage_jobs SET available_at='2000-01-01' WHERE id=$1",
         [job.id],
       );
       await runner.runOnce({
@@ -369,7 +369,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
           },
         },
       });
-      job = await db.get("SELECT * FROM stage_jobs WHERE id=?", [job.id]);
+      job = await db.get("SELECT * FROM stage_jobs WHERE id=$1", [job.id]);
       assert.equal(job.status, "cancelled");
       assert.equal(job.output_json, null);
     },
@@ -382,7 +382,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
       const before = await require("../src/models/run.model").latestAnalysis(
         r.id,
       );
-      await db.run("UPDATE research_runs SET status='partial' WHERE id=?", [
+      await db.run("UPDATE research_runs SET status='partial' WHERE id=$1", [
         r.id,
       ]);
       await service.retry(r.id, "analyzing", "analysis-outage-retry");
@@ -404,7 +404,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
       );
       assert.equal((await service.requireRun(r.id)).status, "completed");
       assert.equal(
-        (await db.all("SELECT * FROM report_versions WHERE run_id=?", [r.id]))
+        (await db.all("SELECT * FROM report_versions WHERE run_id=$1", [r.id]))
           .length,
         2,
       );
@@ -471,6 +471,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
         (await call(`/internal/jobs/${job.id}?runId=${run.runId}`)).status,
         401,
       );
+      process.env.INTERNAL_RESEARCH_USER_ID = "fixture-user";
       const headers = {
           "X-Internal-Api-Key": "test-internal",
           "Idempotency-Key": job.idempotency_key,

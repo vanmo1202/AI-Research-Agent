@@ -5,13 +5,13 @@ async function fixtureHeaders() {
   const db = require("../../src/config/database"),
     now = new Date().toISOString();
   await db.run(
-    "INSERT OR IGNORE INTO users(id,email,name,password_hash,created_at,updated_at) VALUES('fixture-user','fixture@example.test','Fixture','unused',?,?)",
+    "INSERT INTO users(id,email,name,password_hash,created_at,updated_at) VALUES('fixture-user','fixture@example.test','Fixture','unused',$1,$2) ON CONFLICT DO NOTHING",
     [now, now],
   );
   const token = "a".repeat(64),
     hash = crypto.createHash("sha256").update(token).digest("hex");
   await db.run(
-    "INSERT OR IGNORE INTO user_sessions(id,user_id,token_hash,created_at,expires_at) VALUES('fixture-session','fixture-user',?,?,?)",
+    "INSERT INTO user_sessions(id,user_id,token_hash,created_at,expires_at) VALUES('fixture-session','fixture-user',$1,$2,$3) ON CONFLICT DO NOTHING",
     [hash, now, new Date(Date.now() + 3600000).toISOString()],
   );
   await db.run(

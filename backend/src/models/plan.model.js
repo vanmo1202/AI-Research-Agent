@@ -5,13 +5,13 @@ async function save(requestId, plan) {
     const params = plan.searchQueries.flatMap(q =>
         [requestId, q.questionId, questions.get(q.questionId), q.query, createdAt]);
     // Một INSERT lưu toàn bộ plan: nếu lỗi thì không lưu dở một phần.
-    const placeholders = plan.searchQueries.map(() => "(?, ?, ?, ?, ?)").join(", ");
+    const placeholders = plan.searchQueries.map((_, i) => `(${Array.from({length:5},(_, j)=>"$"+(i*5+j+1)).join(",")})`).join(", ");
     await database.run(`INSERT INTO plans
         (request_id, question_id, research_question, search_query, created_at)
         VALUES ${placeholders}`, params);
 }
 async function findByRequestId(requestId) {
-    const rows = await database.all("SELECT * FROM plans WHERE request_id = ? ORDER BY id", [requestId]);
+    const rows = await database.all("SELECT * FROM plans WHERE request_id = $1 ORDER BY id", [requestId]);
     const questions = new Map();
     for (const row of rows) questions.set(row.question_id, row.research_question);
     return {

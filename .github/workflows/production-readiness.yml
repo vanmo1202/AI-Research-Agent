@@ -14,6 +14,23 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: researchos
+          POSTGRES_DB: researchos_test_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U researchos -d researchos_test_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: researchos
+      PGDATABASE: researchos_test_ci
+      RESEARCH_LOAD_ENV: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -47,7 +64,11 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chrome
         working-directory: frontend
-      - run: npm run test:e2e
+      - run: npm run test:rebuild
+        working-directory: frontend
+      - run: npx playwright test -c playwright.unified.config.js
+        working-directory: frontend
+      - run: npx playwright test -c playwright.analytics.config.js
         working-directory: frontend
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -63,9 +84,11 @@ jobs:
         env:
           INTERNAL_API_KEY: ci-placeholder-not-for-production
         run: |
-          cp backend/.env.example backend/.env
-          docker compose config --quiet
-          docker compose -f docker-compose.yml -f docker-compose.validation.yml config --quiet
+          touch backend/.env
+          mkdir -p deploy/secrets
+          printf '%s' 'ci-fake-secret-not-for-production' > deploy/secrets/postgres_password
+          docker compose -p ai-research-agent config --quiet
+          docker compose -p ai-research-agent -f docker-compose.yml -f docker-compose.validation.yml config --quiet
   operations:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -84,13 +107,14 @@ jobs:
           BACKEND_IMAGE: backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           FRONTEND_IMAGE: frontend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           EDGE_IMAGE: nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          POSTGRES_IMAGE: postgres:18-alpine
           N8N_IMAGE: n8n@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           TLS_DIRECTORY: /tmp/ci-hardening/tls
           SECRETS_DIRECTORY: /tmp/ci-hardening/secrets
         run: |
           mkdir -p /tmp/ci-hardening/tls /tmp/ci-hardening/secrets
-          for name in internal_api_key gemini_api_key tavily_api_key n8n_encryption_key; do
+          for name in internal_api_key gemini_api_key tavily_api_key n8n_encryption_key postgres_password; do
             printf '%s' 'ci-fake-secret-not-for-production' > "/tmp/ci-hardening/secrets/$name"
           done
-          docker compose -f compose.production.yml -f compose.staging.yml config --quiet
-          docker compose -f compose.production.yml -f compose.staging.yml config --format json | python3 scripts/ops/preflight.py
+          docker compose -p ai-research-agent -f compose.production.yml -f compose.staging.yml config --quiet
+          docker compose -p ai-research-agent -f compose.production.yml -f compose.staging.yml config --format json | python3 scripts/ops/preflight.py

@@ -46,3 +46,8 @@ deploy/secrets/
 deploy/tls/
 backups/
 *.gpg
+
+# Local environment templates
+.env.example
+backend/.env.example
+frontend/.env.example
