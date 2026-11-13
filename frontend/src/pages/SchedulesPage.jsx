@@ -7,6 +7,7 @@ import PageHeader from '../components/ui/PageHeader';
 import WorkspaceDialog from '../components/workspace/WorkspaceDialog';
 import Button from '../components/ui/Button';
 import ErrorMessage from '../components/ui/ErrorMessage';
+import { languageLabel } from '../utils/displayLabels';
 export default function SchedulesPage({ automation = false }) {
   const result = useKnowledge('/research/schedules'),
     research = useKnowledge('/research');
@@ -29,7 +30,7 @@ export default function SchedulesPage({ automation = false }) {
       setNotice(
         id
           ? 'Đã lưu trạng thái lịch.'
-          : 'Đã tạo lịch ở trạng thái tắt. Bật lịch khi automation đã được cấu hình.',
+          : 'Đã tạo lịch ở trạng thái tắt. Bật lịch khi tự động hóa đã được cấu hình.',
       );
       if (!id) setCreating(false);
       result.reload();
@@ -78,7 +79,7 @@ export default function SchedulesPage({ automation = false }) {
             Ngôn ngữ
             <select name="language">
               <option value="vi">Tiếng Việt</option>
-              <option value="en">English</option>
+              <option value="en">Tiếng Anh</option>
             </select>
           </label>
           <label>
@@ -94,7 +95,7 @@ export default function SchedulesPage({ automation = false }) {
           </label>
         </div>
         <label>
-          Số run đồng thời tối đa
+          Số lượt chạy đồng thời tối đa
           <input name="maxConcurrent" type="number" min={1} max={3} defaultValue={1} required />
         </label>
         <label className="knowledge-checkbox">
@@ -111,7 +112,7 @@ export default function SchedulesPage({ automation = false }) {
           Tạo lịch
         </Button>
         <p className="os-muted">
-          Tạo tối đa 10 lịch mỗi tài khoản. Quota và giới hạn chạy do máy chủ kiểm tra.
+          Tạo tối đa 10 lịch mỗi tài khoản. Hạn mức và giới hạn chạy do máy chủ kiểm tra.
         </p>
       </form>
     </section>
@@ -120,7 +121,7 @@ export default function SchedulesPage({ automation = false }) {
   return (
     <div className="page-enter os-page">
       <PageHeader
-        eyebrow="AUTOMATION / WF05"
+        eyebrow="TỰ ĐỘNG HÓA / WF05"
         title={automation ? 'Tự động hóa (n8n)' : 'Lịch nghiên cứu'}
         description="Quản lý lịch của tài khoản. Hệ thống tự điều phối các lần nghiên cứu."
       >
@@ -148,8 +149,8 @@ export default function SchedulesPage({ automation = false }) {
       )}
       <p className="os-notice">
         Chưa hỗ trợ thay đổi chu kỳ, múi giờ, chỉnh sửa cấu hình hoặc xem lịch sử chạy. Cửa sổ lịch
-        hiện tại là hằng ngày theo Asia/Ho_Chi_Minh; lịch chỉ chạy khi automation đã được triển khai
-        và liên kết bởi người vận hành.
+        hiện tại là hằng ngày theo Asia/Ho_Chi_Minh; lịch chỉ chạy khi tự động hóa đã được triển
+        khai và liên kết bởi người vận hành.
       </p>
       <div className={automation ? 'ref-automation-list' : 'os-split'}>
         <section className="os-panel">
@@ -178,10 +179,10 @@ export default function SchedulesPage({ automation = false }) {
                   </h3>
                   <code>{s.scheduleId}</code>
                   <p>
-                    {s.enabled ? 'Đã bật' : 'Đã tắt'} · Tối đa {s.maxConcurrent} run đồng thời
+                    {s.enabled ? 'Đã bật' : 'Đã tắt'} · Tối đa {s.maxConcurrent} lượt chạy đồng thời
                   </p>
                   <p>
-                    {s.options?.language} · {s.options?.numberOfSources} nguồn
+                    {languageLabel(s.options?.language)} · {s.options?.numberOfSources} nguồn
                   </p>
                   <Link to={`/research/${encodeURIComponent(s.requestId)}`}>Mở nghiên cứu</Link>
                 </div>
@@ -200,7 +201,7 @@ export default function SchedulesPage({ automation = false }) {
       </div>
       {automation && (
         <section className="ref-technical-workflows">
-          <h2>Workflow kỹ thuật WF01–WF05</h2>
+          <h2>Các luồng kỹ thuật WF01–WF05</h2>
           <p className="ref-small-note">
             Thông tin từ kiến trúc hiện có; không phải trạng thái đang chạy của n8n.
           </p>
@@ -208,13 +209,13 @@ export default function SchedulesPage({ automation = false }) {
             {[
               [
                 'WF01',
-                'Full Research',
-                'Planning → Collecting → Analyzing → Evaluating → Composing → Verifying',
+                'Nghiên cứu toàn diện',
+                'Lập kế hoạch → Thu thập → Phân tích → Đánh giá → Biên soạn → Xác minh',
               ],
-              ['WF02', 'Document Processing', 'Quan sát trạng thái xử lý PDF của Backend/Worker'],
-              ['WF03', 'Research Chat', 'Hội thoại với nguồn và trích dẫn được kiểm tra'],
-              ['WF04', 'Memory Maintenance', 'Tái kiểm tra nguồn bộ nhớ; không tự phê duyệt'],
-              ['WF05', 'Scheduled Research', 'Điều phối lịch theo cửa sổ ngày Asia/Ho_Chi_Minh'],
+              ['WF02', 'Xử lý tài liệu', 'Quan sát trạng thái xử lý PDF của Backend/Worker'],
+              ['WF03', 'Hội thoại nghiên cứu', 'Hội thoại với nguồn và trích dẫn được kiểm tra'],
+              ['WF04', 'Bảo trì bộ nhớ', 'Tái kiểm tra nguồn bộ nhớ; không tự phê duyệt'],
+              ['WF05', 'Nghiên cứu theo lịch', 'Điều phối lịch theo cửa sổ ngày Asia/Ho_Chi_Minh'],
             ].map(([id, name, detail]) => (
               <article className="ref-card ref-tile ref-technical-workflow" key={id}>
                 <span className="ref-pill ref-running">{id}</span>

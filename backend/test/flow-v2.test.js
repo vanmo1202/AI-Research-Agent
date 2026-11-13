@@ -34,43 +34,112 @@ async function drain(options = {}) {
   }
   throw new Error("Unbounded pipeline");
 }
+
+// Deterministic test-only provider; production provider guards stay intact.
+const fixtureContent =
+  "Research safety evidence supports careful safety evaluation. " +
+  "Independent research safety assessments compare documented observations, " +
+  "limitations, methods, measurements and reproducible evidence. " +
+  "Research safety conclusions must be grounded in verified source passages.";
+
+const fixtureQuote =
+  "Research safety evidence supports careful safety evaluation.";
+
+function fixturePlan() {
+  const researchQuestions = [1, 2, 3].map(i => ({
+    id: `Q${i}`,
+    question: `Research safety evidence assessment question ${i}`
+  }));
+
+  return {
+    researchQuestions,
+    searchQueries: researchQuestions.map(q => ({
+      questionId: q.id,
+      query: `Research safety evidence ${q.id}`
+    }))
+  };
+}
+
 const real = {
   ...provider,
-  collect: async (ctx) => ({
-    sources: [0, 1].map((index) => ({
-      id: randomUUID(),
-      run_id: ctx.run.id,
-      query: "research",
-      title: "Evidence",
-      url: `https://example.org/paper${index}`,
-      normalized_url: `https://example.org/paper${index}`,
-      provider: "test",
-      original_content:
-        "Research evidence supports careful safety evaluation. More context.",
-      display_content_vi: "Nghiên cứu cần đánh giá an toàn.",
-      content_hash: "hash",
-      language: "en",
-      translation_status: "complete",
-      collected_at: new Date().toISOString(),
-    })),
-    warnings: [],
+
+  plan: async () => fixturePlan(),
+
+  collect: async ctx => ({
+    sources: [0, 1].map(index => {
+      const url =
+        `https://research-validation.edu/paper${index}`;
+
+      return {
+        id: randomUUID(),
+        run_id: ctx.run.id,
+        query: "Research safety evidence",
+        title: "Research safety evidence",
+        url,
+        normalized_url: url,
+        provider: "tavily",
+        original_content: fixtureContent,
+        display_content_vi: null,
+        content_hash: provider.hash(fixtureContent),
+        language: "en",
+        translation_status: "complete",
+        collected_at: new Date().toISOString()
+      };
+    }),
+    warnings: []
   }),
+
   extract: async (ctx, questions, chunks) => ({
-    evidence: questions.map((q, index) => ({
-      id: randomUUID(),
-      runId: ctx.run.id,
-      questionId: q.id,
-      researchQuestion: q.question,
-      chunkId: chunks[index % chunks.length].id,
-      sourceVersionId: chunks[index % chunks.length].source_version_id,
-      originalQuote: "Research evidence supports careful safety evaluation.",
-      evidenceText: "Nghiên cứu hỗ trợ đánh giá an toàn.",
-      relevanceScore: 0.8,
-      reason: "Direct quote",
-    })),
-    warnings: [],
+    evidence: questions.map((q, index) => {
+      const chunk = chunks[index % chunks.length];
+
+      return {
+        id: randomUUID(),
+        runId: ctx.run.id,
+        questionId: q.id,
+        researchQuestion: q.question,
+        chunkId: chunk.id,
+        sourceVersionId: chunk.source_version_id,
+        originalQuote: fixtureQuote,
+        evidenceText: fixtureQuote,
+        relevanceScore: 0.8,
+        reason: "Direct quote",
+        conflicting: false
+      };
+    }),
+    warnings: []
   }),
+
+  json: async (_ctx, prompt, input) => {
+    if (prompt.includes("Compose faithful research claims")) {
+      return {
+        claims: input.evidence.map(e => ({
+          evidenceId: e.evidenceId,
+          text: e.quote
+        }))
+      };
+    }
+
+    if (prompt.includes("Check each report claim")) {
+      return {
+        verdicts: input.claims.map(c => ({
+          evidenceId: c.evidenceId,
+          status: "verified",
+          reason: "Supported by the exact fixture quote"
+        }))
+      };
+    }
+
+    throw new Error("Unexpected test-only provider prompt");
+  }
 };
+
+const emptyProvider = {
+  ...real,
+  collect: async () => ({ sources: [], warnings: [] }),
+  extract: async () => ({ evidence: [], warnings: [] })
+};
+
 test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) => {
   await db.initializeDatabase();
   await db.initializeDatabase();
@@ -143,7 +212,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
     "mock produces partial rather than fabricated evidence",
     async () => {
       const r = await create();
-      await drain();
+      await drain({ customProvider: emptyProvider });
       const p = await service.progress(r.request_id, r.id);
       assert.equal(p.status, "partial");
       assert.equal(p.evidenceCount, 0);
@@ -198,7 +267,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
   );
   await t.test("search-more limited to two rounds", async () => {
     const r = await create({ searchMore: true, numberOfSources: 30 });
-    await drain();
+    await drain({ customProvider: emptyProvider });
     const run = await service.requireRun(r.id);
     assert.equal(run.status, "partial");
     assert.equal(run.current_round, 2);
@@ -248,7 +317,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
       assert.equal(await runner.runOnce(), false);
       const job = await service.dispatch(r.id, "planning", "planning:0");
       assert.equal(job.stage, "planning");
-      await runner.runOnce();
+      await runner.runOnce({ customProvider: real });
       assert.equal(await runner.runOnce(), false);
       const p = await service.progress(r.request_id, r.id);
       assert.equal(p.currentStage, "collecting");
@@ -277,102 +346,212 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
     );
     await service.cancel(r.id);
   });
+
   await t.test(
-    "provider query isolation, timeouts, translation failure and durable budgets",
+    "provider query isolation, single-attempt HTTP, direct page reads and durable budgets",
     async () => {
       const r = await create();
-      await db.run("UPDATE research_runs SET status='running' WHERE id=$1", [
-        r.id,
-      ]);
-      const oldFetch = global.fetch,
-        oldLLM = process.env.MOCK_LLM,
-        oldSearch = process.env.MOCK_SEARCH,
-        oldKey = process.env.TAVILY_API_KEY;
-      process.env.MOCK_SEARCH = "false";
-      process.env.TAVILY_API_KEY = "fake-key";
+      await db.run(
+        "UPDATE research_runs SET status='running' WHERE id=$1",
+        [r.id]
+      );
+
+      const dns = require("node:dns/promises");
+      const oldLookup = dns.lookup;
+      const oldFetch = global.fetch;
+      const keys = [
+        "MOCK_LLM", "MOCK_SEARCH",
+        "TAVILY_API_KEY", "GEMINI_API_KEY"
+      ];
+      const previous = Object.fromEntries(
+        keys.map(k => [k, process.env[k]])
+      );
+
       const ctx = {
         run: await service.requireRun(r.id),
-        input: { numberOfSources: 4 },
+        input: {
+          topic: "Research safety",
+          goal: "Check evidence",
+          scope: "public",
+          numberOfSources: 4
+        },
         signal: new AbortController().signal,
-        check() {},
+        check() {}
       };
-      let calls = 0;
+
       try {
+        process.env.MOCK_LLM = "false";
+        process.env.MOCK_SEARCH = "false";
+        process.env.TAVILY_API_KEY = "fake-key";
+        process.env.GEMINI_API_KEY = "fake-key";
+
+        dns.lookup = async () => [
+          { address: "93.184.216.34", family: 4 }
+        ];
+
+        let calls = 0;
+
         global.fetch = async () => {
           calls++;
-          if (calls === 1)
-            throw Object.assign(new Error("raw secret"), {
-              name: "TimeoutError",
-            });
+          const error = new Error("Synthetic timeout");
+          error.name = "TimeoutError";
+          throw error;
+        };
+
+        const timedOut = await provider.collect(
+          ctx, ["Research safety evidence"], []
+        );
+
+        assert.equal(timedOut.sources.length, 0);
+        assert.equal(calls, 1, "No hidden paid retries");
+        assert.ok(
+          timedOut.warnings.some(
+            w => w.code === "PROVIDER_UNAVAILABLE"
+          )
+        );
+
+        calls = 0;
+
+        global.fetch = async url => {
+          calls++;
+
+          if (url === "https://api.tavily.com/search") {
+            return new Response(JSON.stringify({
+              results: [{
+                title: "Research safety evidence",
+                url: "https://research-validation.edu/study",
+                content: fixtureContent
+              }]
+            }));
+          }
+
+          assert.equal(
+            url,
+            "https://research-validation.edu/study"
+          );
+
           return new Response(
-            JSON.stringify({
-              results: [
-                {
-                  title: "Research",
-                  url: "https://example.org/study",
-                  raw_content: "Research evidence supports safety.",
-                },
-              ],
-            }),
-            { status: 200 },
+            `<html><body><article>${fixtureContent}</article></body></html>`,
+            {
+              headers: { "content-type": "text/html" }
+            }
           );
         };
-        process.env.MOCK_LLM = "false";
-        process.env.GEMINI_API_KEY = "fake-key";
-        const data = await provider.collect(ctx, ["query"], []);
-        assert.equal(data.sources.length, 1);
-        assert.equal(data.sources[0].translation_status, "failed");
-        assert.ok(data.sources[0].original_content.includes("Research"));
-        global.fetch = async () => new Response("{}", { status: 503 });
-        await assert.rejects(provider.collect(ctx, ["fail"], []), {
-          code: "SEARCH_UNAVAILABLE",
-        });
-        await db.run("UPDATE research_runs SET llm_calls=32 WHERE id=$1", [
-          r.id,
-        ]);
-        await assert.rejects(provider.json(ctx, "test", {}), {
-          code: "BUDGET_EXHAUSTED",
-        });
+
+        const collected = await provider.collect(
+          ctx, ["Research safety evidence"], []
+        );
+
+        assert.equal(collected.sources.length, 1);
+        assert.ok(calls >= 2);
+        assert.equal(collected.sources[0].provider, "tavily");
+        assert.equal(
+          collected.sources[0].url,
+          "https://research-validation.edu/study"
+        );
+        assert.ok(
+          collected.sources[0].original_content.includes(
+            "Research safety evidence"
+          )
+        );
+
+        assert.notEqual(
+          collected.sources[0].translation_status,
+          "failed",
+          "Collection does not perform hidden Gemini translation"
+        );
+
+        global.fetch = async () =>
+          new Response("{}", { status: 503 });
+
+        const unavailable = await provider.collect(
+          ctx, ["Research safety evidence outage"], []
+        );
+
+        assert.equal(unavailable.sources.length, 0);
+        assert.ok(
+          unavailable.warnings.some(
+            w => w.code === "PROVIDER_HTTP_503"
+          )
+        );
+
+        await db.run(
+          "UPDATE research_runs SET llm_calls=32 WHERE id=$1",
+          [r.id]
+        );
+
+        await assert.rejects(
+          provider.json(ctx, "test", {}),
+          { code: "BUDGET_EXHAUSTED" }
+        );
+
       } finally {
         global.fetch = oldFetch;
-        process.env.MOCK_LLM = oldLLM;
-        process.env.MOCK_SEARCH = oldSearch;
-        if (oldKey === undefined) delete process.env.TAVILY_API_KEY;
-        else process.env.TAVILY_API_KEY = oldKey;
-        delete process.env.GEMINI_API_KEY;
+        dns.lookup = oldLookup;
+
+        for (const key of keys) {
+          if (previous[key] === undefined)
+            delete process.env[key];
+          else
+            process.env[key] = previous[key];
+        }
+
         await service.cancel(r.id);
       }
-    },
+    }
   );
+
   await t.test(
-    "transient job errors defer retries; cancellation fences in-flight writes",
+    "provider errors fail fast; cancellation fences in-flight writes",
     async () => {
       const r = await create();
+
       await runner.runOnce({
         handlers: {
           planning: async () => {
             throw provider.fail("PROVIDER_UNAVAILABLE", true);
-          },
-        },
+          }
+        }
       });
-      let job = await db.get("SELECT * FROM stage_jobs WHERE run_id=$1", [r.id]);
-      assert.equal(job.status, "retry_waiting");
-      await db.run(
-        "UPDATE stage_jobs SET available_at='2000-01-01' WHERE id=$1",
-        [job.id],
+
+      let job = await db.get(
+        "SELECT * FROM stage_jobs WHERE run_id=$1",
+        [r.id]
       );
+
+      assert.equal(job.status, "failed");
+      assert.equal(
+        JSON.parse(job.error_json).code,
+        "PROVIDER_UNAVAILABLE"
+      );
+      assert.equal(
+        (await service.requireRun(r.id)).status,
+        "failed"
+      );
+
+      const fenced = await create();
+
       await runner.runOnce({
         handlers: {
-          planning: async (ctx) => {
+          planning: async ctx => {
             await service.cancel(ctx.run.id);
-            return { plan: await provider.plan(ctx) };
-          },
-        },
+            return { plan: fixturePlan() };
+          }
+        }
       });
-      job = await db.get("SELECT * FROM stage_jobs WHERE id=$1", [job.id]);
+
+      job = await db.get(
+        "SELECT * FROM stage_jobs WHERE run_id=$1",
+        [fenced.id]
+      );
+
       assert.equal(job.status, "cancelled");
       assert.equal(job.output_json, null);
-    },
+      assert.equal(
+        (await service.requireRun(fenced.id)).status,
+        "cancelled"
+      );
+    }
   );
   await t.test(
     "later analysis outage retains validated evidence and report history",

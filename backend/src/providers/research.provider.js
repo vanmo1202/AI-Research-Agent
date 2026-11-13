@@ -150,6 +150,13 @@ async function extract(ctx, questions, chunks) {
  for(const item of result.evidence){
   const question=questions.find(q=>q.id===item.questionId),chunk=selected.find(c=>c.id===item.chunkId && c.source_version_id===item.sourceVersionId);
   if(!question || !chunk || typeof item.originalQuote!=='string' || !item.originalQuote.trim() || item.originalQuote.length>400 || !chunk.content.includes(item.originalQuote) || typeof item.evidenceText!=='string' || !item.evidenceText.trim() || item.evidenceText.length>1500 || typeof item.reason!=='string' || item.reason.length>1000){warnings.push({code:'INVALID_EVIDENCE_PROVENANCE'});continue;}
+  if (relevance.evaluateSource(
+    { ...ctx.input, goal: question.question },
+    { content: item.originalQuote }
+  ).status === 'rejected') {
+    warnings.push({ code: 'OFF_TOPIC_EVIDENCE_QUOTE' });
+    continue;
+  }
   evidence.push({...item,id:randomUUID(),runId:ctx.run.id,sourceId:item.sourceVersionId,questionId:question.id,researchQuestion:question.question,relevanceScore:chunk.relevanceScore,conflicting:item.conflicting===true,verificationStatus:'unverified'});
  }
  if(!evidence.length)warnings.push({code:'NO_VERIFIABLE_EVIDENCE'});

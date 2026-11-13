@@ -386,7 +386,7 @@ test('failed run creation retries same request and idempotency key', async ({ pa
   await page.getByLabel('Mục tiêu', { exact: true }).fill('Đánh giá lưu trữ');
   await page.getByRole('button', { name: 'Bắt đầu nghiên cứu', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Run outcome unknown');
-  await page.getByRole('button', { name: 'Thử lại tạo run' }).click();
+  await page.getByRole('button', { name: 'Thử lại tạo lượt chạy' }).click();
   await expect(page).toHaveURL(/\/runs\/run-one$/);
   expect(keys).toHaveLength(2);
   expect(keys[0]).toBe(keys[1]);
@@ -448,7 +448,7 @@ test('run sources use immutable version fields and chat stays scoped to research
   await expect(page.getByRole('heading', { name: 'Nguồn hỗ trợ nhận định nào?' })).toBeVisible();
   await expect(page.getByText('Nhận định được lưu từ máy chủ', { exact: true })).toBeVisible();
   await expect(page.locator('.os-source blockquote')).toHaveText('Trích đoạn nguồn bất biến');
-  await expect(page.getByText('Source version: sv · Chunk: chunk-one')).toBeVisible();
+  await expect(page.getByText('Phiên bản nguồn: sv · Đoạn văn bản: chunk-one')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Đối chiếu nguồn' })).toHaveAttribute(
     'href',
     'https://example.test/paper',
@@ -470,14 +470,16 @@ test('session service error offers recovery without treating it as logout', asyn
   await page.getByRole('button', { name: 'Thử lại kết nối' }).click();
   await expect(page.getByRole('heading', { name: 'Lịch nghiên cứu', exact: true })).toBeVisible();
 });
-test('mobile navigation traps focus and Escape restores the menu trigger', async ({ page }) => {
+test('mobile top navigation opens below header and Escape restores the menu trigger', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await mock(page);
   await page.goto('/');
   const trigger = page.getByRole('button', { name: 'Mở menu điều hướng' });
   await trigger.click();
-  await expect(page.getByRole('dialog', { name: 'Điều hướng chính' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Đóng menu', exact: true })).toBeFocused();
+  await expect(page.getByRole('navigation', { name: 'Điều hướng chính' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Đóng menu điều hướng' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
   await expect(trigger).toHaveAttribute('aria-expanded', 'false');
@@ -524,7 +526,7 @@ test('report preview preserves verification state and exports through public end
   await page.goto(`/research/${requestId}/runs/${runId}`);
   await page.getByRole('button', { name: 'Báo cáo', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Báo cáo có bằng chứng' })).toBeVisible();
-  await expect(page.getByText(/Trạng thái báo cáo: partial/)).toBeVisible();
+  await expect(page.getByText(/Trạng thái báo cáo: Hoàn thành một phần/)).toBeVisible();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'PDF', exact: true }).click();
   expect((await download).suggestedFilename()).toBe('research.pdf');
@@ -600,7 +602,7 @@ test('WF01 quality gaps and old mock sources never display verified citations', 
     }),
   );
   await page.goto(`/research/${requestId}/runs/${runId}`);
-  await expect(page.getByText('Chất lượng: insufficient', { exact: true })).toBeVisible();
+  await expect(page.getByText('Chất lượng: Chưa đủ bằng chứng', { exact: true })).toBeVisible();
   await expect(page.getByText(/CẢNH BÁO: Nguồn mô phỏng từ run cũ/)).toBeVisible();
   await page.getByRole('button', { name: 'Báo cáo', exact: true }).click();
   await expect(page.getByText('Trích dẫn đã được máy chủ xác minh.', { exact: true })).toHaveCount(

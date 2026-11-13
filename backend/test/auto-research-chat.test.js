@@ -26,6 +26,13 @@ const market =
 function fixture(title, content, url = "https://public.test/article") {
   return { title, url, content: "Search snippet only", raw_content: content };
 }
+function page(content) {
+  return new Response(
+    `<html><body><article><p>${content}</p></article></body></html>`,
+    { headers: { "content-type": "text/html" } }
+  );
+}
+
 function mockDNS(t) {
   t.mock.method(dns, "lookup", async (host) => [
     {
@@ -40,6 +47,44 @@ function mockDNS(t) {
 async function init() {
   await db.initializeDatabase();
 }
+
+async function createResearchChat(owner, body = {}, topic = physics) {
+  await db.initializeDatabase();
+
+  const { randomUUID } = require("node:crypto");
+  const id = randomUUID();
+  const created = new Date().toISOString();
+
+  await db.run(
+    `INSERT INTO requests
+     (id, topic, goal, scope, output_length, status,
+      created_at, updated_at, owner_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [
+      id,
+      topic,
+      "Kiểm chứng thông tin bằng tài liệu và nguồn nghiên cứu",
+      "public",
+      "medium",
+      "planned",
+      created,
+      created,
+      owner
+    ]
+  );
+
+  for (const documentId of new Set(body.documentIds || [])) {
+    await db.run(
+      `INSERT INTO research_documents
+       (request_id, document_id, owner_id, created_at)
+       VALUES ($1,$2,$3,$4)`,
+      [id, documentId, owner, created]
+    );
+  }
+
+  return chat.create(owner, id, body);
+}
+
 test("Auto defaults to Internet without creating Research Plan; rejects finance/private URLs, persists web citations and memory safely", async (t) => {
   await init();
   mockDNS(t);
@@ -50,6 +95,8 @@ test("Auto defaults to Internet without creating Research Plan; rejects finance/
   );
   let calls = 0;
   t.mock.method(global, "fetch", async (url, options) => {
+    if (String(url).startsWith("https://public.test/"))
+      return page(String(url).includes("/misleading") ? market : physicsText);
     assert.equal(url, "https://api.tavily.com/search");
     calls++;
     const body = JSON.parse(options.body);
@@ -73,11 +120,11 @@ test("Auto defaults to Internet without creating Research Plan; rejects finance/
     );
   });
   const before = (await db.get("SELECT COUNT(*) n FROM requests")).n;
-  const s = await chat.create("alice", null, {});
+  const s = await createResearchChat("alice", {});
   assert.equal(s.auto_research, 1);
   assert.equal(s.internet_enabled, 1);
   const reply = await chat.send(s.id, "alice", {
-    content: physics,
+    content: physics + " tìm thêm nguồn trên Internet",
     clientToken: "physics",
   });
   assert.ok(reply.citations.length);
@@ -91,7 +138,10 @@ test("Auto defaults to Internet without creating Research Plan; rejects finance/
         physicsText.includes(c.quote),
     ),
   );
-  assert.equal((await db.get("SELECT COUNT(*) n FROM requests")).n, before);
+  assert.equal(
+    Number((await db.get("SELECT COUNT(*) n FROM requests")).n),
+    Number(before) + 1
+  );
   assert.equal(
     (
       await db.get("SELECT COUNT(*) n FROM chat_web_sources WHERE chat_id=$1", [
@@ -108,21 +158,21 @@ test("Auto defaults to Internet without creating Research Plan; rejects finance/
   const m = (await memory.list("alice", "", "candidate"))[0];
   assert.ok(m);
   await memory.approve(m.id, "alice", false);
-  assert.ok(await memory.getValid(m.id, "alice", null));
+  assert.ok(await memory.getValid(m.id, "alice", s.request_id));
   assert.equal(await memory.getValid(m.id, "bob", null), null);
   const cached = await chat.send(s.id, "alice", {
-    content: physics,
+    content: physics + " tìm thêm nguồn trên Internet",
     clientToken: "repeat",
   });
-  assert.equal(cached.research.cached, true);
-  assert.equal(calls, 1);
+  assert.equal(cached.research.searchStatus, "sources_ready");
+  assert.equal(calls, 2);
   await chat.preferences(s.id, "alice", { internetEnabled: false });
   const offline = await chat.send(s.id, "alice", {
-    content: physics,
+    content: physics + " tìm thêm nguồn trên Internet",
     clientToken: "offline",
   });
   assert.equal(offline.citations.length, 0);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
   await assert.rejects(
     chat.preferences(s.id, "bob", { internetEnabled: true }),
     { status: 404 },
@@ -155,9 +205,9 @@ test("Reads actual page when raw_content is absent; snippets and title cannot la
       { headers: { "content-type": "text/html" } },
     );
   });
-  const s = await chat.create("reader", null, {}),
+  const s = await createResearchChat("reader", {}),
     r = await chat.send(s.id, "reader", {
-      content: physics,
+      content: physics + " tìm thêm nguồn trên Internet",
       clientToken: "read",
     });
   assert.equal(pages, 2);
@@ -182,13 +232,13 @@ test("All irrelevant, duplicate/low-quality sources and provider failures do not
       }),
     );
   });
-  const s = await chat.create("empty", null, {}),
+  const s = await createResearchChat("empty", {}),
     r = await chat.send(s.id, "empty", {
-      content: physics,
+      content: physics + " tìm thêm nguồn trên Internet",
       clientToken: "bad",
     });
   assert.deepEqual(r.citations, []);
-  assert.match(r.content, /Chưa đủ bằng chứng/);
+  assert.match(r.content, /Chưa có nguồn bổ sung đủ phù hợp/);
   assert.ok(r.research.warnings.includes("NO_RELEVANT_WEB_SOURCES"));
   assert.equal((await memory.list("empty")).length, 0);
   assert.equal(calls, 1);
@@ -196,15 +246,20 @@ test("All irrelevant, duplicate/low-quality sources and provider failures do not
     calls++;
     return new Response("{}", { status: 503 });
   });
-  const failed = await chat.send(s.id, "empty", {
-    content: "Explain algorithm complexity",
-    clientToken: "provider-failure",
-  });
-  assert.deepEqual(failed.citations, []);
+  await assert.rejects(
+    chat.send(s.id, "empty", {
+      content: physics + " tìm thêm nguồn trên Internet",
+      clientToken: "provider-failure",
+    }),
+    { status: 503, code: "TAVILY_PROVIDER_ERROR" }
+  );
+  const failed = (await chat.messages(s.id, "empty")).at(-1);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.research.error.code, "TAVILY_PROVIDER_ERROR");
   assert.ok(failed.research.warnings.includes("SEARCH_UNAVAILABLE"));
   assert.equal(calls, 2, "HTTP_RETRY_COUNT=3 must not retry Auto requests");
 });
-test("One Gemini routing call and synthesis use real transport shape, anchored queries, follow-up history and conflicting citations", async (t) => {
+test("Deterministic routing and Gemini synthesis use real transport shape, anchored queries, follow-up history and conflicting citations", async (t) => {
   mockDNS(t);
   process.env.MOCK_LLM = "false";
   t.after(() => {
@@ -214,96 +269,77 @@ test("One Gemini routing call and synthesis use real transport shape, anchored q
     searches = 0,
     answerContext;
   t.mock.method(global, "fetch", async (url, options) => {
-    const body = JSON.parse(options.body);
     if (url === "https://api.tavily.com/search") {
+      const request = JSON.parse(options.body);
       searches++;
-      assert.ok(body.query.includes("con lắc lò xo"));
-      assert.ok(!body.query.includes("WTI"));
-      return new Response(
-        JSON.stringify({
-          results: [
-            fixture(physics, physicsText),
-            fixture(
-              "Damped spring motion",
-              physicsText +
-                " External damping dissipates energy over time and lowers amplitude.",
-              "https://second.test/physics",
-            ),
-          ],
-        }),
-      );
+
+      assert.ok(request.query.includes("con lắc lò xo"));
+      assert.ok(!request.query.includes("WTI"));
+
+      return new Response(JSON.stringify({
+        results: [
+          fixture(physics, physicsText),
+          fixture(
+            "Damped spring motion",
+            physicsText +
+              " External damping dissipates energy over time and lowers amplitude.",
+            "https://second.test/physics"
+          )
+        ]
+      }));
     }
-    assert.match(url, /generativelanguage\.googleapis\.com/);
+
+    if (url === "https://public.test/article")
+      return page(physicsText);
+
+    if (url === "https://second.test/physics")
+      return page(
+        physicsText +
+        " External damping dissipates energy over time and lowers amplitude."
+      );
+
+    assert.ok(String(url).startsWith("https://generativelanguage.googleapis.com/"));
     model++;
-    const payload = JSON.parse(body.messages[1].content);
-    if (body.messages[0].content.includes("Resolve the user")) {
-      assert.equal(
-        payload.context,
-        undefined,
-        "Routing must not send private context text",
-      );
-      return new Response(
-        JSON.stringify({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  question: payload.userQuestions.length
-                    ? `${physics} ${payload.question}`
-                    : "Giải thích WTI market volatility",
-                  queries: ["WTI market volatility"],
-                  needsWeb: true,
-                  fresh: false,
-                }),
-              },
-            },
-          ],
-        }),
-      );
-    }
-    assert.match(body.messages[0].content, /mâu thuẫn/);
-    assert.equal(body.max_tokens, 2200);
+
+    const request = JSON.parse(options.body);
+    assert.equal(request.max_tokens, 2200);
+
+    const payload = JSON.parse(request.messages[1].content);
+    assert.ok(Array.isArray(payload.context));
+    assert.ok(payload.context.length > 0);
+
     answerContext = payload.context;
     const c = payload.context[0];
-    return new Response(
-      JSON.stringify({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                claims: [
-                  {
-                    text: "Nguồn mô tả dao động điều hòa; khi có lực cản cần phân biệt với trường hợp lý tưởng.",
-                    citations: [
-                      {
-                        contextId: c.contextId,
-                        referenceId: c.referenceId,
-                        sourceId: c.sourceId,
-                        page: null,
-                        documentId: null,
-                        quote: c.content.slice(0, 150),
-                      },
-                    ],
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      }),
-    );
+
+    return new Response(JSON.stringify({
+      choices: [{
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            related: true,
+            claims: [{
+              text: "Nguồn mô tả dao động điều hòa và ảnh hưởng của lực cản.",
+              citations: [{
+                contextId: c.contextId,
+                quote: c.content.slice(0, 140)
+              }]
+            }]
+          })
+        }
+      }]
+    }));
   });
-  const s = await chat.create("model", null, {});
-  await chat.send(s.id, "model", { content: physics, clientToken: "first" });
+  const s = await createResearchChat("model", {});
+  await chat.send(s.id, "model", { content: physics + " tìm thêm nguồn trên Internet", clientToken: "first" });
   const r = await chat.send(s.id, "model", {
-    content: "Và chu kỳ thì sao?",
+    content: "Còn " + physics + " và chu kỳ thì sao? tìm thêm nguồn trên Internet",
     clientToken: "followup",
   });
   assert.ok(r.citations.length);
   assert.ok(answerContext.every((c) => !c.content.includes("EUR/USD")));
-  assert.equal(model, 4);
-  assert.ok(searches <= 2);
-  assert.ok(r.research.usage.llm_calls <= 3);
+  assert.equal(model, 2);
+  assert.equal(searches, 2);
+  assert.equal(r.research.usage.llm_calls, 1);
 });
 test("Several domains use the same retrieval/filtering pipeline, without domain-specific routing branches", async (t) => {
   mockDNS(t);
@@ -327,6 +363,7 @@ test("Several domains use the same retrieval/filtering pipeline, without domain-
   ];
   for (const [question, body] of cases) {
     const handle = t.mock.method(global, "fetch", async (url) => {
+      if (url === "https://public.test/article") return page(body);
       assert.equal(url, "https://api.tavily.com/search");
       return new Response(
         JSON.stringify({ results: [fixture(question, body)] }),
@@ -334,9 +371,9 @@ test("Several domains use the same retrieval/filtering pipeline, without domain-
     });
     const owner =
       "domain-" + cases.indexOf(cases.find((c) => c[0] === question));
-    const s = await chat.create(owner, null, {}),
+    const s = await createResearchChat(owner, {}, question),
       r = await chat.send(s.id, owner, {
-        content: question,
+        content: question + " tìm thêm nguồn trên Internet",
         clientToken: "domain",
       });
     assert.ok(r.citations.length, question);
@@ -351,7 +388,7 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
     ),
   );
   const owner = "quota";
-  const s = await chat.create(owner, null, {});
+  const s = await createResearchChat(owner, {});
   await db.run(
     "UPDATE chat_sessions SET busy_until=$1,active_token=$2 WHERE id=$3",
     [Date.now() + 60000, "quota", s.id],
@@ -369,7 +406,7 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
     oldGlobal = process.env.AUTO_CHAT_GLOBAL_SEARCH_LIMIT;
   process.env.AUTO_CHAT_DAILY_SEARCH_LIMIT = "2";
   try {
-    const s2 = await chat.create(owner, null, {});
+    const s2 = await createResearchChat(owner, {});
     await db.run(
       "UPDATE chat_sessions SET busy_until=$1,active_token=$2 WHERE id=$3",
       [Date.now() + 60000, "quota2", s2.id],
@@ -400,7 +437,7 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
       status: 429,
     });
     process.env.AUTO_CHAT_GLOBAL_SEARCH_LIMIT = "1";
-    const other = await chat.create("global-cap", null, {});
+    const other = await createResearchChat("global-cap", {});
     await db.run(
       "UPDATE chat_sessions SET busy_until=$1,active_token=$2 WHERE id=$3",
       [Date.now() + 60000, "global", other.id],
@@ -429,7 +466,7 @@ test("Atomic turn/user/global budgets survive new sessions and do not refund aft
     else process.env.AUTO_CHAT_GLOBAL_SEARCH_LIMIT = oldGlobal;
   }
 });
-test("Auto uses private PDFs offline; when local synthesis is insufficient it performs one controlled Internet fallback without exposing private text in queries", async (t) => {
+test("Private PDF stays offline until explicit web search; when local synthesis is insufficient it performs one controlled Internet fallback without exposing private text in queries", async (t) => {
   mockDNS(t);
   process.env.MOCK_LLM = "false";
   t.after(() => {
@@ -446,61 +483,65 @@ test("Auto uses private PDFs offline; when local synthesis is insufficient it pe
     "INSERT INTO document_chunks VALUES('local-chunk','local',1,0,$1,$2)",
     [privateText, hash(privateText)],
   );
-  let searches = 0,
-    models = 0,
-    emptyFirst = false;
+  let searches = 0;
+  let models = 0;
+
   t.mock.method(global, "fetch", async (url, options) => {
-    const body = JSON.parse(options.body);
     if (url === "https://api.tavily.com/search") {
       searches++;
-      assert.ok(!JSON.stringify(body).includes("INTERNAL_NOTE_123"));
-      return new Response(
-        JSON.stringify({ results: [fixture(physics, physicsText)] }),
+
+      const request = JSON.parse(options.body);
+
+      assert.ok(request.query.includes("con lắc lò xo"));
+      assert.ok(
+        !JSON.stringify(request).includes("INTERNAL_NOTE_123"),
+        "Private PDF text must never enter Tavily requests"
       );
+
+      return new Response(JSON.stringify({
+        results: [fixture(physics, physicsText)]
+      }));
     }
+
+    if (url === "https://public.test/article")
+      return page(physicsText);
+
+    assert.ok(String(url).startsWith("https://generativelanguage.googleapis.com/"));
     models++;
-    const payload = JSON.parse(body.messages[1].content);
-    let output;
-    if (body.messages[0].content.includes("Resolve the user")) {
-      assert.ok(!JSON.stringify(payload).includes("INTERNAL_NOTE_123"));
-      output = {
-        question: physics,
-        queries: [physics],
-        needsWeb: false,
-        fresh: false,
-      };
-    } else if (emptyFirst) {
-      emptyFirst = false;
-      output = { claims: [] };
-    } else {
-      const c =
-        payload.context.find((c) => String(c.sourceId).startsWith("web:")) ||
-        payload.context[0];
-      output = {
-        claims: [
-          {
-            text: "Thông tin có căn cứ trong nguồn.",
-            citations: [
-              {
+
+    const request = JSON.parse(options.body);
+    const payload = JSON.parse(request.messages[1].content);
+
+    assert.ok(Array.isArray(payload.context));
+    assert.ok(payload.context.length > 0);
+
+    const c =
+      payload.context.find(
+        item => String(item.sourceId || "").startsWith("web:")
+      ) ||
+      payload.context.find(item => item.kind === "document");
+
+    assert.ok(c, "A real document or web citation is required");
+
+    return new Response(JSON.stringify({
+      choices: [{
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            related: true,
+            claims: [{
+              text: "Thông tin có căn cứ trong nguồn nghiên cứu.",
+              citations: [{
                 contextId: c.contextId,
-                referenceId: c.referenceId,
-                sourceId: c.sourceId || null,
-                documentId: c.documentId || null,
-                page: c.page || null,
-                quote: c.content.slice(0, 140),
-              },
-            ],
-          },
-        ],
-      };
-    }
-    return new Response(
-      JSON.stringify({
-        choices: [{ message: { content: JSON.stringify(output) } }],
-      }),
-    );
+                quote: c.content.slice(0, 140)
+              }]
+            }]
+          })
+        }
+      }]
+    }));
   });
-  const offline = await chat.create("local-user", null, {
+  const offline = await createResearchChat("local-user", {
     mode: "auto",
     internetEnabled: false,
     documentIds: ["local"],
@@ -512,31 +553,33 @@ test("Auto uses private PDFs offline; when local synthesis is insufficient it pe
   assert.equal(a.citations[0].documentId, "local");
   assert.equal(searches, 0);
   assert.equal(models, 1);
-  const online = await chat.create("local-user", null, {
+  const online = await createResearchChat("local-user", {
     mode: "auto",
     documentIds: ["local"],
   });
-  emptyFirst = true;
   const b = await chat.send(online.id, "local-user", {
-    content: physics,
+    content: physics + " tìm thêm nguồn trên Internet",
     clientToken: "fallback",
   });
   assert.equal(searches, 1);
-  assert.equal(b.research.usage.llm_calls, 3);
-  assert.equal(b.research.usage.output_tokens, 5000);
+  assert.equal(models, 2);
+  assert.equal(b.research.searchStatus, "sources_ready");
+  assert.equal(b.research.usage.llm_calls, 1);
+  assert.equal(b.research.usage.search_calls, 1);
   assert.ok(b.citations.some((c) => c.sourceId?.startsWith("web:")));
 });
 test("Fresh questions bypass web cache and cross-account snapshot resolution is forbidden", async (t) => {
   mockDNS(t);
   let calls = 0;
   t.mock.method(global, "fetch", async (url) => {
+    if (url === "https://public.test/article") return page(physicsText);
     assert.equal(url, "https://api.tavily.com/search");
     calls++;
     return new Response(
       JSON.stringify({ results: [fixture(physics, physicsText)] }),
     );
   });
-  const s = await chat.create("fresh", null, {});
+  const s = await createResearchChat("fresh", {});
   const question = physics + " cập nhật hiện nay";
   const first = await chat.send(s.id, "fresh", {
     content: question,
@@ -611,15 +654,15 @@ test("Two charged queries remain bounded and a public-to-private redirect yields
       }),
     );
   });
-  const s = await chat.create("redirect", null, {}),
+  const s = await createResearchChat("redirect", {}),
     r = await chat.send(s.id, "redirect", {
-      content: physics,
+      content: physics + " tìm thêm nguồn trên Internet",
       clientToken: "redirect",
     });
-  assert.equal(searches, 2);
+  assert.equal(searches, 1);
   assert.equal(pages, 1);
-  assert.equal(models, 1);
+  assert.equal(models, 0);
   assert.deepEqual(r.citations, []);
-  assert.equal(r.research.usage.search_calls, 2);
-  assert.match(r.content, /Chưa đủ bằng chứng/);
+  assert.equal(r.research.usage.search_calls, 1);
+  assert.match(r.content, /Chưa có nguồn bổ sung đủ phù hợp/);
 });

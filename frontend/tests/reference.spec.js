@@ -290,7 +290,7 @@ test('schedule dialog shows API failure inside the dialog and closes only on con
   await dialog.getByRole('button', { name: 'Tạo lịch', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(
-    page.getByText('Đã tạo lịch ở trạng thái tắt. Bật lịch khi automation đã được cấu hình.', {
+    page.getByText('Đã tạo lịch ở trạng thái tắt. Bật lịch khi tự động hóa đã được cấu hình.', {
       exact: true,
     }),
   ).toBeVisible();
@@ -306,4 +306,98 @@ test('activity retrieval errors are not presented as an empty account history', 
   await page.goto('/activity');
   await expect(page.getByRole('alert')).toContainText('Analytics unavailable');
   await expect(page.getByText('Chưa có hoạt động được ghi nhận.', { exact: true })).toHaveCount(0);
+});
+
+test('horizontal navigation sits above the main page and preserves the research dropdown', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await fixture(page);
+  await page.goto('/');
+  const nav = page.getByRole('navigation', { name: 'Điều hướng chính' });
+  await expect(nav.getByRole('link', { name: 'Trang chủ' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Tự động hóa (n8n)' })).toBeVisible();
+  await expect(page.locator('.ref-main')).toHaveCSS('margin-left', '0px');
+  const navBox = await nav.boundingBox();
+  const mainBox = await page.locator('#main-content').boundingBox();
+  expect(navBox.y).toBeLessThan(mainBox.y);
+  await nav.getByText('Nghiên cứu', { exact: true }).click();
+  await expect(nav.getByRole('link', { name: 'Workflow (5 luồng)' })).toBeVisible();
+});
+
+test('narrow screens open navigation below the top bar and close after a route change', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 850 });
+  await fixture(page);
+  await page.goto('/');
+  const toggle = page.getByRole('button', { name: 'Mở menu điều hướng' });
+  const links = page.locator('.ro-topnav-links');
+  await expect(toggle).toBeVisible();
+  await expect(links).not.toBeVisible();
+  await toggle.click();
+  await expect(links).toBeVisible();
+  const menuBox = await links.boundingBox();
+  const barBox = await page.locator('.ro-topnav-inner').boundingBox();
+  expect(menuBox.y).toBeGreaterThanOrEqual(barBox.y + barBox.height - 1);
+  await links.getByRole('link', { name: 'Tự động hóa (n8n)' }).click();
+  await expect(page).toHaveURL(/\/automations$/);
+  await expect(links).not.toBeVisible();
+});
+
+test('research progress displays Vietnamese stage names and quality labels', async ({ page }) => {
+  await fixture(page);
+  await page.route('**/api/research/*/runs/*/progress', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          requestId: id,
+          runId: run,
+          status: 'partial',
+          percent: 99,
+          currentStage: 'verifying',
+          completedStages: ['planning', 'collecting', 'analyzing'],
+          stageQuality: {
+            planning: 'planned',
+            collecting: 'accepted',
+            analyzing: 'traceable',
+            evaluating: 'insufficient',
+            composing: 'insufficient',
+            verifying: 'verified',
+          },
+          sourceCount: 5,
+          evidenceCount: 3,
+          recentEvents: [],
+        },
+      },
+    }),
+  );
+  await page.goto('/research/req-reference/runs/run-reference');
+  await expect(page.getByText('KHÔNG GIAN NGHIÊN CỨU', { exact: true })).toBeVisible();
+  await expect(page.locator('.os-run-meta')).toContainText('Mã yêu cầu');
+  await expect(page.locator('.os-run-meta')).toContainText('Mã lượt chạy');
+  await expect(page.locator('.os-stage-list strong')).toHaveText([
+    'Lập kế hoạch',
+    'Thu thập nguồn',
+    'Phân tích bằng chứng',
+    'Đánh giá độ phủ',
+    'Biên soạn báo cáo',
+    'Xác minh trích dẫn',
+  ]);
+  await expect(page.getByText('Chất lượng: Chưa đủ bằng chứng', { exact: true })).toHaveCount(2);
+  await expect(page.getByText('Chất lượng: Có thể truy vết', { exact: true })).toBeVisible();
+  await expect(page.locator('.os-progress')).not.toContainText('Planning');
+  await expect(page.locator('.os-progress')).not.toContainText('insufficient');
+});
+
+test('research status filter translates labels but keeps API values unchanged', async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto('/researches');
+  const options = page.getByRole('combobox', { name: 'Trạng thái lượt nghiên cứu' });
+  await expect(options.locator('option[value="partial"]')).toHaveText('Hoàn thành một phần');
+  await options.selectOption('partial');
+  await expect(options).toHaveValue('partial');
 });

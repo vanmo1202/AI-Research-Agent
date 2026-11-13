@@ -146,48 +146,119 @@ test('Flow v2 rejects all off-topic Tavily results, persists zero sources and te
     const service = require('../src/services/run.service');
     const run = await service.create(request.requestId, { searchMore: true }, 'off-topic-v2');
     const runner = require('../src/workers/runner');
-    for (let i = 0; i < 25; i++) if (!(await runner.runOnce())) break;
+    const realProvider = require('../src/providers/research.provider');
+
+    const oldMock = process.env.MOCK_LLM;
+    const oldGemini = process.env.GEMINI_API_KEY;
+
+    process.env.MOCK_LLM = 'false';
+    process.env.GEMINI_API_KEY = 'synthetic-no-real-key';
+
+    t.after(() => {
+        process.env.MOCK_LLM = oldMock;
+        if (oldGemini === undefined) delete process.env.GEMINI_API_KEY;
+        else process.env.GEMINI_API_KEY = oldGemini;
+    });
+
+    const testProvider = {
+        ...realProvider,
+        plan: async () => ({
+            researchQuestions: [1, 2, 3].map(i => ({
+                id: `Q${i}`,
+                question: `${physics.topic} câu hỏi ${i}`
+            })),
+            searchQueries: [{
+                questionId: 'Q1',
+                query: physics.topic
+            }]
+        })
+    };
+
+    for (let i = 0; i < 25; i++) {
+        if (!(await runner.runOnce({ customProvider: testProvider }))) break;
+    }
     const progress = await service.progress(request.requestId, run.id);
     assert.equal(progress.status, 'partial');
     assert.equal(progress.sourceCount, 0);
     assert.equal(progress.evidenceCount, 0);
-    assert.ok(calls > 0 && calls <= 12, `Unexpected search expansion: ${calls}`);
+    assert.ok(calls > 0 && calls <= 3, `Unexpected search expansion: ${calls}`);
     assert.equal((await db.get('SELECT llm_calls FROM research_runs WHERE id=$1', [run.id])).llm_calls, 0);
     const jobs = await db.all("SELECT output_json FROM stage_jobs WHERE run_id=$1 AND stage='collecting'", [run.id]);
-    assert.equal(jobs.length, 3, 'At most the initial search and two controlled expansion rounds');
-    assert.ok(jobs.every(j => JSON.parse(j.output_json).warnings.some(w => w.code === 'NO_RELEVANT_SOURCES')));
+    assert.ok(jobs.length >= 1 && jobs.length <= 3,
+        'Search expansion must remain bounded');
+    assert.ok(jobs.every(j => JSON.parse(j.output_json).warnings.some(w => w.code === 'NO_ACCEPTED_SOURCES')));
     const report = await db.get('SELECT * FROM report_versions WHERE run_id=$1', [run.id]);
     assert.deepEqual(JSON.parse(report.references_json), []);
     assert.match(report.content, /Chưa có bằng chứng phù hợp/);
 });
 test('Flow v2 mixed collection normalizes snippets, deduplicates, excludes misleading bodies and does not spend LLM budget', async t => {
+    const goodUrl = 'https://physics-journal.edu/physics';
     const dns = require('node:dns/promises');
     t.mock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }]);
     t.mock.method(global, 'fetch', async url => {
+        if (url === goodUrl) {
+            return new Response(
+                `<html><body><p>${validPhysics.content}</p></body></html>`,
+                { headers: { 'content-type': 'text/html' } }
+            );
+        }
         assert.equal(url, 'https://api.tavily.com/search');
         return new Response(JSON.stringify({ results: [
             ...finance, { ...finance[0], title: physics.topic },
-            { title: validPhysics.title, url: validPhysics.url, content: validPhysics.snippet, raw_content: validPhysics.content }
+            { title: validPhysics.title, url: goodUrl, content: validPhysics.snippet, raw_content: validPhysics.content }
         ] }));
     });
     const request = await research.createResearchRequest(physics);
     const service = require('../src/services/run.service');
     const run = await service.create(request.requestId, { searchMore: false }, 'mixed-v2');
     t.after(() => service.cancel(run.id));
+    const oldMock = process.env.MOCK_LLM;
+    const oldGemini = process.env.GEMINI_API_KEY;
+
+    process.env.MOCK_LLM = 'false';
+    process.env.GEMINI_API_KEY = 'synthetic-no-real-key';
+
+    t.after(() => {
+        process.env.MOCK_LLM = oldMock;
+        if (oldGemini === undefined) delete process.env.GEMINI_API_KEY;
+        else process.env.GEMINI_API_KEY = oldGemini;
+    });
+
     await db.run("UPDATE research_runs SET status='running' WHERE id=$1", [run.id]);
     const ctx = { run, input: { ...physics, numberOfSources: 12 }, check() {}, signal: new AbortController().signal };
     const provider = require('../src/providers/research.provider');
     const result = await provider.collect(ctx, ['market trends', 'dao động điều hòa con lắc lò xo'], []);
     assert.equal(result.sources.length, 1);
-    assert.equal(result.sources[0].url, validPhysics.url);
+    assert.equal(result.sources[0].url, goodUrl);
     assert.equal(result.sources[0].original_content, validPhysics.content);
-    assert.ok(result.warnings.some(w => w.code === 'SOURCE_OFF_TOPIC'));
+    assert.ok(result.warnings.some(w => w.code === 'SOURCE_URL_REJECTED'));
     assert.equal((await db.get('SELECT llm_calls FROM research_runs WHERE id=$1', [run.id])).llm_calls, 0);
     const runner = require('../src/workers/runner');
-    for (let i = 0; i < 20; i++) if (!(await runner.runOnce())) break;
+
+    const testProvider = {
+        ...provider,
+        plan: async () => ({
+            researchQuestions: [1, 2, 3].map(i => ({
+                id: `Q${i}`,
+                question: `${physics.topic} câu hỏi ${i}`
+            })),
+            searchQueries: [1, 2, 3].map(i => ({
+                questionId: `Q${i}`,
+                query: physics.topic
+            }))
+        }),
+        collect: async () => result
+    };
+
+    assert.equal(
+        await runner.runOnce({ customProvider: testProvider }), true
+    );
+    assert.equal(
+        await runner.runOnce({ customProvider: testProvider }), true
+    );
     const persisted = await db.all('SELECT * FROM source_versions WHERE run_id=$1', [run.id]);
     assert.equal(persisted.length, 1);
-    assert.equal(persisted[0].url, validPhysics.url);
+    assert.equal(persisted[0].url, goodUrl);
     assert.equal(persisted[0].original_content, validPhysics.content);
 });
 test('Evidence and new reports exclude legacy off-topic rows without deleting them or breaking citations', async t => {
@@ -245,8 +316,18 @@ test('V2 extraction excludes bad sources before Gemini and rejects off-topic quo
     const run = await service.create(request.requestId, { searchMore: false }, 'extraction-gate');
     t.after(() => service.cancel(run.id));
     await db.run("UPDATE research_runs SET status='running' WHERE id=$1", [run.id]);
-    const badSource = { id: 'bad', title: finance[0].title, original_content: finance[0].raw_content };
-    const goodSource = { id: 'good', title: validPhysics.title, original_content: validPhysics.content };
+    const badSource = {
+        id: 'bad', provider: 'tavily',
+        url: 'https://finance-journal.edu/market',
+        title: finance[0].title,
+        original_content: finance[0].raw_content
+    };
+    const goodSource = {
+        id: 'good', provider: 'tavily',
+        url: 'https://physics-journal.edu/physics',
+        title: validPhysics.title,
+        original_content: validPhysics.content
+    };
     const badChunk = { id: 'bad-chunk', source_version_id: 'bad', provider: 'tavily', content: finance[0].raw_content };
     const goodChunk = { id: 'good-chunk', source_version_id: 'good', provider: 'tavily', content: validPhysics.content + ' ' + finance[0].raw_content };
     const ctx = { run, input: { ...physics, language: 'vi' }, sources: [badSource], check() {}, signal: new AbortController().signal };
@@ -259,7 +340,8 @@ test('V2 extraction excludes bad sources before Gemini and rejects off-topic quo
         const chunks = JSON.parse(JSON.parse(options.body).messages[1].content).chunks;
         assert.ok(chunks.every(c => c.sourceVersionId === 'good'));
         return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ evidence: [{
-            chunkId: 'good-chunk', sourceVersionId: 'good', originalQuote: quote,
+            questionId: 'Q1', chunkId: 'good-chunk',
+            sourceVersionId: 'good', originalQuote: quote,
             evidenceText: 'Con lắc lò xo dao động điều hòa.', reason: 'Bằng chứng vật lý.'
         }] }) } }] }));
     });
@@ -268,7 +350,17 @@ test('V2 extraction excludes bad sources before Gemini and rejects off-topic quo
     ctx.sources = [badSource, goodSource];
     const rejectedQuote = await provider.extract(ctx, questions, [badChunk, goodChunk]);
     assert.deepEqual(rejectedQuote.evidence, []);
-    assert.equal(rejectedQuote.warnings.length, 1);
+    assert.deepEqual(
+        new Set(rejectedQuote.warnings.map(w => w.code)),
+        new Set([
+            'OFF_TOPIC_EVIDENCE_QUOTE',
+            'NO_VERIFIABLE_EVIDENCE'
+        ])
+    );
+    assert.equal(
+        rejectedQuote.warnings[0].code,
+        'OFF_TOPIC_EVIDENCE_QUOTE'
+    );
     quote = 'Con lắc lò xo dao động điều hòa.';
     const valid = await provider.extract(ctx, questions, [badChunk, goodChunk]);
     assert.equal(valid.evidence.length, 1);

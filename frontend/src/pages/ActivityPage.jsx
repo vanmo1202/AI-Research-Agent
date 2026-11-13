@@ -33,7 +33,7 @@ const labels = {
   inaccessible: 'Không truy cập được',
   unverified: 'Chưa xác minh',
   cancelled: 'Đã hủy',
-  no_run: 'Chưa có run',
+  no_run: 'Chưa có lượt chạy',
 };
 function Chart({ title, rows = [], type = 'bar', note }) {
   const total = rows.reduce((sum, row) => sum + Number(row.value), 0);
@@ -172,7 +172,7 @@ export default function ActivityPage() {
     <section className="ref-subpage analytics-page">
       <div className="ref-page-heading">
         <div>
-          <p className="ref-eyebrow">RESEARCHOS / ANALYTICS</p>
+          <p className="ref-eyebrow">RESEARCHOS / THỐNG KÊ</p>
           <h1>Thống kê nghiên cứu</h1>
           <p>Dữ liệu tài khoản · Asia/Ho_Chi_Minh</p>
         </div>
@@ -207,15 +207,15 @@ export default function ActivityPage() {
             ].map(([label, value]) => (
               <div className="ref-card ref-metric" key={label}>
                 <small>{label}</small>
-                <strong>{value ?? 'N/A'}</strong>
+                <strong>{value ?? '—'}</strong>
               </div>
             ))}
           </div>
           <p className="ref-small-note">
-            Hoàn thành: số nghiên cứu có run hoàn tất trong kỳ, theo ngày completed_at. Các biểu đồ
-            nghiên cứu còn lại theo ngày tạo request; trạng thái là run mới nhất. Nguồn hợp lệ chỉ
-            gồm nguồn Tavily có citation verified và evidence được lưu. Thiếu kết quả kiểm định hiển
-            thị N/A.
+            Hoàn thành: số nghiên cứu có lượt chạy hoàn tất trong kỳ, theo ngày hoàn tất. Các biểu
+            đồ nghiên cứu còn lại theo ngày tạo yêu cầu; trạng thái là lượt chạy mới nhất. Nguồn hợp
+            lệ chỉ gồm nguồn Tavily có trích dẫn đã xác minh và bằng chứng được lưu. Thiếu kết quả
+            kiểm định hiển thị dấu gạch ngang.
           </p>
           <div className="analytics-grid">
             <Chart
@@ -228,21 +228,21 @@ export default function ActivityPage() {
               title="Trạng thái nghiên cứu"
               rows={data.statuses}
               type="donut"
-              note="Run mới nhất của từng nghiên cứu trong kỳ."
+              note="Lượt chạy mới nhất của từng nghiên cứu trong kỳ."
             />
             <Chart
               title="Nguồn và bằng chứng theo nghiên cứu"
               rows={data.volume.flatMap((r) => [
                 { label: `${r.label} · Nguồn`, value: r.sources },
-                { label: `${r.label} · Evidence`, value: r.evidence },
+                { label: `${r.label} · Bằng chứng`, value: r.evidence },
               ])}
-              note="12 nghiên cứu mới nhất; tổng nguồn các run và bằng chứng bản phân tích mới nhất mỗi run. KPI không bị giới hạn 12 bản ghi."
+              note="12 nghiên cứu mới nhất; tổng nguồn các run và bằng chứng bản phân tích mới nhất mỗi lượt chạy. Chỉ số tổng hợp không bị giới hạn 12 bản ghi."
             />
             <Chart
-              title="Xác minh citation"
+              title="Xác minh trích dẫn"
               rows={data.citations}
               type="stack"
-              note="Kết quả được lưu trong báo cáo mới nhất mỗi run; không suy ra từ HTTP status."
+              note="Kết quả được lưu trong báo cáo mới nhất mỗi lượt chạy; không suy ra từ mã trạng thái HTTP."
             />
             <Chart
               title="Xử lý tài liệu PDF"

@@ -40,20 +40,25 @@ export default function AppLayout() {
   useEffect(() => {
     if (!open) return;
     const close = (event) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        window.requestAnimationFrame(() => {
+          document.querySelector('.ro-topnav-toggle')?.focus();
+        });
+      }
     };
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [open]);
   return (
     <WorkspaceUI>
-      <div className="ref-app">
+      <div className="ref-app ref-horizontal-app">
         <a href="#main-content" className="skip-link">
           Đi tới nội dung chính
         </a>
-        <Sidebar open={open} onClose={close} />
+        <Sidebar open={open} onClose={close} onToggle={() => setOpen((value) => !value)} />
         <div className="ref-main" inert={open}>
-          <Header onMenu={() => setOpen((v) => !v)} menuOpen={open} />
+          <Header />
           <main id="main-content" className="page-content ref-content" tabIndex={-1}>
             <Outlet />
           </main>

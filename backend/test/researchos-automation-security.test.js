@@ -116,14 +116,14 @@ test('WF03 internal PDF RAG keeps citations, request/document ownership and conc
   assert.equal((await call(path,'POST',{...payload,clientToken:'wrong-document'})).status,404);
 });
 test('WF03 provider timeout leaves one failed turn; same-token retry cannot duplicate it or leak secrets',async()=>{
-  const requestId=await request(), documentId=randomUUID(), chunkId=randomUUID(),content='Timeout retry requires grounded document citations and valid source evidence.';
+  const requestId=await request(), documentId=randomUUID(), chunkId=randomUUID(),content='Automation isolation timeout document citations require grounded document citations and valid source evidence.';
   const sha=createHash('sha256').update(content).digest('hex');
   await db.run("INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,status,page_count,created_at,updated_at) VALUES($1,$2,'timeout.pdf','timeout',$3,100,'ready',1,now(),now())",[documentId,owner,sha]);
   await db.run('INSERT INTO document_pages(document_id,page,content) VALUES($1,1,$2)',[documentId,content]);
   await db.run('INSERT INTO document_chunks(id,document_id,page,chunk_index,content,content_hash) VALUES($1,$2,1,0,$3,$4)',[chunkId,documentId,content,sha]);
   await db.run('INSERT INTO research_documents VALUES($1,$2,$3,now())',[requestId,documentId,owner]);
   const session=await require('../src/knowledge/chat').create(owner,requestId,{scope:'documents',documentIds:[documentId]});
-  const llm=require('../src/services/llm.service'),original=llm.generateJson,path=`/internal/knowledge/chats/${session.id}/messages`,payload={requestId,content:'Timeout document citations',clientToken:'timeout-turn'};
+  const llm=require('../src/services/llm.service'),original=llm.generateJson,path=`/internal/knowledge/chats/${session.id}/messages`,payload={requestId,content:'Automation isolation timeout document citations',clientToken:'timeout-turn'};
   process.env.MOCK_LLM='false';llm.generateJson=async()=>{throw Object.assign(new Error('fixture-provider-secret-must-never-leak'),{name:'TimeoutError'});};
   try{
     const failed=await call(path,'POST',payload);assert.ok(failed.status>=500);assert.ok(!JSON.stringify(failed.body).includes('fixture-provider-secret'));

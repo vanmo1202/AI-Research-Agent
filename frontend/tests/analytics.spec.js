@@ -22,7 +22,7 @@ for (const width of [375, 768, 1440]) {
     });
     await page.goto('/activity');
     await expect(page.getByRole('heading', { name: 'Thống kê nghiên cứu' })).toBeVisible();
-    await expect(page.getByText('N/A', { exact: true })).toBeVisible();
+    await expect(page.getByText('—', { exact: true })).toBeVisible();
     await expect(page.getByText('Chưa có dữ liệu trong khoảng thời gian này.')).toHaveCount(5);
     await page.getByRole('button', { name: '7 ngày', exact: true }).click();
     await expect.poll(() => requests.includes('7')).toBe(true);

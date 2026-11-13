@@ -8,7 +8,7 @@ export default function WorkflowsPage() {
     <section className="ref-subpage">
       <div className="ref-page-heading">
         <div>
-          <p className="ref-eyebrow">WORKSPACE / WORKFLOWS</p>
+          <p className="ref-eyebrow">KHÔNG GIAN / LUỒNG LÀM VIỆC</p>
           <h1>5 luồng làm việc</h1>
           <p>Chọn công việc để tiếp tục nghiên cứu, đối chiếu bằng chứng và khai thác tri thức.</p>
         </div>
@@ -40,10 +40,10 @@ export default function WorkflowsPage() {
         ))}
       </div>
       <section className="ref-card ref-panel-pad ref-workflow-explainer">
-        <h2 className="ref-section-title">Tự động hóa n8n và các workflow backend</h2>
+        <h2 className="ref-section-title">Tự động hóa n8n và các luồng chạy trên máy chủ</h2>
         <p>
           Ba công việc nghiên cứu, phân tích bằng chứng và tạo báo cáo cùng nằm trong WF01 sáu giai
-          đoạn. PDF, Chat, Memory và lịch nghiên cứu được hỗ trợ bởi WF02–WF05.
+          đoạn. PDF, hội thoại, bộ nhớ và lịch nghiên cứu được hỗ trợ bởi WF02–WF05.
         </p>
         <Link to="/automations" className="ref-secondary">
           <Workflow size={17} />

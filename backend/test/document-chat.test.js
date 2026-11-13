@@ -12,15 +12,16 @@ async function seed(id, owner='alice', page=1, content='A mass spring system exh
   for(let p=1;p<=page;p++) await db.run('INSERT INTO document_pages VALUES($1,$2,$3)',[id,p,p===page?content:'Introductory page without the requested subject.']);
   await db.run('INSERT INTO document_chunks VALUES($1,$2,$3,$4,$5,$6)',[id+'-chunk',id,page,0,content,hash(content)]);
 }
-test('Direct PDF chat requires no research/planner, uses correct pages, verifies memory and isolates owners',async t=>{
+test('Research-scoped PDF chat requires no planner, uses correct pages, verifies memory and isolates owners',async t=>{
   await db.initializeDatabase();
   t.mock.method(require('../src/services/llm.service'),'generateResearchPlan',()=>assert.fail('No planner for PDF chat'));
   t.mock.method(global,'fetch',()=>assert.fail('No paid network in mock chat'));
   await seed('one','alice',2); await seed('two'); await seed('private','bob');
   const before=(await db.get('SELECT COUNT(*) n FROM requests')).n;
-  const s=await chat.create('alice',null,{documentIds:['one','two'],scope:'documents'});
-  assert.equal(s.request_id,null);
-  assert.equal((await db.get('SELECT COUNT(*) n FROM requests')).n,before);
+  const requestId=await createResearchFixture('alice',['one','two']);
+  const s=await chat.create('alice',requestId,{documentIds:['one','two'],scope:'documents'});
+  assert.equal(s.request_id,requestId);
+  assert.equal((await db.get('SELECT COUNT(*) n FROM requests')).n,before+1);
   const reply=await chat.send(s.id,'alice',{content:'Explain simple harmonic motion',clientToken:'one-turn'});
   assert.ok(reply.citations.length); const c=reply.citations[0];
   assert.ok(['one','two'].includes(c.documentId));
@@ -29,34 +30,36 @@ test('Direct PDF chat requires no research/planner, uses correct pages, verifies
   await assert.rejects(chat.send(s.id,'alice',{content:'Explain simple harmonic motion',clientToken:'one-turn'}),{status:409});
   assert.equal((await chat.messages(s.id,'alice')).length,2);
   await assert.rejects(chat.messages(s.id,'bob'),{status:404});
-  await assert.rejects(chat.create('bob',null,{documentIds:['one']}),{status:404});
-  await assert.rejects(chat.create('alice',null,{scope:'research'}),{status:400});
+  await assert.rejects(chat.create('bob',requestId,{documentIds:['one']}),{status:404});
+  await assert.rejects(chat.create('alice',null,{scope:'research'}),{status:409});
   const candidates=await memory.list('alice','','candidate'); assert.ok(candidates.length);
-  const m=candidates[0]; assert.equal(m.request_id,null);
+  const m=candidates[0]; assert.equal(m.request_id,requestId);
   await assert.rejects(memory.approve(m.id,'bob',true),{status:404});
   await memory.approve(m.id,'alice',false);
-  assert.ok(await memory.getValid(m.id,'alice',null));
+  assert.ok(await memory.getValid(m.id,'alice',requestId));
   assert.equal(await memory.getValid(m.id,'alice','another-research'),null);
-  const recalled=await chat.create('alice',null,{scope:'combined',documentIds:[],memoryIds:[m.id]});
+  const recalled=await chat.create('alice',requestId,{scope:'combined',documentIds:[],memoryIds:[m.id]});
   const recalledReply=await chat.send(recalled.id,'alice',{content:'Explain simple harmonic motion',clientToken:'recall'});
   assert.ok(recalledReply.citations.some(c=>c.memoryId===m.id));
   assert.equal((await memory.list('alice','','candidate')).length,0,'Do not clone an already selected verified memory');
   await db.run('UPDATE documents SET deleted_at=$1 WHERE id=$2',[now(),c.documentId]);
-  assert.equal(await memory.getValid(m.id,'alice',null),null);
+  assert.equal(await memory.getValid(m.id,'alice',requestId),null);
   assert.equal((await memory.list('alice','','stale'))[0].status,'stale');
   await assert.rejects(chat.send(s.id,'alice',{content:'Explain simple harmonic motion',clientToken:'deleted'}),{status:404});
 });
 test('Unrelated question never calls Gemini; Vietnamese/English terms reach FTS and invalid claims cannot become memory',async t=>{
+  await db.initializeDatabase();
   await seed('language');
-  const s=await chat.create('alice',null,{scope:'documents',documentIds:['language']});
+  const requestId=await createResearchFixture('alice',['language']);
+  const s=await chat.create('alice',requestId,{scope:'documents',documentIds:['language']});
   const previous=process.env.MOCK_LLM;process.env.MOCK_LLM='false';t.after(()=>{process.env.MOCK_LLM=previous;});
   const llm=require('../src/services/llm.service'); let calls=0;
   t.mock.method(llm,'generateJson',async (prompt,payload)=>{
     calls++;const c=payload.context[0];
-    return {claims:[{text:'Con lắc lò xo dao động điều hòa.',citations:[{contextId:c.contextId,referenceId:c.referenceId,documentId:c.documentId,page:c.page,quote:c.content.slice(0,80)}]}]};
+    return {related:true,claims:[{text:'Con lắc lò xo dao động điều hòa.',citations:[{contextId:c.contextId,referenceId:c.referenceId,documentId:c.documentId,page:c.page,quote:c.content.slice(0,80)}]}]};
   });
-  const no=await chat.send(s.id,'alice',{content:'EURUSD exchange trading volatility',clientToken:'unrelated'});
-  assert.equal(no.content,chat.INSUFFICIENT);assert.equal(calls,0);assert.deepEqual(no.citations,[]);
+  const no=await chat.send(s.id,'alice',{content:'Stock market and foreign exchange trading volatility',clientToken:'unrelated'});
+  assert.equal(no.content,require('../src/knowledge/research-context').REFUSAL);assert.equal(calls,0);assert.deepEqual(no.citations,[]);
   const yes=await chat.send(s.id,'alice',{content:'Dao động điều hòa con lắc lò xo',clientToken:'vi'});
   assert.equal(calls,1);assert.equal(yes.citations[0].documentId,'language');
   assert.throws(()=>chat.validateOutput({claims:[{text:'Invented',citations:[{contextId:'C1',referenceId:'fake',documentId:'private',page:99,quote:'invented source quote'}]}]},[]),{status:502});
@@ -67,6 +70,7 @@ test('Unrelated question never calls Gemini; Vietnamese/English terms reach FTS 
   assert.equal((await db.get('SELECT status FROM agent_memories WHERE id=$1',[m.id])).status,'stale');
 });
 test('HTTP document-only endpoints keep Auth/CSRF and cross-account document/chat/memory access denied',async t=>{
+  await db.initializeDatabase();
   const {app}=require('../src/server');
   const server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s));});
   t.after(()=>new Promise(resolve=>server.close(resolve)));
@@ -78,14 +82,15 @@ test('HTTP document-only endpoints keep Auth/CSRF and cross-account document/cha
   const a=await api('/auth/register',{body:{email:'direct-a@example.test',password:'abc123',name:'A'}});
   const b=await api('/auth/register',{body:{email:'direct-b@example.test',password:'abc123',name:'B'}});
   await seed('http-owned',a.data.id);
+  const requestId=await createResearchFixture(a.data.id,['http-owned']);
   assert.equal((await api('/chats')).status,401);
   const cfg=await api('/knowledge/config',{cookie:a.cookie});assert.equal(cfg.data.ocr,false);
-  const s=await api('/chats',{cookie:a.cookie,body:{documentIds:['http-owned']}});assert.equal(s.status,201);assert.equal(s.data.request_id,null);
-  assert.equal((await api('/chats',{cookie:a.cookie,origin:'https://evil.invalid',body:{documentIds:['http-owned']}})).status,403);
+  const s=await api('/research/'+requestId+'/chats',{cookie:a.cookie,body:{scope:'documents',documentIds:['http-owned']}});assert.equal(s.status,201);assert.equal(s.data.request_id,requestId);
+  assert.equal((await api('/research/'+requestId+'/chats',{cookie:a.cookie,origin:'https://evil.invalid',body:{scope:'documents',documentIds:['http-owned']}})).status,403);
   assert.equal((await api('/chats/'+s.data.id,{cookie:b.cookie})).status,404);
   assert.equal((await api('/chats/'+s.data.id+'/messages',{cookie:b.cookie,body:{content:'simple harmonic motion',clientToken:'intruder'}})).status,404);
   assert.equal((await api('/documents/http-owned/file',{cookie:b.cookie})).status,404);
-  assert.equal((await api('/chats',{cookie:b.cookie,body:{documentIds:['http-owned']}})).status,404);
+  assert.equal((await api('/research/'+requestId+'/chats',{cookie:b.cookie,body:{scope:'documents',documentIds:['http-owned']}})).status,404);
   const answer=await api('/chats/'+s.data.id+'/messages',{cookie:a.cookie,body:{content:'simple harmonic motion',clientToken:'http-owned-turn'}});
   assert.equal(answer.status,201);assert.ok(answer.data.citations.length);
   const m=(await memory.list(a.data.id,'','candidate'))[0];assert.ok(m);
@@ -93,9 +98,44 @@ test('HTTP document-only endpoints keep Auth/CSRF and cross-account document/cha
   assert.equal((await api('/memories',{cookie:b.cookie})).data.length,0);
   assert.ok((await api('/chats',{cookie:a.cookie})).data.some(c=>c.id===s.data.id));
 });
+
+async function createResearchFixture(owner, documentIds = []) {
+  const { randomUUID } = require('node:crypto');
+  const id = randomUUID();
+  const timestamp = now();
+
+  await db.run(
+    `INSERT INTO requests
+     (id, topic, goal, scope, output_length, status, created_at, updated_at, owner_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [
+      id,
+      'Dao động điều hòa con lắc lò xo',
+      'Phân tích tài liệu và lịch sử hội thoại',
+      'Nghiên cứu tài liệu PDF',
+      'medium',
+      'planned',
+      timestamp,
+      timestamp,
+      owner
+    ]
+  );
+
+  for (const documentId of documentIds) {
+    await db.run(
+      'INSERT INTO research_documents VALUES($1,$2,$3,$4)',
+      [id, documentId, owner, timestamp]
+    );
+  }
+
+  return id;
+}
+
 test('Chat history cursor returns earlier messages in order and cannot cross chat ownership',async()=>{
+  await db.initializeDatabase();
   await seed('history');
-  const s=await chat.create('alice',null,{documentIds:['history']});
+  const requestId = await createResearchFixture('alice', ['history']);
+  const s=await chat.create('alice',requestId,{documentIds:['history']});
   await db.transaction(async tx=>{for(let i=0;i<120;i++)await tx.run("INSERT INTO chat_messages(id,chat_id,role,content,turn_id,status,created_at) VALUES($1,$2,'user',$3,$4,'complete',$5)",['history-'+i,s.id,'message '+i,'turn-'+i,now()]);});
   const latest=await chat.messages(s.id,'alice');assert.equal(latest.length,100);assert.equal(latest[0].content,'message 20');
   const older=await chat.messages(s.id,'alice',String(latest[0].position));assert.equal(older.length,20);assert.equal(older[0].content,'message 0');assert.equal(older[19].content,'message 19');

@@ -1,6 +1,6 @@
 const path = require('node:path');
 const PDFDocument = require('pdfkit');
-const { Document, Paragraph, TextRun, ExternalHyperlink, Packer, HeadingLevel, AlignmentType } = require('docx');
+const { renderDocx: docx } = require('./report-docx.service');
 const reportService = require('./report.service');
 const requests = require('../models/request.model');
 const sources = require('../models/source.model');
@@ -30,8 +30,16 @@ function blocks(tokens, options = {}) {
             return parts;
         });
         if (token.type === 'blockquote') return blocks(token.tokens, { ...options, quote: true });
-        if (token.type === 'table') return [{ ...options, runs: [{ text: token.header.map(cell => cell.text).join(' | '), bold: true }] },
-            ...token.rows.map(row => ({ ...options, runs: [{ text: row.map(cell => cell.text).join(' | ') }] }))];
+        if (token.type === 'table') {
+            const readCell = cell => inline(cell.tokens?.length ? cell.tokens : [{ type: 'text', text: cell.text || '' }]);
+            const header = token.header.map(readCell);
+            const rows = token.rows.map(row => row.map(readCell));
+            // Keep legacy PDF's text representation; DOCX consumes the structured table.
+            return [
+                { ...options, table: { header, rows }, runs: [{ text: token.header.map(cell => cell.text).join(' | '), bold: true }] },
+                ...token.rows.map(row => ({ ...options, tableContinuation: true, runs: [{ text: row.map(cell => cell.text).join(' | ') }] })),
+            ];
+        }
         if (token.type === 'hr') return [{ runs: [{ text: '────────' }] }];
         if (token.type === 'code') return [{ ...options, code: true, runs: [{ text: token.text }] }];
         return [{ ...options, runs: token.tokens ? inline(token.tokens) : [{ text: token.text || token.raw || '' }] }];
@@ -61,26 +69,6 @@ async function loadExport(requestId) {
     const created = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(report.createdAt.replace(' ', 'T') + (/[zZ]|[+]\d{2}:\d{2}$/.test(report.createdAt) ? '' : 'Z')));
     return { report, request, references, body: blocks(body), created,
         filename: `Bao_cao_nghien_cuu_${requestId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 8)}` };
-}
-function wordRuns(runs, size = 24) {
-    return runs.map(run => {
-        const text = new TextRun({ text: run.text, bold: run.bold, italics: run.italics, size, font: 'Times New Roman', ...(run.url ? { style: 'Hyperlink' } : {}) });
-        return run.url ? new ExternalHyperlink({ link: run.url, children: [text] }) : text;
-    });
-}
-async function docx(data) {
-    const headings = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4, HeadingLevel.HEADING_5, HeadingLevel.HEADING_6];
-    const children = [new Paragraph({ text: data.report.title, heading: HeadingLevel.TITLE }),
-        new Paragraph({ text: `Chủ đề: ${data.request.topic}` }), new Paragraph({ text: `Ngày tạo: ${data.created}`, spacing: { after: 300 } }),
-        ...data.body.map(block => new Paragraph({ children: wordRuns([...(block.prefix ? [{ text: block.prefix }] : []), ...block.runs], block.level ? Math.max(26, 38 - block.level * 2) : 24),
-            ...(block.level ? { heading: headings[Math.min(block.level, 6) - 1], keepNext: true } : {}),
-            spacing: { after: 140, line: 320 }, indent: block.indent || block.quote ? { left: 360 * (block.indent || 1) } : undefined,
-            alignment: block.level ? AlignmentType.LEFT : AlignmentType.JUSTIFIED })),
-        new Paragraph({ text: 'Tài liệu tham khảo', heading: HeadingLevel.HEADING_1, keepNext: true }),
-        ...data.references.map(ref => new Paragraph({ children: wordRuns([{ text: `${ref.citationLabel} ${ref.title} — ` }, { text: ref.url, url: safeUrl(ref.url) }]), spacing: { after: 160 } }))];
-    return Packer.toBuffer(new Document({ creator: 'AI Research Agent', title: data.report.title,
-        styles: { default: { document: { run: { font: 'Times New Roman', size: 24 } } } },
-        sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1134, bottom: 1134, left: 1417, right: 1134 } } }, children }] }));
 }
 function pdf(data) {
     return new Promise((resolve, reject) => {
