@@ -114,6 +114,10 @@
   transform: rotate(180deg);
 }
 
+.ref-horizontal-app .ro-topnav-group:not([open]) > .ro-topnav-dropdown {
+  display: none;
+}
+
 .ref-horizontal-app .ro-topnav-dropdown {
   position: absolute;
   top: calc(100% + 9px);
