@@ -1,5 +1,5 @@
 name: Check Vietnamese UI (temporary)
-# Rerun after adjusting test labels and navigation accessibility
+# Rerun after formatting updated labels and navigation test expectations
 on:
   push:
     branches: [feature/horizontal-top-navigation-20261113]
