@@ -10,22 +10,153 @@ before(async()=>{
 after(async()=>{if(server)await new Promise(r=>server.close(r));await db.close()});
 async function call(path,method='GET',body,headers={}){const r=await fetch(base+path,{method,headers:{'X-Internal-Api-Key':key,'content-type':'application/json',...headers},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json()};}
 async function request(user=owner){const id=randomUUID();await db.run("INSERT INTO requests(id,topic,goal,status,owner_id,created_at,updated_at) VALUES($1,'PostgreSQL research','Check traceability','created',$2,now(),now())",[id,user]);return id;}
-test('WF01 uses backend-authoritative orchestration and progresses both modes through all stages',async()=>{
- const runner=require('../src/workers/runner');
- for(const mode of ['backend','n8n']){
-  const id=await request(),created=await call('/internal/research/'+id+'/runs','POST',{orchestration:mode,searchMore:false},{'Idempotency-Key':randomUUID()});
-  assert.equal(created.status,202);assert.equal(created.body.data.orchestration,mode);const run=created.body.data.runId;
-  if(mode==='n8n')assert.equal(await runner.runOnce(),false);
-  let stages=[];
-  for(let i=0;i<15;i++){
-   const p=(await call(`/internal/research/${id}/runs/${run}/progress`)).body.data;assert.equal(p.orchestration,mode);
-   if(['completed','partial','failed','cancelled'].includes(p.status)){assert.ok(['completed','partial'].includes(p.status));stages=p.completedStages;break;}
-   if(mode==='n8n')assert.equal((await call(`/internal/runs/${run}/jobs`,'POST',{stage:p.currentStage},{'Idempotency-Key':p.currentJob.idempotency_key})).status,202);
-   await runner.runOnce();
+
+test('WF01 uses backend-authoritative orchestration and progresses both modes through all stages', async () => {
+  const runner = require('../src/workers/runner');
+  const { createHash } = require('node:crypto');
+
+  const stages = [
+    'planning',
+    'collecting',
+    'analyzing',
+    'evaluating',
+    'composing',
+    'verifying'
+  ];
+
+  // Only external provider stages are mocked.
+  // Evaluation, report composition and citation verification
+  // still execute through their real backend handlers.
+  const offlineHandlers = {
+    planning: async ctx => {
+      const questions = [1, 2, 3].map(i => ({
+        id: `Q${i}`,
+        question: `${ctx.input.topic} evidence question ${i}`
+      }));
+
+      return {
+        plan: {
+          researchQuestions: questions,
+          searchQueries: questions.map(q => ({
+            questionId: q.id,
+            query: q.question
+          }))
+        }
+      };
+    },
+
+    collecting: async () => ({
+      sources: [],
+      warnings: [{ code: 'NO_ACCEPTED_SOURCES' }]
+    }),
+
+    analyzing: async () => ({
+      evidence: [],
+      warnings: [{ code: 'NO_VERIFIABLE_EVIDENCE' }],
+      sourceSnapshotHash: createHash('sha256')
+        .update('[]')
+        .digest('hex')
+    })
+  };
+
+  for (const mode of ['backend', 'n8n']) {
+    const id = await request();
+
+    const created = await call(
+      `/internal/research/${id}/runs`,
+      'POST',
+      { orchestration: mode, searchMore: false },
+      { 'Idempotency-Key': randomUUID() }
+    );
+
+    assert.equal(created.status, 202);
+    assert.equal(created.body.data.orchestration, mode);
+
+    const run = created.body.data.runId;
+
+    if (mode === 'n8n') {
+      assert.equal(
+        await runner.runOnce(),
+        false,
+        'n8n job must not execute before dispatch'
+      );
+    }
+
+    let completedStages = [];
+    let finished = false;
+
+    for (let i = 0; i < 12; i++) {
+      const response = await call(
+        `/internal/research/${id}/runs/${run}/progress`
+      );
+
+      assert.equal(response.status, 200);
+
+      const progress = response.body.data;
+
+      assert.equal(progress.orchestration, mode);
+
+      if (['completed', 'partial', 'failed', 'cancelled']
+          .includes(progress.status)) {
+        assert.ok(
+          ['completed', 'partial'].includes(progress.status),
+          JSON.stringify({
+            mode,
+            status: progress.status,
+            currentStage: progress.currentStage,
+            lastError: progress.lastError,
+            completedStages: progress.completedStages
+          })
+        );
+
+        completedStages = progress.completedStages;
+        finished = true;
+        break;
+      }
+
+      assert.ok(
+        progress.currentJob,
+        `Missing current job for ${mode}:${progress.currentStage}`
+      );
+
+      if (mode === 'n8n') {
+        const dispatched = await call(
+          `/internal/runs/${run}/jobs`,
+          'POST',
+          { stage: progress.currentStage },
+          {
+            'Idempotency-Key':
+              progress.currentJob.idempotency_key
+          }
+        );
+
+        assert.equal(
+          dispatched.status,
+          202,
+          `Dispatch failed: ${mode}:${progress.currentStage}`
+        );
+      }
+
+      const executed = await runner.runOnce({
+        handlers: offlineHandlers
+      });
+
+      assert.equal(
+        executed,
+        true,
+        `Worker did not execute ${mode}:${progress.currentStage}`
+      );
+    }
+
+    assert.ok(finished, `${mode} pipeline did not terminate`);
+    assert.deepEqual(
+      completedStages,
+      stages,
+      `${mode} did not complete all six stages`
+    );
   }
-  assert.equal(stages.length,6);
- }
 });
+
 test('WF02 job observer enforces active automation user, owner and document ID',async()=>{
  const doc=randomUUID(),job=randomUUID();await db.run("INSERT INTO documents(id,owner_id,filename,storage_name,sha256,byte_size,status,created_at,updated_at) VALUES($1,$2,'fixture.pdf','fixture','hash',1,'pending',now(),now())",[doc,owner]);
  await db.run("INSERT INTO document_ingestion_jobs(id,document_id,status,created_at,updated_at) VALUES($1,$2,'pending',now(),now())",[job,doc]);

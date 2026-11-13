@@ -337,7 +337,7 @@ async function send(id, owner, body) {
     else {
       const local = await retrieve(s,query);
       const stored = await researchContext.retrieve(study,scopedQuery,owner);
-      const relevant = [...local.filter(c=>c.kind==='document'),...stored,...local.filter(c=>c.kind!=='document')].filter(c=>!c.memoryId && c.provider!=='mock' && (!c.url || require('../services/source-quality.service').isResearchUrl(c.url)) && (c.kind!=='document'||researchContext.guard(`${c.title} ${c.content}`,study,[])==='related'));
+      const relevant = [...local.filter(c=>c.kind==='document'),...stored,...local.filter(c=>c.kind!=='document')].filter(c=>c.provider!=='mock' && (!c.url || require('../services/source-quality.service').isResearchUrl(c.url)) && (c.kind!=='document'||researchContext.guard(`${c.title} ${c.content}`,study,[])==='related'));
       context = autoService.combine(query,relevant,[]);
       routing=route(question,s,context,history);
       const web=['WEB_SEARCH','HYBRID'].includes(routing.strategy);
@@ -355,7 +355,16 @@ async function send(id, owner, body) {
         if (web && !routing.onlyDocuments) {
           const webResult=await autoService.collect(s,turn,{question:scopedQuery,anchor:scopedQuery,queries:[`${study.topic.slice(0,150)} ${query}`.slice(0,400)],fresh:true},budget,stage);
           applyWeb(webResult);
-          check(webResult.status!=='provider_error',webResult.failures[0]?.message||'Không thể tìm nguồn bổ sung.',503);
+          if (webResult.status === 'provider_error') {
+            const detail = webResult.failures[0];
+            const error = fail(
+              detail?.message || 'Không thể tìm nguồn bổ sung.',
+              detail?.code === 'TAVILY_QUOTA_EXCEEDED' ? 429 : 503,
+              detail?.code || 'TAVILY_PROVIDER_ERROR'
+            );
+            error.stage = detail?.stage || 'searching';
+            throw error;
+          }
           context=autoService.combine(query,context,webResult.context);
         }
         await stage('answering');

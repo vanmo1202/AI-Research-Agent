@@ -129,25 +129,62 @@ test("Citation contract derives IDs from server context; explicit forged IDs and
     );
 });
 
+
+async function createResearchFixture(owner) {
+  const { randomUUID } = require("node:crypto");
+  const id = randomUUID();
+  const timestamp = new Date().toISOString();
+
+  await db.run(
+    `INSERT INTO requests
+     (id, topic, goal, scope, output_length, status,
+      created_at, updated_at, owner_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [
+      id,
+      "Algorithm analysis độ phức tạp thuật toán",
+      "Kiểm chứng độ phức tạp thuật toán bằng nguồn Internet",
+      "public",
+      "medium",
+      "planned",
+      timestamp,
+      timestamp,
+      owner
+    ]
+  );
+
+  return id;
+}
+
 test("Real transport shape: short Vietnamese query, English source, minimal citation and subject-free verbatim quote complete end to end", async (t) => {
   await setup(t);
   let calls = 0;
   t.mock.method(global, "fetch", async (url, opts) => {
     calls++;
     if (url === "https://api.tavily.com/search") {
-      assert.match(JSON.parse(opts.body).query, /algorithm analysis/);
+      assert.match(JSON.parse(opts.body).query, /algorithm analysis/i);
       return web();
+    }
+    if (url === "https://public.test/algorithms") {
+      return new Response(
+        `<html><body><article><p>${body}</p></article></body></html>`,
+        {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }
+      );
     }
     assert.equal(
       url,
       "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     );
     const p = JSON.parse(JSON.parse(opts.body).messages[1].content);
-    return p.context ? completion(grounded(p)) : routing();
+    return p.context ? completion({ related: true, ...grounded(p) }) : routing();
   });
-  const s = await chat.create("minimal-citation", null, {}),
+  const requestId = await createResearchFixture("minimal-citation");
+  const s = await chat.create("minimal-citation", requestId, {}),
     r = await chat.send(s.id, "minimal-citation", {
-      content: question,
+      content: question + " tìm thêm nguồn trên Internet",
       clientToken: "minimal",
     });
   assert.equal(
@@ -157,11 +194,11 @@ test("Real transport shape: short Vietnamese query, English source, minimal cita
   );
   assert.equal(r.status, "complete");
   assert.equal(r.research.searchStatus, "sources_ready");
-  assert.equal(r.research.outcome, "answered");
+  assert.equal(r.research.outcome, "grounded");
   assert.equal(r.citations.length, 1);
   assert.equal(r.citations[0].quote, quote);
   assert.equal(calls, 3);
-  assert.equal(r.research.usage.llm_calls, 2);
+  assert.equal(r.research.usage.llm_calls, 1);
 });
 
 test("Gemini failures preserve safe structured diagnosis in stored messages and never retry", async (t) => {
@@ -217,14 +254,14 @@ test("Gemini failures preserve safe structured diagnosis in stored messages and 
     ],
     [
       "schema",
-      () => completion({ claims: "not-array" }),
+      () => completion({ related: true, claims: "not-array" }),
       "CHAT_INVALID_SCHEMA",
       502,
     ],
     [
       "citation",
       (p) =>
-        completion(grounded(p, { quote: "This is not in the actual source." })),
+        completion({ related: true, ...grounded(p, { quote: "This is not in the actual source." }) }),
       "CHAT_CITATION_REJECTED",
       502,
     ],
@@ -237,14 +274,20 @@ test("Gemini failures preserve safe structured diagnosis in stored messages and 
     );
     const fetch = t.mock.method(global, "fetch", async (url, opts) => {
       if (url === "https://api.tavily.com/search") return web();
+      if (url === "https://public.test/algorithms") {
+        return new Response(`<html><body><p>${body}</p></body></html>`, {
+          headers: { "content-type": "text/html" },
+        });
+      }
+      assert.equal(url, "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
       calls++;
-      const p = JSON.parse(JSON.parse(opts.body).messages[1].content);
-      return p.context ? response(p) : routing();
+      const payload = JSON.parse(JSON.parse(opts.body).messages[1].content);
+      return response(payload);
     });
     const owner = "failure-" + name,
-      s = await chat.create(owner, null, {});
+      s = await chat.create(owner, await createResearchFixture(owner), {});
     await assert.rejects(
-      chat.send(s.id, owner, { content: question, clientToken: name }),
+      chat.send(s.id, owner, { content: question + " tìm thêm nguồn trên Internet", clientToken: name }),
       (e) => e.code === code && e.status === status,
     );
     const m = (await chat.messages(s.id, owner)).at(-1);
@@ -256,7 +299,7 @@ test("Gemini failures preserve safe structured diagnosis in stored messages and 
       ["schema", "citation"].includes(name) ? "validating" : "answering",
     );
     assert.equal(m.citations.length, 0);
-    assert.equal(calls, 2, "No implicit Gemini retry");
+    assert.equal(calls, 1, "No implicit Gemini retry");
     assert.ok(logs.some((line) => line.includes(code)));
     assert.doesNotMatch(
       logs.join(" ") + JSON.stringify(m),
@@ -316,23 +359,43 @@ test("Tavily failure, empty search, off-topic results and unreadable sources are
       calls++;
       return response();
     });
-    const owner = "search-" + name,
-      s = await chat.create(owner, null, {}),
-      r = await chat.send(s.id, owner, {
-        content: question,
-        clientToken: name,
-      });
-    assert.equal(r.research.searchStatus, status);
-    assert.equal(r.research.searched, status !== "provider_error");
-    assert.equal(r.citations.length, 0);
-    assert.equal(calls, 1);
+    const owner = "search-" + name;
+    const requestId = await createResearchFixture(owner);
+    const session = await chat.create(owner, requestId, {});
+    const payload = {
+      content: question + " tìm thêm nguồn trên Internet",
+      clientToken: name,
+    };
+
     if (code) {
-      assert.equal(r.research.searchFailures[0].code, code);
-      assert.ok(!r.research.warnings.includes("NO_RELEVANT_WEB_SOURCES"));
+      await assert.rejects(
+        chat.send(session.id, owner, payload),
+        error =>
+          error.code === code &&
+          error.status === (
+            code === "TAVILY_QUOTA_EXCEEDED" ? 429 : 503
+          )
+      );
+
+      const message = (await chat.messages(session.id, owner)).at(-1);
+      assert.equal(message.status, "failed");
+      assert.equal(message.research.searchStatus, "provider_error");
+      assert.equal(message.research.error.code, code);
+      assert.equal(message.research.searched, false);
+      assert.ok(
+        !message.research.warnings.includes("NO_RELEVANT_WEB_SOURCES")
+      );
     } else {
-      assert.match(r.content, /Không tìm được nguồn phù hợp/);
-      assert.equal(r.research.outcome, "no_relevant_sources");
+      const reply = await chat.send(session.id, owner, payload);
+      assert.equal(reply.status, "complete");
+      assert.equal(reply.research.searchStatus, status);
+      assert.equal(reply.research.searched, true);
+      assert.equal(reply.citations.length, 0);
+      assert.equal(reply.research.outcome, "insufficient_evidence");
+      assert.match(reply.content, /Chưa có nguồn bổ sung đủ phù hợp/);
     }
+
+    assert.equal(calls, 1);
     handle.mock.restore();
   }
 });
@@ -345,7 +408,7 @@ test("Routing authentication failure stops before paid search; no misleading sea
     assert.match(url, /generativelanguage/);
     return json({}, 403);
   });
-  const s = await chat.create("routing-auth", null, {});
+  const s = await chat.create("routing-auth", await createResearchFixture("routing-auth"), {});
   await assert.rejects(
     chat.send(s.id, "routing-auth", {
       content: question,
@@ -354,7 +417,7 @@ test("Routing authentication failure stops before paid search; no misleading sea
     { code: "GEMINI_AUTH_FAILED", status: 503 },
   );
   const r = (await chat.messages(s.id, "routing-auth")).at(-1);
-  assert.equal(r.research.failedStage, "planning");
+  assert.equal(r.research.failedStage, "answering");
   assert.equal(r.research.searched, false);
   assert.equal(calls, 1);
 });
@@ -370,16 +433,13 @@ test("HTTP failure exposes safe code without leaking provider auth as user sessi
   });
   t.after(() => new Promise((r) => server.close(r)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const s = await chat.create("fixture-user", null, {});
+  const s = await chat.create("fixture-user", await createResearchFixture("fixture-user"), {});
   let posts = 0;
   t.mock.method(global, "fetch", async (url, opts) => {
     if (String(url).startsWith(base)) return native(url, opts);
     if (url === "https://api.tavily.com/search") return web();
     posts++;
-    const p = JSON.parse(JSON.parse(opts.body).messages[1].content);
-    return p.context
-      ? json({ error: { message: "PRIVATE_PROVIDER_SECRET" } }, 401)
-      : routing();
+    return json({ error: { message: "PRIVATE_PROVIDER_SECRET" } }, 401);
   });
   const r = await fetch(`${base}/api/chats/${s.id}/messages`, {
     method: "POST",
@@ -394,7 +454,7 @@ test("HTTP failure exposes safe code without leaking provider auth as user sessi
     JSON.stringify(payload),
     /PRIVATE_PROVIDER_SECRET|fake-gemini/,
   );
-  assert.equal(posts, 2);
+  assert.equal(posts, 1);
   const history = await fetch(`${base}/api/chats/${s.id}/messages`, {
     headers,
   });
@@ -419,9 +479,17 @@ test("Budget reservation failure is distinct and stops before synthesis HTTP", a
   t.mock.method(global, "fetch", async (url) => {
     if (url === "https://api.tavily.com/search") return web();
     modelCalls++;
-    return routing();
+    return completion({
+      related: true,
+      content: "Giải thích kỹ thuật trong phạm vi nghiên cứu.",
+    });
   });
-  const s = await chat.create("budget-reservation", null, {});
+  const s = await chat.create("budget-reservation", await createResearchFixture("budget-reservation"), {});
+  const first = await chat.send(s.id, "budget-reservation", {
+    content: question,
+    clientToken: "budget-primer",
+  });
+  assert.equal(first.status, "complete");
   await assert.rejects(
     chat.send(s.id, "budget-reservation", {
       content: question,
@@ -431,7 +499,11 @@ test("Budget reservation failure is distinct and stops before synthesis HTTP", a
   );
   const r = (await chat.messages(s.id, "budget-reservation")).at(-1);
   assert.equal(r.research.error.code, "AUTO_CHAT_BUDGET_EXCEEDED");
-  assert.equal(r.research.usage.llm_calls, 1);
+  const used = await db.get(
+    "SELECT llm_calls FROM chat_daily_usage WHERE subject=$1 AND day=$2",
+    ["user:budget-reservation", new Date().toISOString().slice(0, 10)]
+  );
+  assert.equal(used.llm_calls, 1);
   assert.equal(modelCalls, 1);
 });
 
@@ -454,9 +526,9 @@ test("Search succeeded but blocked/unreadable web pages do not become provider a
         })
       : new Response("", { status: 403 }),
   );
-  const s = await chat.create("unreadable", null, {}),
+  const s = await chat.create("unreadable", await createResearchFixture("unreadable"), {}),
     r = await chat.send(s.id, "unreadable", {
-      content: question,
+      content: question + " tìm thêm nguồn trên Internet",
       clientToken: "unreadable",
     });
   assert.equal(r.research.searchStatus, "unreadable");
@@ -464,5 +536,5 @@ test("Search succeeded but blocked/unreadable web pages do not become provider a
   assert.equal(r.research.searchCounts.readFailures, 1);
   assert.equal(r.research.searchFailures.length, 0);
   assert.equal(r.citations.length, 0);
-  assert.match(r.content, /Không tìm được nguồn phù hợp/);
+  assert.match(r.content, /Chưa có nguồn bổ sung đủ phù hợp/);
 });

@@ -189,6 +189,17 @@ test("Auth sessions, CSRF, ownership, legacy preservation, revocation and thrott
     503,
   );
 
+  // Isolate the Auth test from real Gemini calls.
+  // Authentication, ownership and idempotency remain real.
+  t.mock.method(
+    require("../src/services/llm.service"),
+    "generateJson",
+    async () => ({
+      related: true,
+      content: "Phản hồi giả lập để kiểm tra quyền truy cập Chat.",
+    }),
+  );
+
   const chatUrl = `/internal/knowledge/chats/${chat.body.data.id}/messages`;
   const chatBody = {
     requestId: id,
